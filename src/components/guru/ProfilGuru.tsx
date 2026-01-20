@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, QrCode, CreditCard, ArrowLeft, LogOut } from 'lucide-react';
 
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useKelas } from '../../hooks/useKelas';
 import { useJurusan } from '../../hooks/useJurusan';
+import { useKelasTahfiz } from '../../hooks/useKelasTahfiz';
+import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
 import { useBackgroundKTA } from '../../hooks/useBackgroundKTA';
 import { User as UserType, Kelas } from '../../types';
 import { generateTeacherAttendanceQRCode, generateQRCodeURL, downloadQRCode } from '../../utils/qrCodeGenerator';
@@ -20,10 +23,14 @@ import PasswordTab from './pages/profil/PasswordTab';
 
 const ProfilGuru: React.FC = () => {
   const { user: authUser, logout } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { kelas } = useKelas();
   const { jurusan } = useJurusan();
+  const { kelasTahfiz } = useKelasTahfiz();
+  const { systemType } = usePengaturanSistem();
   const { backgroundKTA } = useBackgroundKTA();
+  const isTahfiz = systemType === 'tahfiz';
   const [activeTab, setActiveTab] = useState('akun');
   const [showTabContent, setShowTabContent] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -67,13 +74,33 @@ const handleLogout = () => {
 };
 
 
-  const myKelas = user?.isWaliKelas ? kelas.find(k => k.id === user.kelasWali) : undefined;
-  const myJurusan = myKelas ? jurusan.find(j => j.id === myKelas.jurusanId) : undefined;
+  // Get kelas based on system type
+  const myKelas = useMemo(() => {
+    if (!user) return undefined;
+    
+    if (isTahfiz) {
+      // For tahfiz system, get kelas tahfiz where ustadzId matches user id
+      const myKelasTahfiz = kelasTahfiz.filter(k => k.ustadzId === user.id);
+      return myKelasTahfiz.length > 0 ? {
+        id: 'tahfiz-classes',
+        name: myKelasTahfiz.map(k => k.namaKelas).join(', '),
+        tingkat: 0,
+        createdAt: new Date().toISOString()
+      } as Kelas : undefined;
+    } else {
+      // For non-tahfiz system, use wali kelas
+      const guru = user as any; // Type assertion for guru properties
+      return guru?.isWaliKelas ? kelas.find(k => k.id === guru.kelasWali) : undefined;
+    }
+  }, [isTahfiz, user, kelasTahfiz, kelas]);
+  
+  const myJurusan = myKelas && !isTahfiz ? jurusan.find(j => j.id === myKelas.jurusanId) : undefined;
 
   useEffect(() => {
     const generateMyQR = async () => {
       if (user) {
-        const qrData = generateTeacherAttendanceQRCode(user.id, user.name, user.kelasWali, user.nip);
+        const guru = user as any; // Type assertion for guru properties
+        const qrData = generateTeacherAttendanceQRCode(user.id, user.name, guru?.kelasWali, guru?.nip);
         const url = await generateQRCodeURL(qrData, 400);
         setMyQRCodeURL(url);
       }
@@ -145,7 +172,8 @@ const handleLogout = () => {
 
   const downloadMyQR = async () => {
     if (user) {
-      const qrData = generateTeacherAttendanceQRCode(user.id, user.name, user.kelasWali, user.nip);
+      const guru = user as any; // Type assertion for guru properties
+      const qrData = generateTeacherAttendanceQRCode(user.id, user.name, guru?.kelasWali, guru?.nip);
       await downloadQRCode(qrData, `guru-qr-${user.name.replace(/\s+/g, '-')}`);
     }
   };
@@ -155,10 +183,10 @@ const handleLogout = () => {
   };
 
   const tabs = [
-    { id: 'akun', label: 'Akun', icon: User },
-    { id: 'qrcode', label: 'QR Code', icon: QrCode },
-    { id: 'kartu', label: 'Kartu Pegawai', icon: CreditCard },
-    { id: 'password', label: 'Ubah Password', icon: Lock },
+    { id: 'akun', label: t('dashboardGuru.tabAkun'), icon: User },
+    { id: 'qrcode', label: t('dashboardGuru.tabQRCode'), icon: QrCode },
+    { id: 'kartu', label: t('dashboardGuru.tabKartuPegawai'), icon: CreditCard },
+    { id: 'password', label: t('dashboardGuru.tabUbahPassword'), icon: Lock },
   ];
 
   if (isMobile) {
@@ -168,8 +196,8 @@ const handleLogout = () => {
       return (
         <div className="space-y-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Profil</h2>
-            <p className="text-gray-600">Kelola informasi akun dan keamanan Anda</p>
+            <h2 className="text-xl font-semibold text-gray-900">{t('dashboardGuru.profil')}</h2>
+            <p className="text-gray-600">{t('dashboardGuru.profilSubtitle')}</p>
           </div>
 
           <Card>
@@ -189,10 +217,10 @@ const handleLogout = () => {
                     <div className="text-left">
                       <p className="font-semibold text-slate-900">{tab.label}</p>
                       <p className="text-xs text-slate-500">
-                        {tab.id === 'akun' && 'Kelola data pribadi Anda'}
-                        {tab.id === 'qrcode' && 'Kode identifikasi untuk absensi'}
-                        {tab.id === 'kartu' && 'Unduh kartu identitas Anda'}
-                        {tab.id === 'password' && 'Perbarui kata sandi akun Anda'}
+                        {tab.id === 'akun' && t('dashboardGuru.tabAkunDescription')}
+                        {tab.id === 'qrcode' && t('dashboardGuru.tabQRCodeDescription')}
+                        {tab.id === 'kartu' && t('dashboardGuru.tabKartuPegawaiDescription')}
+                        {tab.id === 'password' && t('dashboardGuru.tabPasswordDescription')}
                       </p>
                     </div>
                   </button>
@@ -227,9 +255,9 @@ const handleLogout = () => {
               <ArrowLeft size={20} className="text-slate-700" />
             </button>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Profil</h2>
+              <h2 className="text-xl font-semibold text-gray-900">{t('dashboardGuru.profil')}</h2>
               <p className="text-sm text-gray-600">
-                {tabs.find(t => t.id === activeTab)?.label}
+                {tabs.find(tab => tab.id === activeTab)?.label}
               </p>
             </div>
           </div>
@@ -281,8 +309,8 @@ const handleLogout = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">Profil</h2>
-        <p className="text-gray-600">Kelola informasi akun dan keamanan Anda</p>
+        <h2 className="text-xl font-semibold text-gray-900">{t('dashboardGuru.profil')}</h2>
+        <p className="text-gray-600">{t('dashboardGuru.profilSubtitle')}</p>
       </div>
 
       <Card>

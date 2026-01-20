@@ -24,6 +24,7 @@ interface NotificationItem {
   timestamp: string;
   isRead: boolean;
   priority: 'high' | 'medium' | 'low';
+  gambar?: string; // Gambar poster dari InfoSekolah
 }
 
 interface NotificationCenterProps {
@@ -79,7 +80,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
         icon: getIconForType(info.jenis),
         timestamp: info.publishedAt || info.createdAt,
         isRead: readNotifications.includes(`info-${info.id}`),
-        priority: getPriorityForType(info.jenis)
+        priority: getPriorityForType(info.jenis),
+        gambar: info.gambar
       });
     });
 
@@ -453,6 +455,15 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               </span>
             </div>
             
+            {selectedNotification.gambar && (
+              <div className="mb-4">
+                <img
+                  src={selectedNotification.gambar}
+                  alt={selectedNotification.title}
+                  className="w-full h-auto rounded-lg border border-gray-200 object-cover max-h-96"
+                />
+              </div>
+            )}
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                 {selectedNotification.fullContent || selectedNotification.message}

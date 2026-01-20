@@ -13,12 +13,15 @@ import {
   fileToBase64,
   type FileUploadResult,
 } from '../../../../../utils/fileUploadUtils';
-import { getJadwalGuruInDateRangeNotFinished, getJadwalGuruInDateRangeWithTimeNotFinished } from '../utils/jadwalPenggantiUtils';
+import { getJadwalGuruInDateRangeNotFinished, getJadwalGuruInDateRangeWithTimeNotFinished, getJadwalTahfizUstadzInDateRangeNotFinished, getJadwalTahfizUstadzInDateRangeWithTimeNotFinished } from '../utils/jadwalPenggantiUtils';
 import { useTahunAjaran } from '../../../../../hooks/useTahunAjaran';
 import { usePengaturanAbsen } from '../../../../../hooks/usePengaturanAbsen';
 import { useJadwalPelajaran } from '../../../../../hooks/useJadwalPelajaran';
 import { useMataPelajaran } from '../../../../../hooks/useMataPelajaran';
 import { useIzinGuru } from '../../../../../hooks/useIzinGuru';
+import { useJadwalTahfiz } from '../../../../../hooks/useJadwalTahfiz';
+import { useKelasTahfiz } from '../../../../../hooks/useKelasTahfiz';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 interface FormIzinModalProps {
   isOpen: boolean;
@@ -41,10 +44,13 @@ export interface FormData {
 }
 
 const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit, guruId, editingIzin, isSubmitting = false }) => {
+  const { t } = useLanguage();
   const { activeTahunAjaran } = useTahunAjaran();
   const { pengaturanAbsen } = usePengaturanAbsen();
   const { jadwalPelajaran } = useJadwalPelajaran();
   const { mataPelajaran } = useMataPelajaran();
+  const { jadwalTahfiz } = useJadwalTahfiz();
+  const { kelasTahfiz } = useKelasTahfiz();
   
   const [formData, setFormData] = useState<FormData>({
     jenis: 'izin',
@@ -139,16 +145,63 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
     if (formData.tanggalMulai && activeTahunAjaran) {
       let jadwalList: JadwalDetail[] = [];
 
+      // Check if guru is ustadz (has kelas tahfiz assigned)
+      const isUstadz = kelasTahfiz.some(kelas => kelas.ustadzId === guruId);
+
       if (formData.jenis === 'izin_dispen') {
         if (formData.jamMulai && formData.jamSelesai) {
-          jadwalList = getJadwalGuruInDateRangeWithTimeNotFinished(guruId, formData.tanggalMulai, formData.jamMulai, formData.jamSelesai, activeTahunAjaran.tahun, activeTahunAjaran.semester, jadwalPelajaran);
+          // Get regular jadwal pelajaran
+          const regularJadwal = getJadwalGuruInDateRangeWithTimeNotFinished(
+            guruId, 
+            formData.tanggalMulai, 
+            formData.jamMulai, 
+            formData.jamSelesai, 
+            activeTahunAjaran.tahun, 
+            activeTahunAjaran.semester, 
+            jadwalPelajaran
+          );
+          jadwalList.push(...regularJadwal);
+
+          // Get tahfiz jadwal if guru is ustadz
+          if (isUstadz) {
+            const tahfizJadwal = getJadwalTahfizUstadzInDateRangeWithTimeNotFinished(
+              guruId,
+              formData.tanggalMulai,
+              formData.jamMulai,
+              formData.jamSelesai,
+              jadwalTahfiz,
+              kelasTahfiz
+            );
+            jadwalList.push(...tahfizJadwal);
+          }
         }
       } else {
         let endDate = formData.tanggalSelesai;
         if (!endDate) {
           endDate = formData.tanggalMulai;
         }
-        jadwalList = getJadwalGuruInDateRangeNotFinished(guruId, formData.tanggalMulai, endDate, activeTahunAjaran.tahun, activeTahunAjaran.semester, jadwalPelajaran);
+        // Get regular jadwal pelajaran
+        const regularJadwal = getJadwalGuruInDateRangeNotFinished(
+          guruId, 
+          formData.tanggalMulai, 
+          endDate, 
+          activeTahunAjaran.tahun, 
+          activeTahunAjaran.semester, 
+          jadwalPelajaran
+        );
+        jadwalList.push(...regularJadwal);
+
+        // Get tahfiz jadwal if guru is ustadz
+        if (isUstadz) {
+          const tahfizJadwal = getJadwalTahfizUstadzInDateRangeNotFinished(
+            guruId,
+            formData.tanggalMulai,
+            endDate,
+            jadwalTahfiz,
+            kelasTahfiz
+          );
+          jadwalList.push(...tahfizJadwal);
+        }
       }
 
       setJadwalDetails(jadwalList);
@@ -166,7 +219,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
         });
       }
     }
-  }, [formData.tanggalMulai, formData.tanggalSelesai, formData.jamMulai, formData.jamSelesai, formData.jenis, guruId, activeTahunAjaran, jadwalPelajaran]);
+  }, [formData.tanggalMulai, formData.tanggalSelesai, formData.jamMulai, formData.jamSelesai, formData.jenis, guruId, activeTahunAjaran, jadwalPelajaran, jadwalTahfiz, kelasTahfiz]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -174,7 +227,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
 
     const validation = validateImageFile(file);
     if (!validation.valid) {
-      showErrorNotification('File Tidak Valid', validation.error || 'File tidak sesuai kriteria');
+      showErrorNotification(t('izinGuru.fileTidakValid'), validation.error || t('izinGuru.fileTidakSesuaiKriteria'));
       e.target.value = '';
       return;
     }
@@ -193,11 +246,11 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
       setUploadedFile(fileData);
       setFormData({ ...formData, bukti: buktiData });
       showSuccessNotification(
-        'File Berhasil Diupload',
-        `File "${fileData.fileName}" tersimpan dengan aman`
+        t('izinGuru.fileBerhasilDiupload'),
+        t('izinGuru.fileBerhasilDiuploadDesc', { fileName: fileData.fileName })
       );
     } catch (error) {
-      showErrorNotification('Error Upload', 'Gagal mengupload file. Coba lagi.');
+      showErrorNotification(t('izinGuru.errorUpload'), t('izinGuru.gagalMenguploadFile'));
     } finally {
       setIsUploading(false);
       e.target.value = '';
@@ -207,7 +260,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
   const handleRemoveFile = () => {
     setUploadedFile(null);
     setFormData({ ...formData, bukti: '' });
-    showSuccessNotification('File Dihapus', 'File bukti pendukung telah dihapus');
+    showSuccessNotification(t('izinGuru.fileDihapus'), t('izinGuru.fileBuktiPendukungDihapus'));
   };
 
   const isDateRangeValid = () => {
@@ -226,12 +279,12 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
     e.preventDefault();
 
     if (!isDateRangeValid()) {
-      showErrorNotification('Validasi Tanggal', 'Tanggal mulai harus sebelum atau sama dengan tanggal selesai');
+      showErrorNotification(t('izinGuru.validasiTanggal'), t('izinGuru.tanggalMulaiHarusSebelum'));
       return;
     }
 
     if (jadwalDetails.length > 0 && (!formData.guruPenggantiList || formData.guruPenggantiList.length === 0)) {
-      showErrorNotification('Validasi Guru Pengganti', 'Anda harus memilih guru pengganti untuk semua jadwal pelajaran yang ada');
+      showErrorNotification(t('izinGuru.validasiGuruPengganti'), t('izinGuru.harusMemilihGuruPengganti'));
       return;
     }
 
@@ -243,7 +296,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
       // Check if all jadwal have selections
       const missingJadwal = Array.from(jadwalKeys).filter(key => !selectedJadwalKeys.has(key));
       if (missingJadwal.length > 0) {
-        showErrorNotification('Validasi Guru Pengganti', `Anda harus memilih guru pengganti untuk ${missingJadwal.length} jadwal pelajaran yang belum dipilih`);
+        showErrorNotification(t('izinGuru.validasiGuruPengganti'), t('izinGuru.harusMemilihGuruPenggantiUntukJadwal', { count: missingJadwal.length }));
         return;
       }
       
@@ -252,7 +305,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
         g => !jadwalKeys.has(g.jadwalId)
       );
       if (invalidSelections.length > 0) {
-        showErrorNotification('Validasi Guru Pengganti', 'Beberapa guru pengganti tidak sesuai dengan jadwal yang ada. Silakan refresh form.');
+        showErrorNotification(t('izinGuru.validasiGuruPengganti'), t('izinGuru.guruPenggantiTidakSesuai'));
         return;
       }
     }
@@ -260,7 +313,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
     if (formData.jenis === 'izin_dispen') {
       if (formData.jamMulai && formData.jamSelesai) {
         if (formData.jamSelesai <= formData.jamMulai) {
-          showErrorNotification('Validasi Jam', 'Jam selesai harus setelah dari jam mulai');
+          showErrorNotification(t('izinGuru.validasiJam'), t('izinGuru.jamSelesaiHarusSetelah'));
           return;
         }
       }
@@ -269,7 +322,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
 
       if (activePengaturan && formData.jamSelesai) {
         if (formData.jamSelesai > activePengaturan.jamPulang) {
-          showErrorNotification('Validasi Jam', 'Jam selesai tidak boleh melebihi jam pulang');
+          showErrorNotification(t('izinGuru.validasiJam'), t('izinGuru.jamSelesaiTidakBolehMelebihi'));
           return;
         }
       }
@@ -304,12 +357,12 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
 
     if (formData.jamMulai && value) {
       if (value <= formData.jamMulai) {
-        error = 'Jam selesai harus lebih besar dari jam mulai';
+        error = t('izinGuru.jamSelesaiHarusLebihBesar');
       } else {
         const activePengaturan = pengaturanAbsen.find((p: any) => p.isActive);
 
         if (activePengaturan && value > activePengaturan.jamPulang) {
-          error = 'Jam selesai tidak boleh melebihi jam pulang, gunakan izin jika melebihi jam pulang';
+          error = t('izinGuru.jamSelesaiTidakBolehMelebihiPulang');
         }
       }
     }
@@ -321,13 +374,13 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
     <Modal
       isOpen={isOpen}
       onClose={resetForm}
-      title={editingIzin ? "Edit Pengajuan Izin" : "Ajukan Izin/Sakit/Cuti/Dispen"}
+      title={editingIzin ? t('izinGuru.editPengajuanIzin') : t('izinGuru.ajukanIzinSakitCutiDispen')}
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4 mb-12 pb-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Jenis Pengajuan
+            {t('izinGuru.jenisPengajuan')}
           </label>
           <select
             value={formData.jenis}
@@ -346,10 +399,10 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             required
           >
-            <option value="izin">Izin</option>
-            <option value="sakit">Sakit</option>
-            <option value="cuti">Cuti</option>
-            <option value="izin_dispen">Izin Dispen</option>
+            <option value="izin">{t('izinGuru.jenis.izin')}</option>
+            <option value="sakit">{t('izinGuru.jenis.sakit')}</option>
+            <option value="cuti">{t('izinGuru.jenis.cuti')}</option>
+            <option value="izin_dispen">{t('izinGuru.izinDispen')}</option>
           </select>
         </div>
 
@@ -357,7 +410,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tanggal Dispen
+                {t('izinGuru.tanggalDispen')}
               </label>
               <div className="relative">
                 <input
@@ -367,7 +420,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed opacity-70"
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-1">Izin dispen hanya untuk hari ini (tidak dapat diubah)</p>
+              <p className="text-xs text-gray-500 mt-1">{t('izinGuru.izinDispenHanyaHariIni')}</p>
             </div>
 
             
@@ -375,7 +428,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Jam Mulai
+                  {t('izinGuru.jamMulai')}
                 </label>
                 <input
                   type="time"
@@ -388,7 +441,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Jam Selesai
+                  {t('izinGuru.jamSelesai')}
                 </label>
                 <input
                   type="time"
@@ -411,13 +464,13 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tanggal Mulai
+                {t('izinGuru.tanggalMulai')}
               </label>
               <CustomDatePicker
                 value={formData.tanggalMulai}
                 onChange={(date) => setFormData({ ...formData, tanggalMulai: date })}
                 disabledDates={disabledDates}
-                placeholder="Pilih tanggal mulai"
+                placeholder={t('izinGuru.pilihTanggalMulai')}
                 rangeStart={formData.tanggalMulai}
                 rangeEnd={formData.tanggalSelesai}
                 activeIzinRanges={activeIzinRanges}
@@ -426,14 +479,14 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tanggal Selesai
+                {t('izinGuru.tanggalSelesai')}
               </label>
               <CustomDatePicker
                 value={formData.tanggalSelesai}
                 onChange={(date) => setFormData({ ...formData, tanggalSelesai: date })}
                 disabledDates={disabledDates}
                 minDate={formData.tanggalMulai}
-                placeholder="Pilih tanggal selesai"
+                placeholder={t('izinGuru.pilihTanggalSelesai')}
                 rangeStart={formData.tanggalMulai}
                 rangeEnd={formData.tanggalSelesai}
                 activeIzinRanges={activeIzinRanges}
@@ -444,14 +497,14 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Alasan
+            {t('izinGuru.alasan')}
           </label>
           <textarea
             value={formData.alasan}
             onChange={(e) => setFormData({ ...formData, alasan: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             rows={4}
-            placeholder="Jelaskan alasan pengajuan izin/sakit/cuti Anda..."
+            placeholder={t('izinGuru.jelaskanAlasanPengajuan')}
             required
           />
         </div>
@@ -467,13 +520,15 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
             semester={activeTahunAjaran.semester}
             jadwalPelajaran={jadwalPelajaran}
             mataPelajaran={mataPelajaran}
+            jadwalTahfiz={jadwalTahfiz}
+            kelasTahfiz={kelasTahfiz}
             initialSelections={editingIzin?.guruPenggantiList || formData.guruPenggantiList || []}
           />
         )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Bukti Pendukung (Opsional)
+            {t('izinGuru.buktiPendukungOpsional')}
           </label>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
             <input
@@ -494,7 +549,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
             >
               <Upload size={16} className={`mr-2 ${isUploading ? 'text-gray-400' : 'text-gray-600'}`} />
               <span className={isUploading ? 'text-gray-400' : 'text-gray-700'}>
-                {isUploading ? 'Mengupload...' : 'Pilih File'}
+                {isUploading ? t('izinGuru.mengupload') : t('izinGuru.pilihFile')}
               </span>
             </label>
             {uploadedFile && (
@@ -504,7 +559,7 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
                   type="button"
                   onClick={handleRemoveFile}
                   className="text-green-600 hover:text-green-700 flex-shrink-0"
-                  title="Hapus file"
+                  title={t('izinGuru.hapusFile')}
                 >
                   <X size={16} />
                 </button>
@@ -512,18 +567,18 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
             )}
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Format yang didukung: JPG atau PNG (Maks. 5MB)
+            {t('izinGuru.formatYangDidukung')}
           </p>
         </div>
 
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h4 className="font-medium text-blue-900 mb-2">Informasi Penting:</h4>
+          <h4 className="font-medium text-blue-900 mb-2">{t('izinGuru.informasiPenting')}</h4>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Pengajuan akan diverifikasi oleh admin</li>
-            <li>• Proses verifikasi membutuhkan waktu 1-2 hari kerja</li>
-            <li>• Pastikan alasan yang diberikan jelas dan valid</li>
-            <li>• Lampirkan bukti pendukung jika diperlukan</li>
-            <li>• Untuk sakit, disarankan melampirkan surat dokter</li>
+            <li>• {t('izinGuru.pengajuanAkanDiverifikasi')}</li>
+            <li>• {t('izinGuru.prosesVerifikasiMembutuhkanWaktu')}</li>
+            <li>• {t('izinGuru.pastikanAlasanJelas')}</li>
+            <li>• {t('izinGuru.lampirkanBuktiPendukung')}</li>
+            <li>• {t('izinGuru.untukSakitDisarankan')}</li>
           </ul>
         </div>
 
@@ -534,10 +589,10 @@ const FormIzinModal: React.FC<FormIzinModalProps> = ({ isOpen, onClose, onSubmit
             disabled={isSubmitting || !isDateRangeValid() || !formData.alasan || (formData.jenis === 'izin_dispen' && timeError) || (jadwalDetails.length > 0 && (!formData.guruPenggantiList || formData.guruPenggantiList.length !== jadwalDetails.length))}
             className={((isSubmitting || !isDateRangeValid() || !formData.alasan || (formData.jenis === 'izin_dispen' && timeError) || (jadwalDetails.length > 0 && (!formData.guruPenggantiList || formData.guruPenggantiList.length !== jadwalDetails.length)))) ? 'opacity-50 cursor-not-allowed' : ''}
           >
-            {isSubmitting ? 'Memproses...' : (editingIzin ? 'Simpan Perubahan' : `Ajukan ${formData.jenis === 'izin_dispen' ? 'Izin Dispen' : (formData.jenis.charAt(0).toUpperCase() + formData.jenis.slice(1))}`)}
+            {isSubmitting ? t('izinGuru.memproses') : (editingIzin ? t('common.save') : t('izinGuru.ajukan', { jenis: formData.jenis === 'izin_dispen' ? t('izinGuru.izinDispen') : t(`izinGuru.jenis.${formData.jenis}`) }))}
           </Button>
           <Button type="button" variant="secondary" fullWidth onClick={resetForm} disabled={isSubmitting}>
-            Batal
+            {t('common.cancel')}
           </Button>
         </div>
       </form>

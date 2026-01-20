@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, CheckCircle, FileText, QrCode, TrendingUp, AlertCircle, UserCheck, LogIn, LogOut, GraduationCap, Award } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Calendar, Clock, CheckCircle, FileText, QrCode, TrendingUp, AlertCircle, UserCheck, LogIn, LogOut, GraduationCap, Award, BookOpen, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useJadwalPelajaran } from '../../hooks/useJadwalPelajaran';
@@ -12,6 +12,12 @@ import { useTahunAjaran } from '../../hooks/useTahunAjaran';
 import { usePengaturanAbsen } from '../../hooks/usePengaturanAbsen';
 import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
 import { useAlumni } from '../../hooks/useAlumni';
+import { useSantri } from '../../hooks/useSantri';
+import { useKelasTahfiz } from '../../hooks/useKelasTahfiz';
+import { useJadwalTahfiz } from '../../hooks/useJadwalTahfiz';
+import { useSesiAbsensiTahfiz } from '../../hooks/useSesiAbsensiTahfiz';
+import { useUstadz } from '../../hooks/useUstadz';
+import { useProgressHafalan } from '../../hooks/useProgressHafalan';
 import { Absensi, Murid } from '../../types';
 import { getTodayKehadiranStatsIntegrated, getAbsenMasukStatus, getAbsenPulangStatus } from '../murid/pages/absen-kehadiran/absenKehadiranIntegratedUtils';
 import { isMuridAlumni } from '../../utils/alumniStatusUtils';
@@ -49,11 +55,75 @@ const MuridDashboard: React.FC = () => {
   const { activePengaturanAbsen } = usePengaturanAbsen();
   const { enableEarlyDeparture } = usePengaturanSistem();
   const { alumni } = useAlumni();
+  const { santri } = useSantri();
+  const { kelasTahfiz } = useKelasTahfiz();
+  const { jadwalTahfiz } = useJadwalTahfiz();
+  const { sesiAbsensiTahfiz } = useSesiAbsensiTahfiz();
+  const { ustadz } = useUstadz();
 
-  const isAlumni = isMuridAlumni(user || undefined, alumni);
-
+  // Define today and currentDay early to avoid initialization errors
   const today = new Date().toISOString().split('T')[0];
   const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
+
+  const isAlumni = isMuridAlumni(user || undefined, alumni);
+  
+  // Check if user is a santri that is NOT from murid collection (isFromMurid: false)
+  const santriUser = user?.id ? santri.find(s => s.id === user.id) : null;
+  const isSantriNotFromMurid = santriUser && (santriUser as any).isFromMurid === false;
+  
+  // Get tahfiz classes for this santri
+  const myTahfizClasses = isSantriNotFromMurid && user?.id
+    ? kelasTahfiz.filter(cls => cls.santriIds.includes(user.id))
+    : [];
+
+  // Get tahfiz schedules for this santri
+  const myTahfizSchedules = isSantriNotFromMurid && user?.id
+    ? jadwalTahfiz.filter(j => myTahfizClasses.some(cls => cls.id === j.kelasId))
+    : [];
+
+  // Get today's tahfiz schedules
+  const todayTahfizSchedules = myTahfizSchedules.filter(j => j.hari === currentDay);
+
+  // Get today's tahfiz sessions
+  const todayTahfizSessions = sesiAbsensiTahfiz.filter(s =>
+    s.tanggal === today &&
+    myTahfizSchedules.some(j => j.id === s.jadwalId)
+  );
+
+  // Get progress hafalan for this santri
+  const currentYear = new Date().getFullYear().toString();
+  const { progressList: progressHafalan } = useProgressHafalan(
+    isSantriNotFromMurid ? user?.id : undefined,
+    currentYear
+  );
+
+  // Calculate progress hafalan stats
+  const progressStats = useMemo(() => {
+    if (!progressHafalan || progressHafalan.length === 0) {
+      return { totalJuz: 0, totalSurah: 0, lastUpdate: null };
+    }
+    const uniqueJuz = new Set(progressHafalan.map(p => p.juz)).size;
+    const uniqueSurah = new Set(progressHafalan.map(p => p.surat)).size;
+    const lastUpdate = progressHafalan.reduce((latest, p) => {
+      const pDate = new Date(p.updatedAt || p.createdAt);
+      const latestDate = latest ? new Date(latest) : null;
+      return !latestDate || pDate > latestDate ? p.updatedAt || p.createdAt : latest;
+    }, null as string | null);
+    return { totalJuz: uniqueJuz, totalSurah: uniqueSurah, lastUpdate };
+  }, [progressHafalan]);
+
+  // Helper function to get ustadz name
+  const getUstadzName = (ustadzId: string) => {
+    const ustadzData = ustadz.find(u => u.id === ustadzId);
+    return ustadzData?.name || 'Belum diatur';
+  };
+
+  // Format time helper
+  const formatTime = (time: string) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    return `${hours}.${minutes}`;
+  };
 
   // Get student's class schedules
   // jadwalPelajaran already filtered by kelasId, tahunAjaran, and semester from hook
@@ -534,6 +604,379 @@ const MuridDashboard: React.FC = () => {
     return 'bg-gradient-to-r from-orange-500 to-orange-600';
   };
 
+  // Dashboard khusus untuk santri tahfiz (bukan dari murid)
+  if (isSantriNotFromMurid) {
+    return (
+      <div className="space-y-5 lg:space-y-6">
+        {/* Welcome Header - Tema Hijau untuk Tahfiz */}
+        <div className="bg-gradient-to-br from-emerald-600 via-green-600 to-teal-600 rounded-2xl shadow-lg overflow-hidden">
+          <div className="px-5 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1 sm:mb-2">
+                  Assalamu'alaikum, {user?.name}!
+                </h1>
+                <p className="text-sm sm:text-base text-white/90">
+                  {myTahfizClasses.length > 0
+                    ? `Santri Tahfiz - ${myTahfizClasses.map(c => c.namaKelas).join(', ')}`
+                    : 'Santri Tahfiz'}
+                </p>
+              </div>
+              <div className="hidden md:block">
+                <div className="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                  <BookOpen className="w-12 h-12 text-white" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Menu Cards - Only visible on mobile */}
+        <div className="md:hidden">
+          <MuridMenuCards />
+        </div>
+
+        {/* Quick Stats Cards - Hidden on mobile, visible on desktop */}
+        <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Kelas Tahfiz */}
+          <div className="bg-white rounded-xl border border-emerald-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="bg-emerald-100 rounded-lg p-3">
+                <BookOpen className="w-6 h-6 text-emerald-600" />
+              </div>
+            </div>
+            <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">Kelas Tahfiz</p>
+            <p className="text-2xl font-bold text-slate-900">{myTahfizClasses.length}</p>
+            <p className="text-xs text-slate-500 mt-1">Kelas yang diikuti</p>
+          </div>
+
+          {/* Progress Hapalan */}
+          <div className="bg-white rounded-xl border border-teal-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="bg-teal-100 rounded-lg p-3">
+                <TrendingUp className="w-6 h-6 text-teal-600" />
+              </div>
+            </div>
+            <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-1">Juz yang Dihafal</p>
+            <p className="text-2xl font-bold text-slate-900">{progressStats.totalJuz}</p>
+            <p className="text-xs text-slate-500 mt-1">Dari 30 Juz</p>
+          </div>
+
+          {/* Surah yang Dihafal */}
+          <div className="bg-white rounded-xl border border-cyan-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="bg-cyan-100 rounded-lg p-3">
+                <Award className="w-6 h-6 text-cyan-600" />
+              </div>
+            </div>
+            <p className="text-xs font-semibold text-cyan-600 uppercase tracking-wide mb-1">Surah yang Dihafal</p>
+            <p className="text-2xl font-bold text-slate-900">{progressStats.totalSurah}</p>
+            <p className="text-xs text-slate-500 mt-1">Total surah</p>
+          </div>
+
+          {/* Surat Izin */}
+          <div className="bg-white rounded-xl border border-amber-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="bg-amber-100 rounded-lg p-3">
+                <FileText className="w-6 h-6 text-amber-600" />
+              </div>
+            </div>
+            <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Surat Izin</p>
+            <p className="text-2xl font-bold text-slate-900">{pendingSuratIzin.length}</p>
+            <p className="text-xs text-slate-500 mt-1">Menunggu approval</p>
+          </div>
+        </div>
+
+        {/* Jadwal Tahfiz Hari Ini */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-50 to-green-50 px-5 sm:px-6 py-4 border-b border-emerald-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900">Jadwal Tahfiz Hari Ini</h3>
+                <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                  {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/dashboard/jadwal-tahfiz-murid')}
+                className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+              >
+                Lihat Semua →
+              </button>
+            </div>
+          </div>
+          <div className="p-4 sm:p-5 lg:p-6">
+            {todayTahfizSchedules.length > 0 ? (
+              <div className="space-y-3">
+                {todayTahfizSchedules.map((schedule) => {
+                  const kelas = myTahfizClasses.find(c => c.id === schedule.kelasId);
+                  const ustadzName = kelas ? getUstadzName(kelas.ustadzId) : 'Belum diatur';
+                  const session = todayTahfizSessions.find(s => s.jadwalId === schedule.id);
+                  const attendance = session?.dataAbsensi?.find((a: any) => a.muridId === user?.id || a.santriId === user?.id);
+                  
+                  // Get attendance status badge
+                  const getAttendanceBadge = () => {
+                    if (!attendance) {
+                      if (session) {
+                        return (
+                          <button
+                            onClick={() => navigate('/dashboard/absensi-santri-tahfiz')}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                          >
+                            Absen
+                          </button>
+                        );
+                      } else {
+                        return (
+                          <div className="text-xs text-slate-400 px-3 py-1.5">
+                            Belum mulai
+                          </div>
+                        );
+                      }
+                    }
+                    
+                    const status = attendance.status;
+                    let bgColor = '';
+                    let textColor = '';
+                    let icon = null;
+                    let label = '';
+                    
+                    switch (status) {
+                      case 'izin':
+                        bgColor = 'bg-yellow-50';
+                        textColor = 'text-yellow-700';
+                        icon = <AlertCircle className="w-4 h-4" />;
+                        label = 'Izin';
+                        break;
+                      case 'sakit':
+                        bgColor = 'bg-blue-50';
+                        textColor = 'text-blue-700';
+                        icon = <AlertCircle className="w-4 h-4" />;
+                        label = 'Sakit';
+                        break;
+                      case 'alfa':
+                        bgColor = 'bg-red-50';
+                        textColor = 'text-red-700';
+                        icon = <AlertCircle className="w-4 h-4" />;
+                        label = 'Alfa';
+                        break;
+                      case 'terlambat':
+                        bgColor = 'bg-orange-50';
+                        textColor = 'text-orange-700';
+                        icon = <Clock className="w-4 h-4" />;
+                        label = 'Terlambat';
+                        break;
+                      case 'pulang_cepat':
+                        bgColor = 'bg-amber-50';
+                        textColor = 'text-amber-700';
+                        icon = <Clock className="w-4 h-4" />;
+                        label = 'Pulang Cepat';
+                        break;
+                      case 'hadir':
+                      default:
+                        bgColor = 'bg-emerald-50';
+                        textColor = 'text-emerald-700';
+                        icon = <CheckCircle className="w-4 h-4" />;
+                        label = 'Hadir';
+                        break;
+                    }
+                    
+                    return (
+                      <div className={`flex items-center gap-2 ${bgColor} ${textColor} px-3 py-1.5 rounded-lg`}>
+                        {icon}
+                        <span className="text-xs font-medium">{label}</span>
+                      </div>
+                    );
+                  };
+                  
+                  return (
+                    <div
+                      key={schedule.id}
+                      className="border border-slate-200 rounded-lg p-4 hover:border-emerald-300 hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Clock className="w-4 h-4 text-emerald-600" />
+                            <span className="text-sm font-semibold text-emerald-600">
+                              {formatTime(schedule.jamMulai)} - {formatTime(schedule.jamSelesai)}
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-slate-900 mb-1">
+                            {kelas?.namaKelas || 'Kelas tidak ditemukan'}
+                          </h4>
+                          <p className="text-sm text-slate-600 mb-2">
+                            Ruangan: {kelas?.ruangan || '-'}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm text-slate-500">
+                            <div className="flex items-center gap-1">
+                              <Users className="w-4 h-4" />
+                              <span>{ustadzName}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          {getAttendanceBadge()}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p className="text-sm text-slate-600">Tidak ada jadwal tahfiz hari ini</p>
+                <button
+                  onClick={() => navigate('/dashboard/jadwal-tahfiz-murid')}
+                  className="mt-2 text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+                >
+                  Lihat jadwal lengkap →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Progress Hapalan Ringkasan */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-teal-50 to-cyan-50 px-5 sm:px-6 py-4 border-b border-teal-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900">Progress Hapalan</h3>
+                <p className="text-xs sm:text-sm text-slate-600 mt-0.5">Ringkasan hafalan Anda</p>
+              </div>
+              <button
+                onClick={() => navigate('/dashboard/progress-hapalan-murid')}
+                className="text-teal-600 hover:text-teal-700 text-sm font-medium"
+              >
+                Detail →
+              </button>
+            </div>
+          </div>
+          <div className="p-4 sm:p-5 lg:p-6">
+            {progressStats.totalJuz > 0 || progressStats.totalSurah > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg border border-teal-100">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 mb-1">Total Juz</p>
+                    <p className="text-3xl font-bold text-teal-600">{progressStats.totalJuz} / 30</p>
+                  </div>
+                  <div className="bg-teal-600 rounded-full p-4">
+                    <BookOpen className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-100">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 mb-1">Total Surah</p>
+                    <p className="text-3xl font-bold text-cyan-600">{progressStats.totalSurah}</p>
+                  </div>
+                  <div className="bg-cyan-600 rounded-full p-4">
+                    <Award className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+                {progressStats.lastUpdate && (
+                  <p className="text-xs text-slate-500 text-center">
+                    Terakhir diperbarui: {new Date(progressStats.lastUpdate).toLocaleDateString('id-ID', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <BookOpen className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p className="text-sm text-slate-600 mb-2">Belum ada progress hapalan</p>
+                <p className="text-xs text-slate-500">Mulai hafalan Anda hari ini!</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Kelas Tahfiz yang Diikuti */}
+        {myTahfizClasses.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-5 sm:px-6 py-4 border-b border-green-100">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">Kelas Tahfiz Anda</h3>
+              <p className="text-xs sm:text-sm text-slate-600 mt-0.5">Daftar kelas tahfiz yang Anda ikuti</p>
+            </div>
+            <div className="p-4 sm:p-5 lg:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {myTahfizClasses.map((kelas) => {
+                  const ustadzName = getUstadzName(kelas.ustadzId);
+                  const jadwalKelas = myTahfizSchedules.filter(j => j.kelasId === kelas.id);
+                  
+                  return (
+                    <div
+                      key={kelas.id}
+                      className="border border-emerald-200 rounded-lg p-4 hover:border-emerald-300 hover:shadow-md transition-all bg-gradient-to-br from-emerald-50 to-green-50"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h4 className="text-base font-bold text-slate-900 mb-1">{kelas.namaKelas}</h4>
+                          <p className="text-sm text-slate-600 mb-2">Ruangan: {kelas.ruangan}</p>
+                          <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <Users className="w-4 h-4" />
+                            <span>{ustadzName}</span>
+                          </div>
+                        </div>
+                        <div className="bg-emerald-600 rounded-lg p-2">
+                          <BookOpen className="w-5 h-5 text-white" />
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-emerald-200">
+                        <p className="text-xs text-slate-600">
+                          <Calendar className="w-3 h-3 inline mr-1" />
+                          {jadwalKelas.length} jadwal per minggu
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <button
+            onClick={() => navigate('/dashboard/jadwal-tahfiz-murid')}
+            className="bg-white border border-emerald-200 rounded-xl p-4 hover:border-emerald-300 hover:shadow-md transition-all text-center"
+          >
+            <Calendar className="w-6 h-6 mx-auto mb-2 text-emerald-600" />
+            <p className="text-sm font-medium text-slate-900">Jadwal Tahfiz</p>
+          </button>
+          <button
+            onClick={() => navigate('/dashboard/absensi-santri-tahfiz')}
+            className="bg-white border border-teal-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-md transition-all text-center"
+          >
+            <CheckCircle className="w-6 h-6 mx-auto mb-2 text-teal-600" />
+            <p className="text-sm font-medium text-slate-900">Absensi</p>
+          </button>
+          <button
+            onClick={() => navigate('/dashboard/progress-hapalan-murid')}
+            className="bg-white border border-cyan-200 rounded-xl p-4 hover:border-cyan-300 hover:shadow-md transition-all text-center"
+          >
+            <TrendingUp className="w-6 h-6 mx-auto mb-2 text-cyan-600" />
+            <p className="text-sm font-medium text-slate-900">Progress</p>
+          </button>
+          <button
+            onClick={() => navigate('/dashboard/qr-code')}
+            className="bg-white border border-green-200 rounded-xl p-4 hover:border-green-300 hover:shadow-md transition-all text-center"
+          >
+            <QrCode className="w-6 h-6 mx-auto mb-2 text-green-600" />
+            <p className="text-sm font-medium text-slate-900">QR Code</p>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Dashboard untuk murid biasa dan alumni (tampilan asli)
   return (
     <div className="space-y-5 lg:space-y-6">
       {/* Welcome Header */}
@@ -642,8 +1085,8 @@ const MuridDashboard: React.FC = () => {
                   </p>
                 </div>
               </div>
-            ) : (
-              // Button mode: Clickable or disabled
+            ) : (activePengaturanAbsen?.enableManualAbsen !== false) ? (
+              // Button mode: Clickable or disabled (only show if manual absen is enabled)
               <button
                 onClick={handleAbsenMasuk}
                 disabled={
@@ -697,7 +1140,7 @@ const MuridDashboard: React.FC = () => {
                   </div>
                 )}
               </button>
-            )}
+            ) : null}
 
             {/* Absen Pulang Button */}
             {todayDetail.hasPulang && todayDetail.pulangRawStatus !== 'izin' && todayDetail.pulangRawStatus !== 'sakit' ? (
@@ -774,8 +1217,8 @@ const MuridDashboard: React.FC = () => {
                   </p>
                 </div>
               </div>
-            ) : (
-              // Button mode: Clickable or disabled
+            ) : (activePengaturanAbsen?.enableManualAbsen !== false) ? (
+              // Button mode: Clickable or disabled (only show if manual absen is enabled)
               <button
                 onClick={handleAbsenPulang}
                 disabled={
@@ -834,7 +1277,7 @@ const MuridDashboard: React.FC = () => {
                   </div>
                 )}
               </button>
-            )}
+            ) : null}
           </div>
 
           {/* Status Bar */}

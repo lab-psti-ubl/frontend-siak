@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Clock, BookOpen, Calendar, BarChart3, User, Building, Image, ChevronRight, ArrowLeft, GraduationCap } from 'lucide-react';
+import { Settings, Clock, BookOpen, Calendar, BarChart3, User, Building, Image, ChevronRight, ArrowLeft, GraduationCap, Cog } from 'lucide-react';
 import Card from '../../../ui/Card';
 import { PengaturanAbsen, PengaturanSKS, PengaturanIstirahat, DataKepsek, ProfilSekolah, BackgroundKTA, PengaturanJenjangPendidikan } from '../../../../types';
 import { apiService } from '../../../../services/apiService';
+import { useLanguage } from '../../../../context/LanguageContext';
+import { usePengaturanSistem } from '../../../../hooks/usePengaturanSistem';
 import PengaturanAbsenTab from './components/PengaturanAbsenTab';
 import PengaturanSKSTab from './components/PengaturanSKSTab';
 import PengaturanIstirahatTab from './components/PengaturanIstirahatTab';
@@ -11,10 +13,13 @@ import PengaturanKepsekTab from './components/PengaturanKepsekTab';
 import PengaturanProfilSekolahTab from './components/PengaturanProfilSekolahTab';
 import PengaturanBackgroundKTATab from './components/PengaturanBackgroundKTATab';
 import PengaturanJenjangPendidikanTab from './components/PengaturanJenjangPendidikanTab';
+import PengaturanSistemTab from './components/PengaturanSistemTab';
 import PengaturanSettingsSummary from './components/PengaturanSettingsSummary';
 import PengaturanInfoSection from './components/PengaturanInfoSection';
 
 const PengaturanAbsenComponent: React.FC = () => {
+  const { t } = useLanguage();
+  const { systemType } = usePengaturanSistem();
   const [pengaturanAbsen, setPengaturanAbsen] = useState<PengaturanAbsen[]>([]);
   const [pengaturanSKS, setPengaturanSKS] = useState<PengaturanSKS[]>([]);
   const [pengaturanIstirahat, setPengaturanIstirahat] = useState<PengaturanIstirahat[]>([]);
@@ -31,6 +36,7 @@ const PengaturanAbsenComponent: React.FC = () => {
     toleransiPulang: 15,
     hariSekolah: [1, 2, 3, 4, 5], // Senin-Jumat default
     hariKerja: [1, 2, 3, 4, 5], // Senin-Jumat default
+    enableManualAbsen: true,
   });
   const [sksFormData, setSksFormData] = useState({
     durasiPerSKS: 45,
@@ -44,7 +50,7 @@ const PengaturanAbsenComponent: React.FC = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [sksMessage, setSksMessage] = useState({ type: '', text: '' });
   const [istirahatMessage, setIstirahatMessage] = useState({ type: '', text: '' });
-  const [activeTab, setActiveTab] = useState<'absen' | 'sks' | 'istirahat' | 'nilai' | 'kepsek' | 'profil_sekolah' | 'background_kta' | 'jenjang_pendidikan'>('absen');
+  const [activeTab, setActiveTab] = useState<'absen' | 'sks' | 'istirahat' | 'nilai' | 'kepsek' | 'profil_sekolah' | 'background_kta' | 'jenjang_pendidikan' | 'pengaturan_sistem'>('absen');
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
 
   const activePengaturan = pengaturanAbsen.find(p => p.isActive);
@@ -108,6 +114,7 @@ const PengaturanAbsenComponent: React.FC = () => {
         toleransiPulang: activePengaturan.toleransiPulang,
         hariSekolah: activePengaturan.hariSekolah || [], // Load from database, empty if not set
         hariKerja: activePengaturan.hariKerja || [], // Load from database, empty if not set
+        enableManualAbsen: activePengaturan.enableManualAbsen !== undefined ? activePengaturan.enableManualAbsen : true,
       });
     } else {
       // If no active pengaturan, initialize with empty arrays (user must select)
@@ -118,6 +125,7 @@ const PengaturanAbsenComponent: React.FC = () => {
         toleransiPulang: 15,
         hariSekolah: [], // Empty - user must select
         hariKerja: [], // Empty - user must select
+        enableManualAbsen: true,
       });
     }
   }, [activePengaturan]);
@@ -140,16 +148,33 @@ const PengaturanAbsenComponent: React.FC = () => {
     }
   }, [activePengaturanIstirahat]);
 
-  const tabs = [
-    { id: 'absen', label: 'Pengaturan Absen', icon: Clock },
-    { id: 'sks', label: 'Pengaturan SKS', icon: BookOpen },
-    { id: 'istirahat', label: 'Jam Istirahat', icon: Calendar },
-    { id: 'nilai', label: 'Pengaturan Nilai', icon: BarChart3 },
-    { id: 'kepsek', label: 'Data Kepsek', icon: User },
-    { id: 'profil_sekolah', label: 'Profil Sekolah', icon: Building },
-    { id: 'background_kta', label: 'Background KTA', icon: Image },
-    { id: 'jenjang_pendidikan', label: 'Pengaturan Jenjang Pendidikan', icon: GraduationCap },
+  // Define all tabs
+  const allTabs = [
+    { id: 'absen', label: t('settings.absen'), icon: Clock },
+    { id: 'sks', label: t('settings.sks'), icon: BookOpen },
+    { id: 'istirahat', label: t('settings.istirahat'), icon: Calendar },
+    { id: 'nilai', label: t('settings.nilai'), icon: BarChart3 },
+    { id: 'kepsek', label: t('settings.kepsek'), icon: User },
+    { id: 'profil_sekolah', label: t('settings.profil_sekolah'), icon: Building },
+    { id: 'background_kta', label: t('settings.background_kta'), icon: Image },
+    { id: 'jenjang_pendidikan', label: t('settings.jenjang_pendidikan'), icon: GraduationCap },
+    { id: 'pengaturan_sistem', label: t('settings.pengaturan_sistem'), icon: Cog },
   ];
+
+  // Filter tabs based on system type
+  // For tahfiz school, only show: absen, istirahat, kepsek, profil_sekolah, background_kta, pengaturan_sistem
+  const isTahfiz = systemType === 'tahfiz';
+  const tabs = isTahfiz 
+    ? allTabs.filter(tab => ['absen', 'istirahat', 'kepsek', 'profil_sekolah', 'background_kta', 'pengaturan_sistem'].includes(tab.id))
+    : allTabs;
+
+  // Ensure activeTab is valid for current system type
+  React.useEffect(() => {
+    const validTabIds = tabs.map(tab => tab.id);
+    if (!validTabIds.includes(activeTab)) {
+      setActiveTab('absen' as typeof activeTab);
+    }
+  }, [systemType, activeTab, tabs]);
 
   const getTabLabel = (tabId: string) => {
     return tabs.find(tab => tab.id === tabId)?.label || '';
@@ -169,7 +194,7 @@ const PengaturanAbsenComponent: React.FC = () => {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat pengaturan...</p>
+          <p className="text-gray-600">{t('settings.loadingSettings')}</p>
         </div>
       </div>
     );
@@ -184,9 +209,9 @@ const PengaturanAbsenComponent: React.FC = () => {
               <div className="p-2.5 sm:p-3 bg-white rounded-lg">
                 <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-blue-700" />
               </div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Pengaturan</h1>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">{t('settings.title')}</h1>
             </div>
-            <p className="text-xs sm:text-sm text-blue-100">Kelola pengaturan sistem, absensi, durasi pelajaran, dan data sekolah</p>
+            <p className="text-xs sm:text-sm text-blue-100">{t('settings.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -196,7 +221,7 @@ const PengaturanAbsenComponent: React.FC = () => {
         <div className="lg:hidden">
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-slate-100">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-900">Pilih Menu</h3>
+              <h3 className="text-sm sm:text-base font-semibold text-slate-900">{t('settings.selectMenu')}</h3>
             </div>
             <div className="divide-y divide-slate-100">
               {tabs.map((tab) => {
@@ -229,7 +254,7 @@ const PengaturanAbsenComponent: React.FC = () => {
         <div className="lg:col-span-1 space-y-3 hidden lg:block">
           <div className="bg-white rounded-lg sm:rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-slate-100">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-900">Menu</h3>
+              <h3 className="text-sm sm:text-base font-semibold text-slate-900">{t('settings.menu')}</h3>
             </div>
             <div className="divide-y divide-slate-100">
               {tabs.map((tab) => {
@@ -238,7 +263,7 @@ const PengaturanAbsenComponent: React.FC = () => {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as 'absen' | 'sks' | 'istirahat' | 'nilai' | 'kepsek' | 'profil_sekolah' | 'background_kta' | 'jenjang_pendidikan')}
+                    onClick={() => setActiveTab(tab.id as 'absen' | 'sks' | 'istirahat' | 'nilai' | 'kepsek' | 'profil_sekolah' | 'background_kta' | 'jenjang_pendidikan' | 'pengaturan_sistem')}
                     className={`w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-3 sm:py-4 text-left transition-all duration-200 ${
                       isActive
                         ? 'bg-blue-50 border-l-4 border-blue-600'
@@ -271,7 +296,7 @@ const PengaturanAbsenComponent: React.FC = () => {
               className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors mb-4"
             >
               <ArrowLeft className="w-5 h-5 text-blue-600" />
-              <span className="text-sm font-medium text-blue-600">Kembali</span>
+              <span className="text-sm font-medium text-blue-600">{t('common.back')}</span>
             </button>
             <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-lg p-4">
               <h2 className="text-lg font-semibold text-white">{getTabLabel(activeTab)}</h2>
@@ -347,6 +372,10 @@ const PengaturanAbsenComponent: React.FC = () => {
               pengaturanJenjang={pengaturanJenjang}
               setPengaturanJenjang={setPengaturanJenjang}
             />
+          )}
+
+          {activeTab === 'pengaturan_sistem' && (
+            <PengaturanSistemTab />
           )}
 
           {/* <PengaturanInfoSection

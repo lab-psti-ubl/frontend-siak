@@ -55,7 +55,7 @@ const TambahMapelForm: React.FC<TambahMapelFormProps> = ({
     name: '',
     code: '',
     sks: 2,
-    keterangan: 'umum' as 'umum' | 'jurusan',
+    keterangan: 'umum' as 'umum' | 'jurusan' | 'agama',
     jurusanId: '',
     semester: 'keduanya' as 'ganjil' | 'genap' | 'keduanya',
     tingkatKelas: tingkatOptions as number[],
@@ -217,16 +217,16 @@ const TambahMapelForm: React.FC<TambahMapelFormProps> = ({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Keterangan *
+              Kategori *
             </label>
             <select
               value={formData.keterangan}
-              onChange={(e) => setFormData({ ...formData, keterangan: e.target.value as 'umum' | 'jurusan', jurusanId: '', tingkatKelas: tingkatOptions as number[] })}
+              onChange={(e) => setFormData({ ...formData, keterangan: e.target.value as 'umum' | 'jurusan' | 'agama', jurusanId: '', tingkatKelas: tingkatOptions as number[] })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
-              disabled={!showJurusan}
             >
               <option value="umum">Umum{showJurusan ? ' (Semua Jurusan)' : ''}</option>
+              <option value="agama">Agama</option>
               {showJurusan && <option value="jurusan">Khusus Jurusan</option>}
             </select>
             {!showJurusan && (

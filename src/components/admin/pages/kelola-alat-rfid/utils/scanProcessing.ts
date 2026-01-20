@@ -494,36 +494,61 @@ const processMuridScan = async (
   onSetAbsensi: (data: Absensi[]) => void,
   enableEarlyDeparture: boolean = false
 ): Promise<ScanProcessingResult> => {
-  const kelasInfo = kelas.find(k => k.id === murid.kelasId);
+  // Handle santri yang tidak memiliki kelasId (isFromMurid: false)
+  const isSantriWithoutKelas = (murid as any).isFromMurid === false && !murid.kelasId;
+  const kelasId = murid.kelasId || 'santri'; // Use 'santri' as default for santri without kelasId
+  
+  const kelasInfo = murid.kelasId ? kelas.find(k => k.id === murid.kelasId) : null;
   const muridWithKelas = {
     ...murid,
-    namaKelas: kelasInfo?.name || 'Kelas Tidak Ditemukan'
+    namaKelas: kelasInfo?.name || (isSantriWithoutKelas ? 'Santri' : 'Kelas Tidak Ditemukan')
   };
 
   // Find today's absensi (one record per day in new structure)
-  const todayAbsensi = absensi.find(a => 
-    a.muridId === murid.id && 
-    a.tanggal === today && 
-    a.kelasId === murid.kelasId
-  );
+  // For santri without kelasId, search without kelasId filter
+  const todayAbsensi = isSantriWithoutKelas
+    ? absensi.find(a => 
+        a.muridId === murid.id && 
+        a.tanggal === today &&
+        (!a.kelasId || a.kelasId === 'santri')
+      )
+    : absensi.find(a => 
+        a.muridId === murid.id && 
+        a.tanggal === today && 
+        a.kelasId === murid.kelasId
+      );
 
   // Check if already checked in/out using new structure
   const alreadyCheckedIn = todayAbsensi?.jamMasuk || todayAbsensi?.statusMasuk;
   const alreadyCheckedOut = todayAbsensi?.jamKeluar || todayAbsensi?.statusKeluar;
 
   // Backward compatibility: check old structure
-  const oldMasuk = absensi.find(a => 
-    a.muridId === murid.id && 
-    a.tanggal === today && 
-    a.kelasId === murid.kelasId && 
-    a.tipeAbsen === 'masuk'
-  );
-  const oldPulang = absensi.find(a => 
-    a.muridId === murid.id && 
-    a.tanggal === today && 
-    a.kelasId === murid.kelasId && 
-    a.tipeAbsen === 'pulang'
-  );
+  const oldMasuk = isSantriWithoutKelas
+    ? absensi.find(a => 
+        a.muridId === murid.id && 
+        a.tanggal === today && 
+        (!a.kelasId || a.kelasId === 'santri') &&
+        a.tipeAbsen === 'masuk'
+      )
+    : absensi.find(a => 
+        a.muridId === murid.id && 
+        a.tanggal === today && 
+        a.kelasId === murid.kelasId && 
+        a.tipeAbsen === 'masuk'
+      );
+  const oldPulang = isSantriWithoutKelas
+    ? absensi.find(a => 
+        a.muridId === murid.id && 
+        a.tanggal === today && 
+        (!a.kelasId || a.kelasId === 'santri') &&
+        a.tipeAbsen === 'pulang'
+      )
+    : absensi.find(a => 
+        a.muridId === murid.id && 
+        a.tanggal === today && 
+        a.kelasId === murid.kelasId && 
+        a.tipeAbsen === 'pulang'
+      );
 
   const hasMasuk = alreadyCheckedIn || !!oldMasuk;
   const hasPulang = alreadyCheckedOut || !!oldPulang;
@@ -700,7 +725,7 @@ const processMuridScan = async (
     }
 
     const activeTahunAjaran = tahunAjaranResponse.tahunAjaran;
-    const absensiId = `${today}-${murid.kelasId}-${murid.id}`;
+    const absensiId = `${today}-${kelasId}-${murid.id}`;
 
     if (todayAbsensi) {
       // Update existing absensi (pulang)
@@ -758,7 +783,7 @@ const processMuridScan = async (
         id: absensiId,
         muridId: murid.id,
         tanggal: today,
-        kelasId: murid.kelasId,
+        kelasId: kelasId, // Use kelasId (could be 'santri' for santri without kelasId)
         method: 'qr',
         keteranganAbsensi: 'Hadir',
         tahunAjaranId: activeTahunAjaran.id,

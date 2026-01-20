@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, AlertCircle, Info, Clock } from 'lucide-react';
 import { AbsensiGuru, PengaturanAbsen } from '../../../../types';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 interface AttendanceInfoCardProps {
   todayAttendance: AbsensiGuru | undefined;
@@ -11,6 +12,7 @@ const AttendanceInfoCard: React.FC<AttendanceInfoCardProps> = ({
   todayAttendance,
   activePengaturan,
 }) => {
+  const { t } = useLanguage();
   // Format time to use dot instead of colon (12.20 instead of 12:20)
   const formatTimeWithDot = (timeString: string | undefined): string => {
     if (!timeString) return '-';
@@ -38,8 +40,8 @@ const AttendanceInfoCard: React.FC<AttendanceInfoCardProps> = ({
             <Info className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
           </div>
           <div>
-            <h3 className="text-base sm:text-lg lg:text-xl font-bold text-white">Informasi Absensi</h3>
-            <p className="text-xs sm:text-sm text-blue-100">Panduan dan status kehadiran</p>
+            <h3 className="text-base sm:text-lg lg:text-xl font-bold text-white">{t('absenGuruPage.informasiAbsensi')}</h3>
+            <p className="text-xs sm:text-sm text-blue-100">{t('absenGuruPage.panduanDanStatusKehadiran')}</p>
           </div>
         </div>
       </div>
@@ -51,27 +53,27 @@ const AttendanceInfoCard: React.FC<AttendanceInfoCardProps> = ({
               <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
-              <h4 className="text-xs sm:text-sm font-bold text-blue-900 uppercase tracking-wide">Cara Absensi</h4>
-              <p className="text-xs sm:text-sm text-blue-700 mt-1">Ikuti langkah-langkah berikut</p>
+              <h4 className="text-xs sm:text-sm font-bold text-blue-900 uppercase tracking-wide">{t('absenGuruPage.caraAbsensi')}</h4>
+              <p className="text-xs sm:text-sm text-blue-700 mt-1">{t('absenGuruPage.ikutiLangkahLangkahBerikut')}</p>
             </div>
           </div>
 
           <ul className="space-y-2.5 sm:space-y-3">
             <li className="flex items-start gap-3 text-xs sm:text-sm text-blue-800">
               <div className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-2.5 flex-shrink-0"></div>
-              <span>Scan QR Code admin untuk absen masuk/keluar</span>
+              <span>{t('absenGuruPage.scanQRCodeAdminUntukAbsen')}</span>
             </li>
             <li className="flex items-start gap-3 text-xs sm:text-sm text-blue-800">
               <div className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-2.5 flex-shrink-0"></div>
-              <span>Absen masuk: datang ke sekolah pukul <span className="font-semibold">{activePengaturan?.jamMasuk || '08:00'}</span></span>
+              <span>{t('absenGuruPage.absenMasukDatangPukul')} <span className="font-semibold">{activePengaturan?.jamMasuk || '08:00'}</span></span>
             </li>
             <li className="flex items-start gap-3 text-xs sm:text-sm text-blue-800">
               <div className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-2.5 flex-shrink-0"></div>
-              <span>Absen keluar: pulang dari sekolah pukul <span className="font-semibold">{activePengaturan?.jamPulang || '16:00'}</span></span>
+              <span>{t('absenGuruPage.absenKeluarPulangPukul')} <span className="font-semibold">{activePengaturan?.jamPulang || '16:00'}</span></span>
             </li>
             <li className="flex items-start gap-3 text-xs sm:text-sm text-blue-800">
               <div className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-2.5 flex-shrink-0"></div>
-              <span>Sistem otomatis menentukan jenis absensi</span>
+              <span>{t('absenGuruPage.sistemOtomatisMenentukanJenis')}</span>
             </li>
           </ul>
         </div>
@@ -82,8 +84,8 @@ const AttendanceInfoCard: React.FC<AttendanceInfoCardProps> = ({
               <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
-              <h4 className="text-xs sm:text-sm font-bold text-emerald-900 uppercase tracking-wide">Status Hari Ini</h4>
-              <p className="text-xs sm:text-sm text-emerald-700 mt-1">Ringkasan kehadiran Anda</p>
+              <h4 className="text-xs sm:text-sm font-bold text-emerald-900 uppercase tracking-wide">{t('absenGuruPage.statusHariIni')}</h4>
+              <p className="text-xs sm:text-sm text-emerald-700 mt-1">{t('absenGuruPage.ringkasanKehadiranAnda')}</p>
             </div>
           </div>
 
@@ -91,7 +93,7 @@ const AttendanceInfoCard: React.FC<AttendanceInfoCardProps> = ({
             <div className="flex items-center justify-between p-3 sm:p-3.5 bg-white/50 rounded-lg border border-emerald-100">
               <div className="flex items-center gap-2.5">
                 <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-700 flex-shrink-0" />
-                <span className="text-xs sm:text-sm font-medium text-emerald-900">Absen Masuk</span>
+                <span className="text-xs sm:text-sm font-medium text-emerald-900">{t('absenGuruPage.absenMasuk')}</span>
               </div>
               {todayAttendance?.jamMasuk ? (
                 <div className="flex items-center gap-2">
@@ -106,7 +108,7 @@ const AttendanceInfoCard: React.FC<AttendanceInfoCardProps> = ({
             <div className="flex items-center justify-between p-3 sm:p-3.5 bg-white/50 rounded-lg border border-emerald-100">
               <div className="flex items-center gap-2.5">
                 <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-700 flex-shrink-0" />
-                <span className="text-xs sm:text-sm font-medium text-emerald-900">Absen Keluar</span>
+                <span className="text-xs sm:text-sm font-medium text-emerald-900">{t('absenGuruPage.absenKeluar')}</span>
               </div>
               {todayAttendance?.jamKeluar ? (
                 <div className="flex items-center gap-2">

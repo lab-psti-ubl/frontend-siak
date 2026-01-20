@@ -21,7 +21,7 @@ export function generateGuruKartuPegawai(
     try {
       // Determine which background to use based on orientation
       const frontBackground = orientation === 'potrait' ? backgroundDepan : backgroundBelakang;
-      const backBackground = orientation === 'potrait' ? backgroundDepan : backgroundBelakang;
+      const backBackground = orientation === 'potrait' ? backgroundBelakang : backgroundDepan;
       
       // Create both front and back cards
       Promise.all([
@@ -738,7 +738,7 @@ export async function generateAllGuruKartuPegawai(
   
   // Determine which background to use based on orientation
   const frontBackground = orientation === 'potrait' ? backgroundDepan : backgroundBelakang;
-  const backBackground = orientation === 'potrait' ? backgroundDepan : backgroundBelakang;
+  const backBackground = orientation === 'potrait' ? backgroundBelakang : backgroundDepan;
   
   // Process each guru
   for (let i = 0; i < gurus.length; i++) {

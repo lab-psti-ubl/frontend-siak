@@ -545,7 +545,7 @@ export const generateRaportPDFAsync = async (raportData: RaportData): Promise<js
   doc.text('Kelas', leftColumnX, currentY + 12);
   doc.text(': ' + kelas.name, leftColumnX + labelWidth, currentY + 12);
 
-  if (shouldShowJurusan() && jurusan) {
+  if (shouldShowJurusanSync() && jurusan) {
     doc.text('Jurusan', leftColumnX, currentY + 18);
     doc.text(': ' + jurusan.name, leftColumnX + labelWidth, currentY + 18);
   }

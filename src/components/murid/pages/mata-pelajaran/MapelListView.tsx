@@ -149,6 +149,8 @@ const MapelListView: React.FC<MapelListViewProps> = ({
                     <td className="px-5 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       {mapel?.keterangan === 'umum' ? (
                         <Badge variant="info" className="text-xs">Umum</Badge>
+                      ) : mapel?.keterangan === 'agama' ? (
+                        <Badge variant="success" className="text-xs">Agama</Badge>
                       ) : (
                         <Badge variant="warning" className="text-xs">Khusus</Badge>
                       )}
@@ -225,6 +227,8 @@ const MapelListView: React.FC<MapelListViewProps> = ({
                   </div>
                   {mapel?.keterangan === 'umum' ? (
                     <Badge variant="info" className="text-xs whitespace-nowrap">Umum</Badge>
+                  ) : mapel?.keterangan === 'agama' ? (
+                    <Badge variant="success" className="text-xs whitespace-nowrap">Agama</Badge>
                   ) : (
                     <Badge variant="warning" className="text-xs whitespace-nowrap">Khusus</Badge>
                   )}

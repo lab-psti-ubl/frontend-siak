@@ -12,6 +12,7 @@ import { useProfilSekolah } from '../../../hooks/useProfilSekolah';
 import { useJadwalPelajaran } from '../../../hooks/useJadwalPelajaran';
 import { useMataPelajaran } from '../../../hooks/useMataPelajaran';
 import { useGurus } from '../../../hooks/useGurus';
+import { useLanguage } from '../../../context/LanguageContext';
 
 interface IzinDetailContentProps {
   izin: IzinGuru;
@@ -43,6 +44,7 @@ const VerificationQRCode: React.FC<{ izinId: string; verificationUrl: string; re
 });
 
 const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showVerificationStatus = true }) => {
+  const { t, language } = useLanguage();
   const { profilSekolah } = useProfilSekolah();
   const { jadwalPelajaran } = useJadwalPelajaran();
   const { mataPelajaran } = useMataPelajaran();
@@ -51,6 +53,8 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
   const [buktiModalOpen, setBuktiModalOpen] = useState(false);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
 
   const buktiInfo = useMemo(() => {
     if (!izin.bukti) return { base64: undefined, mimeType: undefined, fileName: undefined };
@@ -75,21 +79,21 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
   const schoolData = useMemo(() => {
     if (profilSekolah) {
       return {
-        namaSekolah: profilSekolah.namaSekolah || 'Sekolah',
-        alamat: profilSekolah.alamat || 'Alamat Sekolah',
+        namaSekolah: profilSekolah.namaSekolah || t('izinGuru.preview.sekolah'),
+        alamat: profilSekolah.alamat || t('izinGuru.preview.alamatSekolah'),
         nomorTelepon: profilSekolah.nomorTelepon || '-',
         email: profilSekolah.email || '-',
         logoSekolah: profilSekolah.logoSekolah || ''
       };
     }
     return {
-      namaSekolah: 'Sekolah',
-      alamat: 'Alamat Sekolah',
+      namaSekolah: t('izinGuru.preview.sekolah'),
+      alamat: t('izinGuru.preview.alamatSekolah'),
       nomorTelepon: '-',
       email: '-',
       logoSekolah: ''
     };
-  }, [profilSekolah]);
+  }, [profilSekolah, t]);
 
   const getJadwalInfo = (jadwalId: string) => {
     const jadwal = jadwalPelajaran.find(j => j.id === jadwalId);
@@ -128,7 +132,7 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
       );
     } catch (error) {
       console.error('Error printing izin:', error);
-      alert('Gagal mencetak surat. Silakan coba lagi.');
+      alert(t('izinGuru.preview.gagalMencetakSurat'));
     } finally {
       setIsPrinting(false);
     }
@@ -143,7 +147,7 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors font-medium"
         >
           <Printer className="w-4 h-4" />
-          <span>{isPrinting ? 'Memproses...' : 'Print Surat'}</span>
+          <span>{isPrinting ? t('izinGuru.memproses') : t('izinGuru.preview.printSurat')}</span>
         </button>
       </div>
 
@@ -154,7 +158,7 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
             {schoolData.logoSekolah ? (
               <img
                 src={schoolData.logoSekolah}
-                alt="Logo Sekolah"
+                alt={t('izinGuru.preview.logoSekolah')}
                 className="w-16 h-16 object-contain"
               />
             ) : (
@@ -166,7 +170,7 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
           <div className="text-left">
             <h1 className="text-xl font-bold text-gray-900">{schoolData.namaSekolah}</h1>
             <p className="text-sm text-gray-600">{schoolData.alamat}</p>
-            <p className="text-sm text-gray-600">Telp: {schoolData.nomorTelepon} | Email: {schoolData.email}</p>
+            <p className="text-sm text-gray-600">{t('izinGuru.preview.telp')}: {schoolData.nomorTelepon} | {t('izinGuru.preview.email')}: {schoolData.email}</p>
           </div>
         </div>
       </div>
@@ -174,48 +178,49 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
       {/* Judul Surat */}
       <div className="text-center mb-6">
         <h2 className="text-lg font-bold text-gray-900 underline">
-          SURAT PENGAJUAN {izin.jenis === 'izin_dispen' ? 'IZIN DISPEN' : izin.jenis.toUpperCase()}
+          {t('izinGuru.preview.suratPengajuan')} {izin.jenis === 'izin_dispen' ? t('izinGuru.izinDispen').toUpperCase() : t(`izinGuru.jenis.${izin.jenis}`).toUpperCase()}
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          Nomor: {izin.id.toUpperCase()}/GURU/{new Date(izin.createdAt).getFullYear()}
+          {t('izinGuru.preview.nomor')}: {izin.id.toUpperCase()}/GURU/{new Date(izin.createdAt).getFullYear()}
         </p>
       </div>
 
       {/* Isi Surat */}
       <div className="space-y-4 text-sm leading-relaxed">
-        <p>Yang bertanda tangan di bawah ini:</p>
+        <p>{t('izinGuru.preview.yangBertandaTangan')}</p>
 
         <div className="ml-8 space-y-1">
           <div className="flex">
-            <span className="w-24 inline-block">Nama</span>
+            <span className="w-24 inline-block">{t('izinGuru.preview.nama')}</span>
             <span className="mr-2">:</span>
             <span className="font-medium">{user?.name}</span>
           </div>
           <div className="flex">
-            <span className="w-24 inline-block">NIP</span>
+            <span className="w-24 inline-block">{t('izinGuru.preview.nip')}</span>
             <span className="mr-2">:</span>
             <span>{user?.nip}</span>
           </div>
           <div className="flex">
-            <span className="w-24 inline-block">Jabatan</span>
+            <span className="w-24 inline-block">{t('izinGuru.preview.jabatan')}</span>
             <span className="mr-2">:</span>
-            <span>Guru {user?.isWaliKelas ? '/ Wali Kelas' : ''}</span>
+            <span>{t('izinGuru.preview.guru')} {user?.isWaliKelas ? ` / ${t('izinGuru.preview.waliKelas')}` : ''}</span>
           </div>
         </div>
 
         <p className="mt-4">
-          Dengan ini mengajukan permohonan {izin.jenis === 'izin_dispen' ? 'izin dispen' : izin.jenis} untuk tidak melaksanakan tugas mengajar
-          pada tanggal <strong>{new Date(izin.tanggalMulai).toLocaleDateString('id-ID', {
+          {t('izinGuru.preview.denganIniMengajukan', { jenis: izin.jenis === 'izin_dispen' ? t('izinGuru.izinDispen') : t(`izinGuru.jenis.${izin.jenis}`) })}
+          {t('izinGuru.preview.untukTidakMelaksanakan')}
+          {t('izinGuru.preview.padaTanggal')} <strong>{new Date(izin.tanggalMulai).toLocaleDateString(dateLocale, {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
             day: 'numeric'
           })}</strong>
           {izin.jenis === 'izin_dispen' && izin.jamMulai && izin.jamSelesai && (
-            <span> dari pukul <strong>{izin.jamMulai}</strong> sampai dengan pukul <strong>{izin.jamSelesai}</strong></span>
+            <span> {t('izinGuru.preview.dariPukul')} <strong>{izin.jamMulai}</strong> {t('izinGuru.preview.sampaiDenganPukul')} <strong>{izin.jamSelesai}</strong></span>
           )}
           {izin.jenis !== 'izin_dispen' && izin.tanggalMulai !== izin.tanggalSelesai && (
-            <span> sampai dengan <strong>{new Date(izin.tanggalSelesai).toLocaleDateString('id-ID', {
+            <span> {t('izinGuru.preview.sampaiDengan')} <strong>{new Date(izin.tanggalSelesai).toLocaleDateString(dateLocale, {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
@@ -225,7 +230,7 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
         </p>
 
         <div className="mt-4">
-          <p className="mb-2">Alasan {izin.jenis}:</p>
+          <p className="mb-2">{t('izinGuru.preview.alasan')} {izin.jenis === 'izin_dispen' ? t('izinGuru.izinDispen') : t(`izinGuru.jenis.${izin.jenis}`)}:</p>
           <div className="ml-4 p-3 bg-gray-50 border-l-4 border-blue-500 italic">
             "{izin.alasan}"
           </div>
@@ -233,7 +238,7 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
 
         {izin.guruPenggantiList && izin.guruPenggantiList.length > 0 && (
           <div className="mt-4">
-            <p className="mb-2">Guru Pengganti per Jadwal:</p>
+            <p className="mb-2">{t('izinGuru.preview.guruPenggantiPerJadwal')}:</p>
             <div className="ml-4 space-y-3">
               {Object.entries(
                 izin.guruPenggantiList.reduce((acc, item) => {
@@ -271,29 +276,29 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
 
         {izin.bukti && (
           <div className="mt-4">
-            <p className="mb-2">Bukti pendukung:</p>
+            <p className="mb-2">{t('izinGuru.preview.buktiPendukung')}:</p>
             <button
               onClick={() => setBuktiModalOpen(true)}
               className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
             >
               <Eye className="w-4 h-4" />
-              <span className="truncate max-w-xs">{buktiInfo.fileName || 'Bukti Pendukung'}</span>
+              <span className="truncate max-w-xs">{buktiInfo.fileName || t('izinGuru.preview.buktiPendukung')}</span>
             </button>
           </div>
         )}
 
         <p className="mt-6">
-          Demikian surat pengajuan {izin.jenis} ini saya buat dengan sebenar-benarnya.
-          Atas perhatian dan kebijaksanaan Bapak/Ibu, saya ucapkan terima kasih.
+          {t('izinGuru.preview.demikianSurat', { jenis: izin.jenis === 'izin_dispen' ? t('izinGuru.izinDispen') : t(`izinGuru.jenis.${izin.jenis}`) })}
+          {t('izinGuru.preview.atasPerhatian')}
         </p>
       </div>
 
       {/* Tanggal dan Tanda Tangan */}
       <div className="mt-8 flex justify-between">
         <div className="text-sm">
-          <p>Diajukan pada:</p>
+          <p>{t('izinGuru.preview.diajukanPada')}:</p>
           <p className="font-medium">
-            {new Date(izin.createdAt).toLocaleDateString('id-ID', {
+            {new Date(izin.createdAt).toLocaleDateString(dateLocale, {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
@@ -302,10 +307,10 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
           </p>
         </div>
         <div className="text-sm text-center">
-          <p>Hormat saya,</p>
+          <p>{t('izinGuru.preview.hormatSaya')},</p>
           <div className="mt-12 border-t border-gray-400 pt-1">
             <p className="font-medium">{user?.name}</p>
-            <p className="text-xs text-gray-500">NIP: {user?.nip}</p>
+            <p className="text-xs text-gray-500">{t('izinGuru.preview.nip')}: {user?.nip}</p>
           </div>
         </div>
       </div>
@@ -313,30 +318,30 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
       {/* Status Verifikasi Admin */}
       {showVerificationStatus && izin.status !== 'menunggu' && (
         <div className="mt-8 p-4 border-2 border-gray-300 rounded-lg bg-gray-50">
-          <h3 className="font-bold text-center mb-4">STATUS VERIFIKASI ADMIN</h3>
+          <h3 className="font-bold text-center mb-4">{t('izinGuru.preview.statusVerifikasiAdmin')}</h3>
           <div className="grid grid-cols-2 gap-4 text-sm text-center">
             <div>
-              <p><strong>Status:</strong></p>
+              <p><strong>{t('izinGuru.preview.status')}:</strong></p>
               <Badge variant={izin.status === 'diterima' ? 'success' : 'danger'} className="mt-1">
-                {izin.status === 'diterima' ? 'DISETUJUI' : 'DITOLAK'}
+                {izin.status === 'diterima' ? t('izinGuru.preview.disetujui') : t('izinGuru.preview.ditolak')}
               </Badge>
             </div>
             <div>
-              <p><strong>Tanggal Verifikasi:</strong></p>
-              <p>{izin.verifiedAt ? new Date(izin.verifiedAt).toLocaleDateString('id-ID') : '-'}</p>
+              <p><strong>{t('izinGuru.preview.tanggalVerifikasi')}:</strong></p>
+              <p>{izin.verifiedAt ? new Date(izin.verifiedAt).toLocaleDateString(dateLocale) : '-'}</p>
             </div>
           </div>
           {izin.keterangan && (
             <div className="mt-3">
-              <p><strong>Keterangan Admin:</strong></p>
+              <p><strong>{t('izinGuru.preview.keteranganAdmin')}:</strong></p>
               <p className="mt-1 p-2 bg-white border rounded italic">"{izin.keterangan}"</p>
             </div>
           )}
           <div className="mt-4 text-center">
-            <p className="text-sm">Administrator</p>
+            <p className="text-sm">{t('izinGuru.preview.administrator')}</p>
             {izin.status === 'diterima' && (
               <div className="mt-6 flex flex-col items-center">
-                <p className="text-xs font-medium text-gray-700 mb-2">Tanda Tangan Digital</p>
+                <p className="text-xs font-medium text-gray-700 mb-2">{t('izinGuru.preview.tandaTanganDigital')}</p>
                 <div className="bg-white p-3 border-2 border-green-400 rounded inline-block">
                   <VerificationQRCode
                     ref={qrCanvasRef}
@@ -347,22 +352,22 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
                 <button
                   onClick={() => openVerificationPage(
                     izin.id,
-                    'Telah ditanda tangani oleh sistem secara digital dan dinyatakan sah',
+                    t('izinGuru.preview.telahDitandaTangani'),
                     `surat_izin_${izin.jenis}` as any,
                     {
                       name: user?.name,
                       nip: user?.nip,
-                      signatureTitle: 'Admin Sekolah'
+                      signatureTitle: t('izinGuru.preview.adminSekolah')
                     }
                   )}
                   className="text-xs text-green-600 font-medium mt-2 hover:text-green-700 cursor-pointer transition-colors duration-200 underline hover:no-underline"
                 >
-                  Sah & Terverifikasi Admin
+                  {t('izinGuru.preview.sahTerverifikasiAdmin')}
                 </button>
               </div>
             )}
             <div className="mt-8 border-t border-gray-400 pt-1 inline-block">
-              <p className="font-medium">Admin Sekolah</p>
+              <p className="font-medium">{t('izinGuru.preview.adminSekolah')}</p>
             </div>
           </div>
         </div>

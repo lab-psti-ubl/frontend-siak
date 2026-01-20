@@ -1,8 +1,10 @@
 import React from 'react';
-import { Home, Calendar, ClipboardList, FileText, User, BookOpen, QrCode } from 'lucide-react';
+import { Home, Calendar, ClipboardList, FileText, User, BookOpen, QrCode, BookMarked } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAlumni } from '../../hooks/useAlumni';
+import { useSantri } from '../../hooks/useSantri';
+import { useKelasTahfiz } from '../../hooks/useKelasTahfiz';
 import { isMuridAlumni } from '../../utils/alumniStatusUtils';
 import { useQRScanner } from '../../context/QRScannerContext';
 
@@ -11,16 +13,64 @@ const MuridBottomNavigation: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { alumni } = useAlumni();
+  const { santri } = useSantri();
+  const { kelasTahfiz } = useKelasTahfiz();
   const { isQRScannerOpen, isCameraCaptureOpen } = useQRScanner();
 
   const isAlumni = isMuridAlumni(user, alumni);
+  
+  // Check if user is a santri that is NOT from murid collection
+  const santriUser = user?.id ? santri.find(s => s.id === user.id) : null;
+  const isSantriNotFromMurid = santriUser && (santriUser as any).isFromMurid === false;
+  
+  // Get tahfiz classes for this santri
+  const myTahfizClasses = isSantriNotFromMurid && user?.id
+    ? kelasTahfiz.filter(cls => cls.santriIds.includes(user.id))
+    : [];
+  
+  const hasTahfizClass = myTahfizClasses.length > 0;
 
   const getCurrentPage = () => {
     const path = location.pathname.replace('/dashboard/', '') || 'dashboard';
-    return path === 'dashboard' ? 'dashboard' : path;
+    const cleanPath = path === 'dashboard' ? 'dashboard' : path;
+    
+    // Handle active state untuk route yang spesifik
+    if (cleanPath.startsWith('jadwal-tahfiz-murid')) return 'jadwal-tahfiz-murid';
+    if (cleanPath.startsWith('absensi-santri-tahfiz')) return 'absensi-santri-tahfiz';
+    if (cleanPath.startsWith('progress-hapalan-murid')) return 'progress-hapalan-murid';
+    if (cleanPath.startsWith('surat-izin')) return 'surat-izin';
+    
+    return cleanPath;
   };
 
   const currentPage = getCurrentPage();
+
+  // Menu khusus untuk santri yang bukan dari murid (sesuai menu cards)
+  const santriNotFromMuridNavItems = (() => {
+    const items: Array<{ id: string; label: string; icon: any; color: string }> = [
+      { id: 'dashboard', label: 'Home', icon: Home, color: 'text-emerald-600' },
+  
+    ];
+
+    // Tambahkan menu tahfiz jika memiliki kelas tahfiz
+    if (hasTahfizClass) {
+      items.push(
+        { id: 'jadwal-tahfiz-murid', label: 'Jadwal', icon: Calendar, color: 'text-emerald-600' },
+        { id: 'absensi-santri-tahfiz', label: 'Absen', icon: ClipboardList, color: 'text-teal-600' },
+        { id: 'progress-hapalan-murid', label: 'Progress', icon: BookMarked, color: 'text-cyan-600' }
+      );
+    } else {
+      // Jika tidak ada kelas tahfiz, tambahkan menu izin saja (total 4 item: Home, QR Code, Izin, Profil)
+      items.push(
+        { id: 'surat-izin', label: 'Izin', icon: FileText, color: 'text-red-600' }
+      );
+    }
+
+    // Tambahkan profil di akhir
+    items.push({ id: 'profil', label: 'Profil', icon: User, color: 'text-amber-600' });
+
+    return items;
+  })();
 
   // Menu untuk alumni
   const alumniNavItems = [
@@ -40,7 +90,9 @@ const MuridBottomNavigation: React.FC = () => {
     { id: 'profil', label: 'Profil', icon: User, color: 'text-pink-600' },
   ];
 
-  const displayItems = isAlumni ? alumniNavItems : navItems;
+  const displayItems = isSantriNotFromMurid 
+    ? santriNotFromMuridNavItems
+    : (isAlumni ? alumniNavItems : navItems);
 
   const handleNavigation = (pageId: string) => {
     if (pageId === 'dashboard') {
@@ -62,23 +114,26 @@ const MuridBottomNavigation: React.FC = () => {
           const Icon = item.icon;
           const isActive = currentPage === item.id;
 
+          // Gunakan warna tema yang sesuai untuk santri
+          const activeBgColor = isSantriNotFromMurid ? 'bg-emerald-50' : 'bg-blue-50';
+
           return (
             <button
               key={item.id}
               onClick={() => handleNavigation(item.id)}
               className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors duration-200 ${
                 isActive
-                  ? 'bg-blue-50'
+                  ? activeBgColor
                   : 'hover:bg-slate-50'
               }`}
             >
               <Icon
                 size={24}
-                className={`${isActive ? 'text-blue-600' : 'text-slate-500'} transition-colors duration-200`}
+                className={`${isActive ? item.color : 'text-slate-500'} transition-colors duration-200`}
               />
               <span
                 className={`text-xs font-semibold ${
-                  isActive ? 'text-blue-600' : 'text-slate-600'
+                  isActive ? item.color : 'text-slate-600'
                 }`}
               >
                 {item.label}

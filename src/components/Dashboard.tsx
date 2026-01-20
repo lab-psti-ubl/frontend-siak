@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { usePengaturanSistem } from '../hooks/usePengaturanSistem';
 import Sidebar from './layout/Sidebar';
 import Header from './layout/Header';
 
@@ -27,6 +28,15 @@ import AlumniSekolah from './admin/pages/info-pengumuman/AlumniSekolah';
 import RekapRaportMurid from './admin/pages/info-pengumuman/RekapRaportMurid';
 import MonitoringKelas from './admin/pages/monitoring-kelas/MonitoringKelas';
 import ManajemenAlatRFID from './admin/pages/kelola-alat-rfid/ManajemenAlatRFID';
+import DataUstadz from './admin/pages/tahfiz/DataUstadz';
+import DataSantri from './admin/pages/tahfiz/DataSantri';
+import DataSantriKepalaSekolah from './admin/pages/tahfiz/DataSantriKepalaSekolah';
+import DataUstadzKepalaSekolah from './admin/pages/tahfiz/DataUstadzKepalaSekolah';
+import DetailProgressSantriKepalaSekolah from './admin/pages/tahfiz/DetailProgressSantriKepalaSekolah';
+import DetailUstadzKepalaSekolah from './admin/pages/tahfiz/DetailUstadzKepalaSekolah';
+import DetailKelasTahfiz from './admin/pages/tahfiz/DetailKelasTahfiz';
+import DataKelasTahfiz from './admin/pages/tahfiz/DataKelasTahfiz';
+import DataJadwalTahfiz from './admin/pages/tahfiz/DataJadwalTahfiz';
 
 import GuruDashboard from './guru/GuruDashboard';
 import JadwalGuru from './guru/pages/mengajar/JadwalGuru';
@@ -36,6 +46,7 @@ import SuratIzinGuru from './guru/pages/walikelas/SuratIzinGuru';
 import ProfilGuru from './guru/ProfilGuru';
 import AbsenKelas from './guru/pages/walikelas/AbsenKelas';
 import AbsenGuruComponent from './guru/AbsenGuru';
+import AbsenSiswa from './guru/pages/absen-siswa/AbsenSiswa';
 import DataMuridKelas from './guru/pages/walikelas/DataMuridKelas';
 import AbsenPelajaran from './guru/pages/walikelas/AbsenPelajaran';
 import JadwalKelas from './guru/pages/walikelas/JadwalKelas';
@@ -51,6 +62,16 @@ import ERaport from './guru/pages/walikelas/ERaport';
 import InfoKelulusan from './guru/pages/walikelas/InfoKelulusan';
 import RiwayatWaliKelas from './guru/pages/walikelas/RiwayatWaliKelas';
 import PenggantiAbsensi from './guru/pages/pengganti/PenggantiAbsensi';
+import DataSantriTahfizGuru from './guru/pages/tahfiz/DataSantriTahfizGuru';
+import DetailSantriTahfizGuru from './guru/pages/tahfiz/DetailSantriTahfizGuru';
+import JadwalTahfizGuru from './guru/pages/tahfiz/JadwalTahfizGuru';
+import ProgressTahfiz from './guru/pages/tahfiz/ProgressTahfiz';
+import DetailProgressTahfiz from './guru/pages/tahfiz/DetailProgressTahfiz';
+import TesHapalan from './guru/pages/tahfiz/TesHapalan';
+import DetailHafalan from './guru/pages/tahfiz/DetailHafalan';
+import AbsensiTahfiz from './guru/pages/tahfiz/AbsensiTahfiz';
+import RiwayatAbsensiTahfiz from './guru/pages/tahfiz/RiwayatAbsensiTahfiz';
+import IzinSantriTahfiz from './guru/pages/tahfiz/IzinSantriTahfiz';
 import InfoKelulusanMurid from './murid/InfoKelulusanMurid';
 import RiwayatKelulusan from './guru/RiwayatKelulusan';
 
@@ -65,11 +86,15 @@ import NilaiMurid from './murid/NilaiMurid';
 import MuridRaportMurid from './murid/RaportMurid';
 import ERaportMurid from './murid/pages/ERaportMurid';
 import MataPelajaranMurid from './murid/MataPelajaranMurid';
+import JadwalTahfizMurid from './murid/pages/tahfiz/JadwalTahfizMurid';
+import AbsensiSantriTahfiz from './murid/pages/tahfiz/AbsensiSantriTahfiz';
+import ProgressHapalanMurid from './murid/pages/tahfiz/ProgressHapalanMurid';
 import MuridBottomNavigation from './murid/MuridBottomNavigation';
 import GuruBottomNavigation from './guru/GuruBottomNavigation';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { systemType } = usePengaturanSistem();
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedKelasId, setSelectedKelasId] = useState<string>('');
@@ -139,10 +164,23 @@ const Dashboard: React.FC = () => {
   // Get current page from URL
   const getCurrentPage = () => {
     const path = location.pathname.replace('/dashboard/', '') || 'dashboard';
-    return path === 'dashboard' ? 'dashboard' : path;
+    if (path === 'dashboard' || path === '') {
+      return 'dashboard';
+    }
+    // Extract base path (remove parameters and sub-paths)
+    // e.g., "progress-tahfiz/123" -> "progress-tahfiz"
+    // e.g., "progress-tahfiz/123/tes-hapalan" -> "progress-tahfiz"
+    const basePath = path.split('/')[0];
+    return basePath;
   };
 
   const currentPage = getCurrentPage();
+
+  // Update document title based on current page
+  useEffect(() => {
+    const pageTitle = getPageTitle();
+    document.title = `${pageTitle} - iSchola`;
+  }, [location.pathname]);
 
   const handlePageChange = (page: string) => {
     if (page === 'dashboard') {
@@ -167,6 +205,10 @@ const Dashboard: React.FC = () => {
       'tahun-ajaran': 'Tahun Ajaran',
       'monitoring-kelas': 'Monitoring Kelas Real-Time',
       'absen-guru': 'Absen Guru',
+      'absen-saya': 'Absen Saya',
+      'absen-siswa': 'Absen Siswa',
+      'data-santri-kepala-sekolah': 'Data Santri Tahfiz',
+      'data-ustadz-kepala-sekolah': 'Data Ustadz Tahfiz',
       'qr-admin': 'QR Admin',
       'pengaturan': 'Pengaturan Absen',
       'data-alat-rfid': 'Data Alat RFID',
@@ -188,6 +230,9 @@ const Dashboard: React.FC = () => {
       'nilai-saya': 'Nilai Saya',
       'raport-saya': 'Raport Saya',
       'e-raport-saya': 'E-Raport Saya',
+      'jadwal-tahfiz-murid': 'Jadwal Tahfiz',
+      'absensi-santri-tahfiz': 'Absensi Santri',
+      'progress-hapalan-murid': 'Progress Hapalan',
       'raport-murid': 'Raport Murid',
       'riwayat-wali-kelas': 'Riwayat Walikelas',
       'raport-murid-admin': 'Raport Murid',
@@ -197,8 +242,16 @@ const Dashboard: React.FC = () => {
       'info-kelulusan': 'Info Kelulusan',
       'info-kelulusan-murid': 'Info Kelulusan',
       'pengganti': 'Pengganti',
+      'data-kelas-tahfiz': 'Data Kelas/Ruangan Tahfiz',
+      'data-jadwal-tahfiz': 'Data Jadwal Tahfiz',
+      'data-santri-tahfiz-guru': 'Data Santri Tahfiz',
+      'absensi-tahfiz': 'Absensi Tahfiz',
+      'riwayat-absensi-tahfiz': 'Riwayat Absen Tahfiz',
+      'izin-santri-tahfiz': 'Izin Santri',
+      'progress-tahfiz': 'Progress Tahfiz',
     };
-    return titles[currentPage] || 'Dashboard';
+    const currentPageForTitle = getCurrentPage();
+    return titles[currentPageForTitle] || 'Dashboard';
   };
 
   const handleMenuClick = () => {
@@ -274,92 +327,185 @@ const Dashboard: React.FC = () => {
                     }
                   }} />
                 } />
+                <Route path="/data-santri-kepala-sekolah" element={<DataSantriKepalaSekolah />} />
+                <Route path="/data-santri-kepala-sekolah/:santriId" element={<DetailProgressSantriKepalaSekolah />} />
+                <Route path="/data-ustadz-kepala-sekolah" element={<DataUstadzKepalaSekolah />} />
+                <Route path="/data-ustadz-kepala-sekolah/:ustadzId" element={<DetailUstadzKepalaSekolah />} />
               </>
             )}
 
             {user?.role === 'admin' && (
               <>
                 <Route path="/" element={<AdminDashboard />} />
-                <Route path="/guru" element={<ManajemenGuru />} />
-                <Route path="/jurusan" element={<ManajemenJurusan />} />
-                <Route path="/kelas" element={<ManajemenKelas />} />
-                <Route path="/tambah-murid" element={
-                  <TambahMurid 
-                    onBack={() => navigate('/dashboard/kelola-data-murid')} 
-                  />
-                } />
-                <Route path="/kelola-data-murid" element={
-                  <ManajemenMuridNew onAddMurid={(kelasId) => {
-                    if (kelasId) {
-                      // Store kelas ID for persistence
-                      sessionStorage.setItem('selectedKelasId', kelasId);
-                      navigate('/dashboard/tambah-murid', { state: { selectedKelasId: kelasId } });
-                    } else {
-                      navigate('/dashboard/tambah-murid');
-                    }
-                  }} />
-                } />
-                <Route path="/guru-mapel" element={<KelolaGuruMapel />} />
-                <Route path="/mapel" element={<ManajemenMapel />} />
-                <Route path="/jadwal" element={<ManajemenJadwal />} />
-                <Route path="/tahun-ajaran" element={<ManajemenTahunAjaran />} />
-                <Route path="/ekstrakulikuler" element={<ManajemenEkstrakulikuler />} />
-                <Route path="/monitoring-kelas" element={<MonitoringKelas />} />
-                <Route path="/absen-guru" element={<AbsenGuru />} />
-                <Route path="/qr-admin" element={<QRAdmin />} />
-                <Route path="/izin-guru-admin" element={<IzinGuruAdmin />} />
-                <Route path="/pengaturan" element={<PengaturanAbsen />} />
-                <Route path="/data-alat-rfid" element={<ManajemenAlatRFID />} />
-                <Route path="/beri-info" element={<BeriInfo />} />
-                <Route path="/pengumuman-kelulusan" element={<PengumumanKelulusan />} />
-                <Route path="/raport-murid-admin" element={<RekapRaportMurid />} />
-                <Route path="/alumni-sekolah" element={<AlumniSekolah />} />
+                {systemType === 'tahfiz' ? (
+                  <>
+                    <Route path="/guru" element={<ManajemenGuru />} />
+                    <Route path="/absen-guru" element={<AbsenGuru />} />
+                    <Route path="/izin-guru-admin" element={<IzinGuruAdmin />} />
+                    <Route path="/beri-info" element={<BeriInfo />} />
+                    <Route path="/data-alat-rfid" element={<ManajemenAlatRFID />} />
+                    <Route path="/data-kelas-tahfiz" element={<DataKelasTahfiz />} />
+                    <Route path="/data-kelas-tahfiz/:id" element={<DetailKelasTahfiz />} />
+                    <Route path="/data-jadwal-tahfiz" element={<DataJadwalTahfiz />} />
+                    <Route path="/data-ustadz" element={<DataUstadz />} />
+                    <Route path="/data-santri" element={<DataSantri />} />
+                    <Route path="/pengaturan" element={<PengaturanAbsen />} />
+                  </>
+                ) : (
+                  <>
+                    <Route path="/guru" element={<ManajemenGuru />} />
+                    {(systemType === 'sekolah_umum' || systemType === 'sekolah_umum_tahfiz') && (
+                      <>
+                        <Route path="/jurusan" element={<ManajemenJurusan />} />
+                        <Route path="/kelas" element={<ManajemenKelas />} />
+                      </>
+                    )}
+                    <Route path="/tambah-murid" element={
+                      <TambahMurid 
+                        onBack={() => navigate('/dashboard/kelola-data-murid')} 
+                      />
+                    } />
+                    <Route path="/kelola-data-murid" element={
+                      <ManajemenMuridNew onAddMurid={(kelasId) => {
+                        if (kelasId) {
+                          // Store kelas ID for persistence
+                          sessionStorage.setItem('selectedKelasId', kelasId);
+                          navigate('/dashboard/tambah-murid', { state: { selectedKelasId: kelasId } });
+                        } else {
+                          navigate('/dashboard/tambah-murid');
+                        }
+                      }} />
+                    } />
+                    <Route path="/guru-mapel" element={<KelolaGuruMapel />} />
+                    <Route path="/mapel" element={<ManajemenMapel />} />
+                    <Route path="/jadwal" element={<ManajemenJadwal />} />
+                    <Route path="/tahun-ajaran" element={<ManajemenTahunAjaran />} />
+                    <Route path="/ekstrakulikuler" element={<ManajemenEkstrakulikuler />} />
+                    <Route path="/monitoring-kelas" element={<MonitoringKelas />} />
+                    <Route path="/absen-guru" element={<AbsenGuru />} />
+                    <Route path="/qr-admin" element={<QRAdmin />} />
+                    <Route path="/izin-guru-admin" element={<IzinGuruAdmin />} />
+                    <Route path="/pengaturan" element={<PengaturanAbsen />} />
+                    <Route path="/data-alat-rfid" element={<ManajemenAlatRFID />} />
+                    <Route path="/beri-info" element={<BeriInfo />} />
+                    <Route path="/pengumuman-kelulusan" element={<PengumumanKelulusan />} />
+                    <Route path="/raport-murid-admin" element={<RekapRaportMurid />} />
+                    <Route path="/alumni-sekolah" element={<AlumniSekolah />} />
+                    {systemType === 'sekolah_umum_tahfiz' && (
+                      <>
+                        <Route path="/data-kelas-tahfiz" element={<DataKelasTahfiz />} />
+                        <Route path="/data-kelas-tahfiz/:id" element={<DetailKelasTahfiz />} />
+                        <Route path="/data-jadwal-tahfiz" element={<DataJadwalTahfiz />} />
+                        <Route path="/data-ustadz" element={<DataUstadz />} />
+                        <Route path="/data-santri" element={<DataSantri />} />
+                      </>
+                    )}
+                  </>
+                )}
               </>
             )}
             
             {user?.role === 'guru' && (
               <>
                 <Route path="/" element={<GuruDashboard />} />
-                <Route path="/jadwal-saya" element={<JadwalGuru />} />
-                <Route path="/absensi" element={<KelolaAbsensi />} />
-                <Route path="/input-nilai" element={<InputNilai />} />
-                <Route path="/capaian-pembelajaran" element={<CapaianPembelajaran />} />
-                <Route path="/riwayat-absensi" element={<RiwayatAbsensi />} />
-                <Route path="/absen-kelas" element={<AbsenKelas />} />
-                <Route path="/absen-guru" element={<AbsenGuruComponent />} />
-                <Route path="/data-murid-kelas" element={<DataMuridKelas />} />
-                <Route path="/murid-kelas" element={<AbsenPelajaran />} />
-                <Route path="/nilai-kelas" element={<NilaiKelas />} />
-                <Route path="/nilai-ekstrakulikuler-kelas" element={<NilaiEkstrakulikulerKelas />} />
-                <Route path="/nilai-ekstrakulikuler-murid/:muridId" element={<DetailNilaiEkstrakulikulerMurid />} />
-                <Route path="/kokulikuler" element={<KokulikulerKelas />} />
-                <Route path="/surat-izin" element={<SuratIzinGuru />} />
-                <Route path="/jadwal-kelas" element={<JadwalKelas />} />
-                <Route path="/izin-guru" element={<IzinGuruComponent />} />
-                <Route path="/pengganti" element={<PenggantiAbsensi />} />
-                <Route path="/profil" element={<ProfilGuru />} />
-                <Route path="/raport-murid" element={<RaportMurid />} />
-                <Route path="/e-raport" element={<ERaport />} />
-                <Route path="/info-kelulusan" element={<InfoKelulusan />} />
-                <Route path="/riwayat-wali-kelas" element={<RiwayatWaliKelas />} />
-                <Route path="/riwayat-kelulusan" element={<RiwayatKelulusan />} />
+                {systemType === 'tahfiz' ? (
+                  <>
+                    <Route path="/absen-saya" element={<AbsenGuruComponent />} />
+                    <Route path="/izin-guru" element={<IzinGuruComponent />} />
+                    <Route path="/absen-siswa" element={<AbsenSiswa />} />
+                    <Route path="/data-santri-tahfiz-guru" element={<DataSantriTahfizGuru />} />
+                    <Route path="/data-santri-tahfiz-guru/:id" element={<DetailSantriTahfizGuru />} />
+                    <Route path="/jadwal-tahfiz-guru" element={<JadwalTahfizGuru />} />
+                    <Route path="/absensi-tahfiz" element={<AbsensiTahfiz />} />
+                    <Route path="/riwayat-absensi-tahfiz" element={<RiwayatAbsensiTahfiz />} />
+                    <Route path="/izin-santri-tahfiz" element={<IzinSantriTahfiz />} />
+                    <Route path="/progress-tahfiz" element={<ProgressTahfiz />} />
+                    <Route path="/progress-tahfiz/:santriId" element={<DetailProgressTahfiz />} />
+                    <Route path="/progress-tahfiz/:santriId/tes-hapalan" element={<TesHapalan />} />
+                    <Route path="/progress-tahfiz/:santriId/detail-hafalan" element={<DetailHafalan />} />
+                    <Route path="/profil" element={<ProfilGuru />} />
+                  </>
+                ) : (
+                  <>
+                    <Route path="/jadwal-saya" element={<JadwalGuru />} />
+                    <Route path="/absensi" element={<KelolaAbsensi />} />
+                    <Route path="/input-nilai" element={<InputNilai />} />
+                    <Route path="/capaian-pembelajaran" element={<CapaianPembelajaran />} />
+                    <Route path="/riwayat-absensi" element={<RiwayatAbsensi />} />
+                    <Route path="/absen-kelas" element={<AbsenKelas />} />
+                    <Route path="/absen-saya" element={<AbsenGuruComponent />} />
+                    <Route path="/absen-siswa" element={<AbsenSiswa />} />
+                    <Route path="/absen-guru" element={<AbsenGuruComponent />} />
+                    <Route path="/data-murid-kelas" element={<DataMuridKelas />} />
+                    <Route path="/murid-kelas" element={<AbsenPelajaran />} />
+                    <Route path="/nilai-kelas" element={<NilaiKelas />} />
+                    <Route path="/nilai-ekstrakulikuler-kelas" element={<NilaiEkstrakulikulerKelas />} />
+                    <Route path="/nilai-ekstrakulikuler-murid/:muridId" element={<DetailNilaiEkstrakulikulerMurid />} />
+                    <Route path="/kokulikuler" element={<KokulikulerKelas />} />
+                    <Route path="/surat-izin" element={<SuratIzinGuru />} />
+                    <Route path="/jadwal-kelas" element={<JadwalKelas />} />
+                    <Route path="/izin-guru" element={<IzinGuruComponent />} />
+                    <Route path="/pengganti" element={<PenggantiAbsensi />} />
+                    <Route path="/profil" element={<ProfilGuru />} />
+                    <Route path="/raport-murid" element={<RaportMurid />} />
+                    <Route path="/e-raport" element={<ERaport />} />
+                    <Route path="/info-kelulusan" element={<InfoKelulusan />} />
+                    <Route path="/riwayat-wali-kelas" element={<RiwayatWaliKelas />} />
+                    <Route path="/riwayat-kelulusan" element={<RiwayatKelulusan />} />
+                    {systemType === 'sekolah_umum_tahfiz' && (
+                      <>
+                        <Route path="/data-santri-tahfiz-guru" element={<DataSantriTahfizGuru />} />
+                        <Route path="/data-santri-tahfiz-guru/:id" element={<DetailSantriTahfizGuru />} />
+                        <Route path="/jadwal-tahfiz-guru" element={<JadwalTahfizGuru />} />
+                        <Route path="/absensi-tahfiz" element={<AbsensiTahfiz />} />
+                        <Route path="/riwayat-absensi-tahfiz" element={<RiwayatAbsensiTahfiz />} />
+                        <Route path="/izin-santri-tahfiz" element={<IzinSantriTahfiz />} />
+                        <Route path="/progress-tahfiz" element={<ProgressTahfiz />} />
+                        <Route path="/progress-tahfiz/:santriId" element={<DetailProgressTahfiz />} />
+                        <Route path="/progress-tahfiz/:santriId/tes-hapalan" element={<TesHapalan />} />
+                        <Route path="/progress-tahfiz/:santriId/detail-hafalan" element={<DetailHafalan />} />
+                      </>
+                    )}
+                  </>
+                )}
               </>
             )}
             
             {user?.role === 'murid' && (
               <>
                 <Route path="/" element={<MuridDashboard />} />
-                <Route path="/jadwal" element={<JadwalMurid />} />
-                <Route path="/mata-pelajaran" element={<MataPelajaranMurid />} />
-                <Route path="/absensi-saya" element={<AbsensiMurid />} />
-                <Route path="/absen-kehadiran" element={<AbsenKehadiran />} />
-                <Route path="/qr-code" element={<QRCodeMurid />} />
-                <Route path="/nilai-saya" element={<NilaiMurid />} />
-                <Route path="/raport-saya" element={<MuridRaportMurid />} />
-                <Route path="/e-raport-saya" element={<ERaportMurid />} />
-                <Route path="/surat-izin" element={<SuratIzinMurid />} />
-                <Route path="/info-kelulusan-murid" element={<InfoKelulusanMurid />} />
-                <Route path="/profil" element={<ProfilMurid />} />
+                {systemType === 'tahfiz' ? (
+                  <>
+                    <Route path="/qr-code" element={<QRCodeMurid />} />
+                    <Route path="/jadwal-tahfiz-murid" element={<JadwalTahfizMurid />} />
+                    <Route path="/absensi-santri-tahfiz" element={<AbsensiSantriTahfiz />} />
+                    <Route path="/absen-kehadiran" element={<AbsenKehadiran />} />
+                    <Route path="/progress-hapalan-murid" element={<ProgressHapalanMurid />} />
+                    <Route path="/surat-izin" element={<SuratIzinMurid />} />
+                    <Route path="/profil" element={<ProfilMurid />} />
+                  </>
+                ) : (
+                  <>
+                    <Route path="/jadwal" element={<JadwalMurid />} />
+                    <Route path="/mata-pelajaran" element={<MataPelajaranMurid />} />
+                    <Route path="/absensi-saya" element={<AbsensiMurid />} />
+                    <Route path="/absen-kehadiran" element={<AbsenKehadiran />} />
+                    <Route path="/qr-code" element={<QRCodeMurid />} />
+                    <Route path="/nilai-saya" element={<NilaiMurid />} />
+                    <Route path="/raport-saya" element={<MuridRaportMurid />} />
+                    <Route path="/e-raport-saya" element={<ERaportMurid />} />
+                    <Route path="/surat-izin" element={<SuratIzinMurid />} />
+                    <Route path="/info-kelulusan-murid" element={<InfoKelulusanMurid />} />
+                    {systemType === 'sekolah_umum_tahfiz' && (
+                      <>
+                        <Route path="/jadwal-tahfiz-murid" element={<JadwalTahfizMurid />} />
+                        <Route path="/absensi-santri-tahfiz" element={<AbsensiSantriTahfiz />} />
+                        <Route path="/progress-hapalan-murid" element={<ProgressHapalanMurid />} />
+                      </>
+                    )}
+                    <Route path="/profil" element={<ProfilMurid />} />
+                  </>
+                )}
               </>
             )}
             

@@ -5,6 +5,7 @@ import {
   Users,
   School,
   Calendar,
+  CalendarClock,
   ClipboardList,
   FileText,
   GraduationCap,
@@ -33,9 +34,14 @@ import { usePengumumanKelulusan } from '../../hooks/usePengumumanKelulusan';
 import { useRiwayatWaliKelasData } from '../../hooks/useRiwayatWaliKelasData';
 import { useAlumni } from '../../hooks/useAlumni';
 import { useProfilSekolah } from '../../hooks/useProfilSekolah';
+import { useUstadz } from '../../hooks/useUstadz';
+import { useKelasTahfiz } from '../../hooks/useKelasTahfiz';
+import { useSantri } from '../../hooks/useSantri';
+import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
 import { Kelas, IzinGuru, Alumni } from '../../types';
 import { shouldShowJurusanSync, isMaxTingkatSync } from '../../utils/jenjangPendidikanUtils';
 import { isMuridAlumni } from '../../utils/alumniStatusUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface SidebarProps {
   currentPage: string;
@@ -52,6 +58,7 @@ interface MenuItem {
 }
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, onClose }) => {
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const { gurus } = useGurus();
@@ -63,6 +70,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
   const { riwayatWaliKelas: riwayatWaliKelasData } = useRiwayatWaliKelasData();
   const { alumni } = useAlumni();
   const { profilSekolah } = useProfilSekolah();
+  const { ustadz } = useUstadz();
+  const { kelasTahfiz } = useKelasTahfiz();
+  const { santri } = useSantri();
+  const { systemType } = usePengaturanSistem();
   const [expandedMenus, setExpandedMenus] = React.useState<string[]>([]);
   const showJurusan = shouldShowJurusanSync();
   
@@ -123,53 +134,150 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
   const getMenuItems = () => {
     switch (user?.role) {
       case 'kepala_sekolah':
-        return [
-          { id: 'dashboard', label: 'Dashboard', icon: Home },
-          { id: 'monitoring-kelas', label: 'Monitoring Kelas', icon: Eye },
-          { id: 'absen-guru', label: 'Absen Guru', icon: ClipboardList },
-          {
+        const kepalaSekolahMenuItems: MenuItem[] = [
+          { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },
+        ];
+        
+        // Hide menu monitoring-kelas jika systemType adalah tahfiz
+        if (systemType !== 'tahfiz') {
+          kepalaSekolahMenuItems.push({ 
+            id: 'monitoring-kelas', 
+            label: t('sidebar.monitoringKelas'), 
+            icon: Eye 
+          });
+        }
+        
+        // Ubah label menu berdasarkan systemType
+        if (systemType === 'tahfiz' || systemType === 'sekolah_umum_tahfiz') {
+          kepalaSekolahMenuItems.push({ 
+            id: 'absen-guru', 
+            label: t('sidebar.kehadiranUstadz'), 
+            icon: ClipboardList 
+          });
+        } else {
+          kepalaSekolahMenuItems.push({ 
+            id: 'absen-guru', 
+            label: t('sidebar.absenGuru'), 
+            icon: ClipboardList 
+          });
+        }
+        
+        // Hide menu data-statistik jika systemType adalah tahfiz
+        if (systemType !== 'tahfiz') {
+          kepalaSekolahMenuItems.push({
             id: 'data-statistik',
-            label: 'Data Statistik',
+            label: t('sidebar.dataStatistik'),
             icon: BarChart3,
             subItems: [
-              { id: 'guru', label: 'Data Guru', icon: Users },
-              { id: 'kelola-data-murid', label: 'Data Murid', icon: Users },
+              { id: 'guru', label: t('sidebar.dataGuru'), icon: Users },
+              { id: 'kelola-data-murid', label: t('sidebar.dataMurid'), icon: Users },
             ]
-          },
-        ];
+          });
+        }
+        
+        // Show tahfiz menu jika systemType adalah tahfiz atau sekolah_umum_tahfiz
+        if (systemType === 'tahfiz' || systemType === 'sekolah_umum_tahfiz') {
+          kepalaSekolahMenuItems.push({
+            id: 'tahfiz-quran',
+            label: t('sidebar.tahfizQuran'),
+            icon: BookOpen,
+            subItems: [
+              { id: 'data-santri-kepala-sekolah', label: t('sidebar.dataSantri'), icon: Users },
+              { id: 'data-ustadz-kepala-sekolah', label: t('sidebar.dataUstadz'), icon: Users },
+            ]
+          });
+        }
+        
+        return kepalaSekolahMenuItems;
       case 'admin':
-        const adminMenuItems: MenuItem[] = [
-          { id: 'dashboard', label: 'Dashboard', icon: Home },
-          { id: 'monitoring-kelas', label: 'Monitoring Kelas', icon: Eye },
+        const adminMenuItems: MenuItem[] = [];
+        
+        // Always show dashboard
+        adminMenuItems.push({ id: 'dashboard', label: t('sidebar.dashboard'), icon: Home });
+        
+        // For tahfiz system, show limited menus
+        if (systemType === 'tahfiz') {
+          adminMenuItems.push(
+            {
+              id: 'kelola-guru',
+              label: t('sidebar.kelolaAbsenGuru'),
+              icon: Users,
+              subItems: [
+                { id: 'absen-guru', label: t('sidebar.absenGuru'), icon: ClipboardList },
+                { id: 'izin-guru-admin', label: t('sidebar.verifikasiIzinGuru'), icon: FileText },
+              ]
+            },
+            {
+              id: 'info-pengumuman',
+              label: t('sidebar.infoPengumuman'),
+              icon: FileText,
+              subItems: [
+                { id: 'beri-info', label: t('sidebar.beriInfo'), icon: FileText },
+              ]
+            },
+            {
+              id: 'kelola-alat',
+              label: t('sidebar.kelolaAlat'),
+              icon: Briefcase,
+              subItems: [
+                { id: 'data-alat-rfid', label: t('sidebar.dataAlatRfid'), icon: QrCode },
+              ]
+            },
+            {
+              id: 'tahfiz-quran',
+              label: t('sidebar.tahfizQuran'),
+              icon: BookOpen,
+              subItems: [
+                { id: 'data-kelas-tahfiz', label: t('sidebar.dataKelasRuangan'), icon: School },
+                { id: 'data-jadwal-tahfiz', label: t('sidebar.dataJadwalTahfiz'), icon: CalendarClock },
+                { id: 'data-ustadz', label: t('sidebar.dataUstadz'), icon: Users },
+                { id: 'data-santri', label: t('sidebar.dataSantri'), icon: Users },
+              ]
+            },
+            { id: 'pengaturan', label: t('sidebar.pengaturan'), icon: Settings }
+          );
+          return adminMenuItems;
+        }
+        
+        // For sekolah_umum and sekolah_umum_tahfiz, show general menus
+        adminMenuItems.push(
+          { id: 'monitoring-kelas', label: t('sidebar.monitoringKelas'), icon: Eye },
           {
             id: 'kelola-guru',
-            label: 'Kelola Guru',
+            label: t('sidebar.kelolaAbsenGuru'),
             icon: Users,
             subItems: [
-              { id: 'guru', label: 'Manajemen Guru', icon: Users },
-              { id: 'absen-guru', label: 'Absen Guru', icon: ClipboardList },
-              { id: 'izin-guru-admin', label: 'Verifikasi Izin Guru', icon: FileText },
-              { id: 'qr-admin', label: 'QR Admin', icon: QrCode },
+              { id: 'absen-guru', label: t('sidebar.absenGuru'), icon: ClipboardList },
+              { id: 'izin-guru-admin', label: t('sidebar.verifikasiIzinGuru'), icon: FileText },
+              { id: 'qr-admin', label: t('sidebar.qrAdmin'), icon: QrCode },
             ]
           },
-        ];
+          {
+            id: 'kelola-data-guru',
+            label: t('sidebar.kelolaDataGuru'),
+            icon: Users,
+            subItems: [
+              { id: 'guru', label: t('sidebar.manajemenGuru'), icon: Users },
+            ]
+          },
+        );
 
         // Only show Kelola Jurusan menu for SMA/SMK
         if (showJurusan) {
           adminMenuItems.push({
             id: 'kelola-jurusan',
-            label: 'Kelola Jurusan',
+            label: t('sidebar.kelolaJurusan'),
             icon: School,
             subItems: [
-              { id: 'jurusan', label: 'Manajemen Jurusan', icon: BookOpen },
-              { id: 'kelas', label: 'Manajemen Kelas', icon: Users },
+              { id: 'jurusan', label: t('sidebar.manajemenJurusan'), icon: BookOpen },
+              { id: 'kelas', label: t('sidebar.manajemenKelas'), icon: Users },
             ]
           });
         } else {
           // For SD/SMP, show only Manajemen Kelas without jurusan
           adminMenuItems.push({
             id: 'kelas',
-            label: 'Manajemen Kelas',
+            label: t('sidebar.manajemenKelas'),
             icon: School,
           });
         }
@@ -177,78 +285,152 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
         adminMenuItems.push(
           {
             id: 'murid',
-            label: 'Manajemen Murid',
+            label: t('sidebar.kelolaDataSiswa'),
             icon: UserCheck,
             subItems: [
-              { id: 'tambah-murid', label: 'Tambah Murid', icon: Plus },
-              { id: 'kelola-data-murid', label: 'Kelola Data Murid', icon: Users },
+              { id: 'tambah-murid', label: t('sidebar.tambahSiswa'), icon: Plus },
+              { id: 'kelola-data-murid', label: t('sidebar.manejemenSiswa'), icon: Users },
             ]
           },
           {
             id: 'pelajaran',
-            label: 'Kelola Akademik',
+            label: t('sidebar.kelolaAkademik'),
             icon: Calendar,
             subItems: [
-              { id: 'tahun-ajaran', label: 'Tahun Ajaran', icon: GraduationCap },
-               { id: 'mapel', label: 'Mata Pelajaran', icon: BookOpen },
-              { id: 'guru-mapel', label: 'Kelola Guru Mapel', icon: Users },
-             
-              { id: 'jadwal', label: 'Jadwal Pelajaran', icon: Calendar },
-              
-              
+              { id: 'tahun-ajaran', label: t('sidebar.tahunAjaran'), icon: GraduationCap },
+              { id: 'mapel', label: t('sidebar.mataPelajaran'), icon: BookOpen },
+              { id: 'guru-mapel', label: t('sidebar.kelolaGuruMapel'), icon: Users },
+              { id: 'jadwal', label: t('sidebar.jadwalPelajaran'), icon: Calendar },
             ]
           },
           {
             id: 'info-pengumuman',
-            label: 'Info & Pengumuman',
+            label: t('sidebar.infoPengumuman'),
             icon: FileText,
             subItems: [
-              { id: 'beri-info', label: 'Beri Info', icon: FileText },
-              { id: 'pengumuman-kelulusan', label: 'Pengumuman Kelulusan', icon: GraduationCap },
-              
+              { id: 'beri-info', label: t('sidebar.beriInfo'), icon: FileText },
+              { id: 'pengumuman-kelulusan', label: t('sidebar.pengumumanKelulusan'), icon: GraduationCap },
             ]
           },
           {
             id: 'rekap-raport',
-            label: 'Rekap Raport Murid',
+            label: t('sidebar.rekapRaportMurid'),
             icon: FileText,
             subItems: [
-              { id: 'raport-murid-admin', label: 'Laporan Hasil Belajar', icon: FileText },
-              { id: 'alumni-sekolah', label: 'Alumni Sekolah', icon: Users },
+              { id: 'raport-murid-admin', label: t('sidebar.laporanHasilBelajar'), icon: FileText },
+              { id: 'alumni-sekolah', label: t('sidebar.alumniSekolah'), icon: Users },
             ]
           },
           {
             id: 'kelola-alat',
-            label: 'Kelola Alat',
+            label: t('sidebar.kelolaAlat'),
             icon: Briefcase,
             subItems: [
-              { id: 'data-alat-rfid', label: 'Data Alat RFID', icon: QrCode },
+              { id: 'data-alat-rfid', label: t('sidebar.dataAlatRfid'), icon: QrCode },
             ]
           },
-          { id: 'ekstrakulikuler', label: 'Ekstrakulikuler', icon: Activity },
+          { id: 'ekstrakulikuler', label: t('sidebar.ekstrakulikuler'), icon: Activity }
         );
 
-        adminMenuItems.push({ id: 'pengaturan', label: 'Pengaturan', icon: Settings });
+        // Only show tahfiz menu if systemType is sekolah_umum_tahfiz
+        if (systemType === 'sekolah_umum_tahfiz') {
+          adminMenuItems.push({
+            id: 'tahfiz-quran',
+            label: t('sidebar.tahfizQuran'),
+            icon: BookOpen,
+            subItems: [
+              { id: 'data-kelas-tahfiz', label: t('sidebar.dataKelasRuangan'), icon: School },
+              { id: 'data-jadwal-tahfiz', label: t('sidebar.dataJadwalTahfiz'), icon: CalendarClock },
+              { id: 'data-ustadz', label: t('sidebar.dataUstadz'), icon: Users },
+              { id: 'data-santri', label: t('sidebar.dataSantri'), icon: Users },
+            ]
+          });
+        }
+
+        adminMenuItems.push({ id: 'pengaturan', label: t('sidebar.pengaturan'), icon: Settings });
 
         return adminMenuItems;
       case 'guru': {
         const guruMenus: MenuItem[] = [
-          { id: 'dashboard', label: 'Dashboard', icon: Home },
+          { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },
+        ];
+        
+        // For tahfiz system, show limited menus
+        if (systemType === 'tahfiz') {
+          guruMenus.push(
+            {
+              id: 'absen-guru',
+              label: t('sidebar.absen'),
+              icon: UserCheck,
+              subItems: [
+                { id: 'absen-saya', label: t('sidebar.absenSaya'), icon: UserCheck },
+              ]
+            },
+            { id: 'izin-guru', label: t('sidebar.pengajuanIzin'), icon: FileText },
+            { id: 'absen-siswa', label: t('sidebar.absenSiswa'), icon: UserCheck },
+            {
+              id: 'tahfiz-quran-guru',
+              label: t('sidebar.tahfizQuran'),
+              icon: BookOpen,
+              subItems: [
+                { id: 'data-santri-tahfiz-guru', label: t('sidebar.dataSantriTahfiz'), icon: Users },
+                { id: 'jadwal-tahfiz-guru', label: t('sidebar.jadwalTahfiz'), icon: CalendarClock },
+                { id: 'absensi-tahfiz', label: t('sidebar.absensiTahfiz'), icon: ClipboardList },
+                { id: 'riwayat-absensi-tahfiz', label: t('sidebar.riwayatAbsenTahfiz'), icon: FileText },
+                { id: 'progress-tahfiz', label: t('sidebar.progressTahfiz'), icon: BarChart3 },
+                { id: 'izin-santri-tahfiz', label: t('sidebar.izinSantri'), icon: FileText },
+              ]
+            },
+            { id: 'profil', label: t('sidebar.profil'), icon: UserIcon }
+          );
+          return guruMenus;
+        }
+        
+        // For sekolah_umum and sekolah_umum_tahfiz, show general menus
+        guruMenus.push(
           {
             id: 'mengajar',
-            label: 'Mengajar',
+            label: t('sidebar.mengajar'),
             icon: BookOpen,
             subItems: [
-              { id: 'jadwal-saya', label: 'Jadwal Saya', icon: Calendar },
-              { id: 'absensi', label: 'Kelola Absensi', icon: ClipboardList },
-              { id: 'input-nilai', label: 'Input Nilai', icon: FileText },
-              { id: 'capaian-pembelajaran', label: 'Capaian Pembelajaran', icon: BookOpen },
-              { id: 'riwayat-absensi', label: 'Riwayat Absensi', icon: FileText },
+              { id: 'jadwal-saya', label: t('sidebar.jadwalSaya'), icon: Calendar },
+              { id: 'absensi', label: t('sidebar.kelolaAbsensi'), icon: ClipboardList },
+              { id: 'input-nilai', label: t('sidebar.inputNilai'), icon: FileText },
+              { id: 'capaian-pembelajaran', label: t('sidebar.capaianPembelajaran'), icon: BookOpen },
+              { id: 'riwayat-absensi', label: t('sidebar.riwayatAbsensi'), icon: FileText },
             ]
           },
-          { id: 'absen-guru', label: 'Absen', icon: UserCheck },
-          { id: 'izin-guru', label: 'Pengajuan Izin', icon: FileText },
-        ];
+          {
+            id: 'absen-guru',
+            label: t('sidebar.absen'),
+            icon: UserCheck,
+            subItems: [
+              { id: 'absen-saya', label: t('sidebar.absenSaya'), icon: UserCheck },
+              { id: 'absen-siswa', label: t('sidebar.absenSiswa'), icon: QrCode },
+            ]
+          },
+          { id: 'izin-guru', label: t('sidebar.pengajuanIzin'), icon: FileText }
+        );
+        
+        // Only show tahfiz menu if systemType is sekolah_umum_tahfiz and user is ustadz
+        if (systemType === 'sekolah_umum_tahfiz') {
+          const isUstadz = ustadz.some((u) => u.id === user?.id);
+          if (isUstadz) {
+            guruMenus.push({
+              id: 'tahfiz-quran-guru',
+              label: t('sidebar.tahfizQuran'),
+              icon: BookOpen,
+              subItems: [
+                { id: 'data-santri-tahfiz-guru', label: t('sidebar.dataSantriTahfiz'), icon: Users },
+                { id: 'jadwal-tahfiz-guru', label: t('sidebar.jadwalTahfiz'), icon: CalendarClock },
+                { id: 'absensi-tahfiz', label: t('sidebar.absensiTahfiz'), icon: ClipboardList },
+                { id: 'riwayat-absensi-tahfiz', label: t('sidebar.riwayatAbsenTahfiz'), icon: FileText },
+                { id: 'progress-tahfiz', label: t('sidebar.progressTahfiz'), icon: BarChart3 },
+                { id: 'izin-santri-tahfiz', label: t('sidebar.izinSantri'), icon: FileText },
+              ]
+            });
+          }
+        }
 
         const activeIzinForSubstitute = (() => {
           const today = new Date().toISOString().split('T')[0];
@@ -273,30 +455,30 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
         })();
 
         if (activeIzinForSubstitute) {
-          guruMenus.push({ id: 'pengganti', label: 'Pengganti', icon: Briefcase });
+          guruMenus.push({ id: 'pengganti', label: t('sidebar.pengganti'), icon: Briefcase });
         }
 
-        guruMenus.push({ id: 'profil', label: 'Profil', icon: UserIcon });
+        guruMenus.push({ id: 'profil', label: t('sidebar.profil'), icon: UserIcon });
 
         if (user && (user as any).isWaliKelas) {
           guruMenus.splice(-1, 0, {
             id: 'wali-kelas',
-            label: 'Wali Kelas',
+            label: t('sidebar.waliKelas'),
             icon: School,
             subItems: [
-              { id: 'absen-kelas', label: 'Absen Kelas', icon: ClipboardList },
-              { id: 'jadwal-kelas', label: 'Jadwal Pelajaran Kelas', icon: Calendar },
-              { id: 'data-murid-kelas', label: 'Data Murid Kelas', icon: Users },
-              { id: 'murid-kelas', label: 'Absen Pelajaran', icon: UserCheck },
-              { id: 'nilai-kelas', label: 'Nilai Kelas', icon: BookOpen },
-              { id: 'nilai-ekstrakulikuler-kelas', label: 'Nilai Ekstrakulikuler', icon: Activity },
-              { id: 'kokulikuler', label: 'Kokulikuler', icon: BookOpen },
-              { id: 'surat-izin', label: 'Surat Izin', icon: FileText },
+              { id: 'absen-kelas', label: t('sidebar.absenKelas'), icon: ClipboardList },
+              { id: 'jadwal-kelas', label: t('sidebar.jadwalPelajaranKelas'), icon: Calendar },
+              { id: 'data-murid-kelas', label: t('sidebar.dataMuridKelas'), icon: Users },
+              { id: 'murid-kelas', label: t('sidebar.absenPelajaran'), icon: UserCheck },
+              { id: 'nilai-kelas', label: t('sidebar.nilaiKelas'), icon: BookOpen },
+              { id: 'nilai-ekstrakulikuler-kelas', label: t('sidebar.nilaiEkstrakulikuler'), icon: Activity },
+              { id: 'kokulikuler', label: t('sidebar.kokulikuler'), icon: BookOpen },
+              { id: 'surat-izin', label: t('sidebar.suratIzin'), icon: FileText },
               
-              { id: 'raport-murid', label: 'Laporan Hasil Belajar', icon: FileText },
-              { id: 'e-raport', label: 'Nilai E-Raport', icon: FileText },
+              { id: 'raport-murid', label: t('sidebar.laporanHasilBelajar'), icon: FileText },
+              { id: 'e-raport', label: t('sidebar.nilaiERaport'), icon: FileText },
               ...(users.find(u => u.id === user?.id && (u as any).kelasWali && kelas.find(k => k.id === (u as any).kelasWali && isMaxTingkatSync(k.tingkat))) ?
-                [{ id: 'info-kelulusan', label: 'Info Kelulusan', icon: GraduationCap }].filter(() => {
+                [{ id: 'info-kelulusan', label: t('sidebar.infoKelulusan'), icon: GraduationCap }].filter(() => {
                   const activePengumuman = pengumumanKelulusan.find(p => p.isPublished && p.tahunAjaran === activeTahunAjaran?.tahun);
                   return activeTahunAjaran?.semester === 2 && activePengumuman !== undefined;
                 }) : []
@@ -308,71 +490,200 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
         // Add Riwayat Walikelas as separate menu item for teachers who have history as wali kelas
         const hasRiwayatWaliKelas = riwayatWaliKelasData.some((r: any) => r.guruId === user?.id);
         if (hasRiwayatWaliKelas) {
-          guruMenus.push({ id: 'riwayat-wali-kelas', label: 'Riwayat Walikelas', icon: GraduationCap });
-          guruMenus.push({ id: 'riwayat-kelulusan', label: 'Riwayat Kelulusan', icon: GraduationCap });
+          guruMenus.push({ id: 'riwayat-wali-kelas', label: t('sidebar.riwayatWalikelas'), icon: GraduationCap });
+          guruMenus.push({ id: 'riwayat-kelulusan', label: t('sidebar.riwayatKelulusan'), icon: GraduationCap });
         }
+
+        // Add Tahfiz Qur'an menu if user is an ustadz
+        
 
         return guruMenus;
       }
       case 'murid': {
+        // Check if user is a santri that is NOT from murid collection (isFromMurid: false)
+        const santriUser = user?.id ? santri.find(s => s.id === user.id) : null;
+        const isSantriNotFromMurid = santriUser && (santriUser as any).isFromMurid === false;
+
+        // Menu khusus untuk santri yang bukan dari murid (khusus santri tahfiz)
+        if (isSantriNotFromMurid) {
+          // Check if santri has at least one tahfiz class
+          const hasTahfizClass = kelasTahfiz.some(cls => cls.santriIds.includes(user?.id || ''));
+
+          const santriMenuItems: MenuItem[] = [
+            { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },
+            { id: 'qr-code', label: t('sidebar.qrCodeSaya'), icon: QrCode },
+          ];
+
+          // Only show Tahfiz Quran menu if santri has tahfiz class
+          if (hasTahfizClass) {
+            santriMenuItems.push({
+              id: 'tahfiz-quran-murid',
+              label: t('sidebar.tahfizQuran'),
+              icon: BookOpen,
+              subItems: [
+                { id: 'jadwal-tahfiz-murid', label: t('sidebar.jadwalTahfiz'), icon: CalendarClock },
+                { id: 'absensi-santri-tahfiz', label: t('sidebar.absensiTahfiz'), icon: ClipboardList },
+                { id: 'progress-hapalan-murid', label: t('sidebar.progressHapalan'), icon: BarChart3 },
+              ]
+            });
+            // Tambahkan menu absen kehadiran untuk santri
+            santriMenuItems.push({ id: 'absen-kehadiran', label: t('sidebar.absenKehadiran'), icon: UserCheck });
+          }
+
+          santriMenuItems.push(
+            { id: 'surat-izin', label: t('sidebar.pengajuanIzin'), icon: FileText },
+            { id: 'profil', label: t('sidebar.profil'), icon: UserIcon }
+          );
+
+          return santriMenuItems;
+        }
+
         // Menu khusus untuk alumni/lulus
         if (isAlumni) {
           return [
-            { id: 'dashboard', label: 'Dashboard', icon: Home },
-            { id: 'mata-pelajaran', label: 'Mata Pelajaran', icon: BookOpen },
-            { id: 'qr-code', label: 'QR Code Saya', icon: QrCode },
-            { id: 'e-raport-saya', label: 'E-Raport', icon: FileText },
+            { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },
+            { id: 'mata-pelajaran', label: t('sidebar.mataPelajaran'), icon: BookOpen },
+            { id: 'qr-code', label: t('sidebar.qrCodeSaya'), icon: QrCode },
+            { id: 'e-raport-saya', label: t('sidebar.eRaport'), icon: FileText },
             {
               id: 'laporan-nilai',
-              label: 'Laporan Nilai',
+              label: t('sidebar.laporanNilai'),
               icon: ClipboardList,
               subItems: [
-                { id: 'nilai-saya', label: 'Nilai Saya', icon: FileText },
-                { id: 'raport-saya', label: 'Laporan Hasil Belajar', icon: GraduationCap },
+                { id: 'nilai-saya', label: t('sidebar.nilaiSaya'), icon: FileText },
+                { id: 'raport-saya', label: t('sidebar.raportSaya'), icon: GraduationCap },
               ]
             },
-            { id: 'profil', label: 'Profil', icon: UserIcon },
+            ...((() => {
+              // Check if logged-in alumni is a santri (exists in santri array and has a tahfiz class)
+              if (!user?.id) return [];
+              const isSantriUser = santri.some(s => s.id === user.id);
+              if (!isSantriUser) return [];
+              
+              // Check if santri has at least one tahfiz class
+              const hasTahfizClass = kelasTahfiz.some(cls => cls.santriIds.includes(user.id));
+              if (!hasTahfizClass) return [];
+
+              return [{
+                id: 'tahfiz-quran-murid',
+                label: t('sidebar.tahfizQuran'),
+                icon: BookOpen,
+                subItems: [
+                  { id: 'jadwal-tahfiz-murid', label: t('sidebar.jadwalTahfiz'), icon: CalendarClock },
+                  { id: 'absensi-santri-tahfiz', label: t('sidebar.absensiTahfiz'), icon: ClipboardList },
+                  { id: 'progress-hapalan-murid', label: t('sidebar.progressHapalan'), icon: BarChart3 },
+                ]
+              }];
+            })()),
+            { id: 'profil', label: t('sidebar.profil'), icon: UserIcon },
           ];
         }
 
         // Menu untuk murid aktif
-        return [
-          { id: 'dashboard', label: 'Dashboard', icon: Home },
-          { id: 'jadwal', label: 'Jadwal Kelas', icon: Calendar },
-          { id: 'mata-pelajaran', label: 'Mata Pelajaran', icon: BookOpen },
+        const muridMenuItems: MenuItem[] = [
+          { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },
+        ];
+        
+        // For tahfiz system, show limited menus (only for santri)
+        if (systemType === 'tahfiz') {
+          // Check if logged-in user is a santri (exists in santri array and has a tahfiz class)
+          if (user?.id) {
+            const isSantriUser = santri.some(s => s.id === user.id);
+            const hasTahfizClass = kelasTahfiz.some(cls => cls.santriIds.includes(user.id));
+            
+            if (isSantriUser && hasTahfizClass) {
+              muridMenuItems.push(
+                { id: 'qr-code', label: t('sidebar.qrCodeSaya'), icon: QrCode },
+                {
+                  id: 'tahfiz-quran-murid',
+                  label: t('sidebar.tahfizQuran'),
+                  icon: BookOpen,
+                  subItems: [
+                    { id: 'jadwal-tahfiz-murid', label: t('sidebar.jadwalTahfiz'), icon: CalendarClock },
+                    { id: 'absensi-santri-tahfiz', label: t('sidebar.absensiTahfiz'), icon: ClipboardList },
+                    { id: 'progress-hapalan-murid', label: t('sidebar.progressHapalan'), icon: BarChart3 },
+                  ]
+                },
+                { id: 'absen-kehadiran', label: t('sidebar.absenKehadiran'), icon: UserCheck },
+                { id: 'surat-izin', label: t('sidebar.pengajuanIzin'), icon: FileText },
+                { id: 'profil', label: t('sidebar.profil'), icon: UserIcon }
+              );
+              return muridMenuItems;
+            }
+          }
+          // If not santri in tahfiz system, return empty or minimal menu
+          return muridMenuItems;
+        }
+        
+        // For sekolah_umum and sekolah_umum_tahfiz, show general menus
+        muridMenuItems.push(
+          { id: 'jadwal', label: t('sidebar.jadwalKelas'), icon: Calendar },
+          { id: 'mata-pelajaran', label: t('sidebar.mataPelajaran'), icon: BookOpen },
           {
             id: 'kelola-absen',
-            label: 'Kelola-absen',
+            label: t('sidebar.kelolaAbsen'),
             icon: School,
             subItems: [
-              { id: 'absensi-saya', label: 'Absensi Saya', icon: ClipboardList },
-              { id: 'absen-kehadiran', label: 'Absen Kehadiran', icon: UserCheck },
+              { id: 'absensi-saya', label: t('sidebar.absensiSaya'), icon: ClipboardList },
+              { id: 'absen-kehadiran', label: t('sidebar.absenKehadiran'), icon: UserCheck },
             ]
           },
-
-          { id: 'qr-code', label: 'QR Code Saya', icon: QrCode },
+          { id: 'qr-code', label: t('sidebar.qrCodeSaya'), icon: QrCode },
           {
             id: 'laporan-nilai',
-            label: 'Laporan Nilai',
+            label: t('sidebar.laporanNilai'),
             icon: ClipboardList,
             subItems: [
-              { id: 'nilai-saya', label: 'Nilai Saya', icon: FileText },
-              { id: 'raport-saya', label: 'Laporan Hasil Belajar', icon: GraduationCap },
-              { id: 'e-raport-saya', label: 'E-Raport', icon: FileText },
+              { id: 'nilai-saya', label: t('sidebar.nilaiSaya'), icon: FileText },
+              { id: 'raport-saya', label: t('sidebar.raportSaya'), icon: GraduationCap },
+              { id: 'e-raport-saya', label: t('sidebar.eRaport'), icon: FileText },
             ]
-          },
+          }
+        );
 
+        // Only show tahfiz menu if systemType is sekolah_umum_tahfiz
+        if (systemType === 'sekolah_umum_tahfiz') {
+          const tahfizMenu = (() => {
+            // Check if logged-in user is a santri (exists in santri array and has a tahfiz class)
+            if (!user?.id) return null;
+            const isSantriUser = santri.some(s => s.id === user.id);
+            if (!isSantriUser) return null;
+            
+            // Check if santri has at least one tahfiz class
+            const hasTahfizClass = kelasTahfiz.some(cls => cls.santriIds.includes(user.id));
+            if (!hasTahfizClass) return null;
+
+            return {
+              id: 'tahfiz-quran-murid',
+              label: t('sidebar.tahfizQuran'),
+              icon: BookOpen,
+              subItems: [
+                { id: 'jadwal-tahfiz-murid', label: t('sidebar.jadwalTahfiz'), icon: CalendarClock },
+                { id: 'absensi-santri-tahfiz', label: t('sidebar.absensiTahfiz'), icon: ClipboardList },
+                { id: 'progress-hapalan-murid', label: t('sidebar.progressHapalan'), icon: BarChart3 },
+              ]
+            };
+          })();
+          
+          if (tahfizMenu) {
+            muridMenuItems.push(tahfizMenu);
+          }
+        }
+
+        muridMenuItems.push(
           ...((() => {
             const muridUser = users.find(u => u.id === user?.id);
             const muridKelas = kelas.find(k => k.id === (muridUser as any)?.kelasId);
             const activePengumuman = pengumumanKelulusan.find(p => p.isPublished && p.tahunAjaran === activeTahunAjaran?.tahun);
 
             return (muridKelas && isMaxTingkatSync(muridKelas.tingkat) && activePengumuman !== undefined && activeTahunAjaran?.semester === 2) ?
-              [{ id: 'info-kelulusan-murid', label: 'Info Kelulusan', icon: GraduationCap }] : [];
+              [{ id: 'info-kelulusan-murid', label: t('sidebar.infoKelulusan'), icon: GraduationCap }] : [];
           })()),
-          { id: 'surat-izin', label: 'Pengajuan Izin', icon: FileText },
-          { id: 'profil', label: 'Profil', icon: UserIcon },
-        ];
+          { id: 'surat-izin', label: t('sidebar.pengajuanIzin'), icon: FileText },
+          { id: 'profil', label: t('sidebar.profil'), icon: UserIcon }
+        );
+
+        return muridMenuItems;
       }
       default:
         return [];
@@ -461,7 +772,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
  />
 
         <h1 className="text-md sm:text-lg font-bold text-gray-800 truncate">
-          {profilSekolah.namaSekolah || 'Absensi Sekolah'}
+          {profilSekolah.namaSekolah || t('sidebar.absensiSekolah')}
         </h1>
       </div>
 
@@ -480,7 +791,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
 
     ) : (
       <div>
-        <h1 className="text-xl font-bold text-gray-800">Absensi Sekolah</h1>
+        <h1 className="text-xl font-bold text-gray-800">{t('sidebar.absensiSekolah')}</h1>
         <p className="text-sm text-gray-600 mt-1">{user?.name}
           <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full mt-2 ml-2 capitalize">
             {user?.role}
@@ -512,7 +823,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
           className="w-full flex items-center space-x-3 px-4 py-3 text-red-700 hover:bg-red-50 rounded-lg transition-colors"
         >
           <LogOut size={20} />
-          <span className="font-medium">Logout</span>
+          <span className="font-medium">{t('sidebar.logout')}</span>
         </button>
       </div>
       </div>

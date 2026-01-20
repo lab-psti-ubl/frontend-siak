@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useN
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { QRScannerProvider } from './context/QRScannerContext';
 import { OnboardingTourProvider } from './context/OnboardingTourContext';
+import { LanguageProvider } from './context/LanguageContext';
 import LoginForm from './components/LoginForm';
 import Dashboard from './components/Dashboard';
 import ToastContainer from './components/ui/ToastContainer';
@@ -11,6 +12,7 @@ import RFIDMonitoringPage from './pages/RFIDMonitoringPage';
 import VerificationPage from './components/shared/VerificationPage';
 import VerificationDocumentContent from './components/shared/VerificationDocumentContent';
 import JenjangPendidikanSetupModal from './components/admin/JenjangPendidikanSetupModal';
+import SystemTypeSetupModal from './components/admin/SystemTypeSetupModal';
 import { initializeData, initializeMinimalData, initializeAdminUser } from './utils/seedData';
 import { isAppFreshLoad, setupAppCleanup, resetToSeedData } from './utils/dataReset';
 import { migrateAbsensiData, shouldMigrateAbsensiData } from './utils/migrateAbsensiData';
@@ -262,6 +264,7 @@ const VerificationPageRoute: React.FC = () => {
 const AppContent: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [showSystemTypeSetup, setShowSystemTypeSetup] = useState(false);
   const [showJenjangSetup, setShowJenjangSetup] = useState(false);
   const [jenjangInitialized, setJenjangInitialized] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -275,11 +278,25 @@ const AppContent: React.FC = () => {
         // Always ensure admin user exists on app start
         initializeAdminUser();
 
-        // Check if jenjang has been selected
+        // Check if jenjang has been selected first
         const activeJenjang = await getActiveJenjang();
 
+        // If jenjang is not set, we need to go through initial setup
+        // On first run, we need to set system type before jenjang
         if (!activeJenjang) {
-          // No jenjang selected yet - show setup modal
+          // Check if system type was set via the initial setup modal
+          // We use a flag in localStorage to track if system type was set via modal
+          const systemTypeWasSetViaModal = localStorage.getItem('systemTypeWasSet') === 'true';
+          
+          // If system type was not set via the initial modal, show system type modal first
+          // This ensures users go through the proper setup flow: system type -> jenjang
+          if (!systemTypeWasSetViaModal) {
+            setShowSystemTypeSetup(true);
+            setInitialLoading(false);
+            return;
+          }
+
+          // System type is set via modal, now show jenjang setup modal
           setShowJenjangSetup(true);
           setInitialLoading(false);
           return;
@@ -358,6 +375,32 @@ const AppContent: React.FC = () => {
     };
   }, []);
 
+  const handleSystemTypeSelected = async (systemType: 'sekolah_umum' | 'sekolah_umum_tahfiz' | 'tahfiz') => {
+    setShowSystemTypeSetup(false);
+    
+    // Mark that system type was explicitly set
+    localStorage.setItem('systemTypeWasSet', 'true');
+    
+    // If system type is 'tahfiz', skip jenjang setup and proceed to login
+    if (systemType === 'tahfiz') {
+      setJenjangInitialized(true);
+      navigate('/login', { replace: true });
+      return;
+    }
+    
+    // After system type is selected, check for jenjang
+    const activeJenjang = await getActiveJenjang();
+    
+    if (!activeJenjang) {
+      // No jenjang selected yet - show jenjang setup modal
+      setShowJenjangSetup(true);
+    } else {
+      // Jenjang already exists, proceed normally
+      setJenjangInitialized(true);
+      navigate('/login', { replace: true });
+    }
+  };
+
   const handleJenjangSelected = async (jenjang: 'SD' | 'SMP' | 'SMA/SMK') => {
     setShowJenjangSetup(false);
 
@@ -374,6 +417,10 @@ const AppContent: React.FC = () => {
     // Use navigate instead of window.location to avoid reload
     navigate('/login', { replace: true });
   };
+
+  if (showSystemTypeSetup) {
+    return <SystemTypeSetupModal onSystemTypeSelected={handleSystemTypeSelected} />;
+  }
 
   if (showJenjangSetup) {
     return <JenjangPendidikanSetupModal onJenjangSelected={handleJenjangSelected} />;
@@ -418,12 +465,14 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <QRScannerProvider>
-          <ScrollToTop />
-          <AppContent />
-          <ToastContainer />
-          <ConfirmationContainer />
-        </QRScannerProvider>
+        <LanguageProvider>
+          <QRScannerProvider>
+            <ScrollToTop />
+            <AppContent />
+            <ToastContainer />
+            <ConfirmationContainer />
+          </QRScannerProvider>
+        </LanguageProvider>
       </AuthProvider>
     </Router>
   );

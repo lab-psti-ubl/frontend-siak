@@ -3,6 +3,7 @@ import { Camera, QrCode, Download, Clock, CheckCircle2, AlertCircle } from 'luci
 import Button from '../../../ui/Button';
 import Badge from '../../../ui/Badge';
 import { AbsensiGuru } from '../../../../types';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 interface TodayAttendanceCardProps {
   todayAttendance: AbsensiGuru | undefined;
@@ -21,6 +22,7 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   getStatusBadge,
   isOnLeaveOrSick = false,
 }) => {
+  const { t } = useLanguage();
   const isBothCheckIn = !!(todayAttendance?.jamMasuk && todayAttendance?.jamKeluar);
 
   // Format time to use dot instead of colon (12.20 instead of 12:20)
@@ -50,8 +52,8 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
             <Clock className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
           </div>
           <div>
-            <h3 className="text-base sm:text-lg lg:text-xl font-bold text-white">Absensi Hari Ini</h3>
-            <p className="text-xs sm:text-sm text-blue-100">Status kehadiran Anda</p>
+            <h3 className="text-base sm:text-lg lg:text-xl font-bold text-white">{t('absenGuruPage.absensiHariIni')}</h3>
+            <p className="text-xs sm:text-sm text-blue-100">{t('absenGuruPage.statusKehadiranAnda')}</p>
           </div>
         </div>
       </div>
@@ -62,8 +64,8 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
             <div className="flex items-start gap-2 sm:gap-3">
               <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 flex-shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-semibold text-amber-900">Sedang Izin/Sakit</p>
-                <p className="text-xs text-amber-700 mt-0.5">Anda tidak perlu melakukan absensi hari ini</p>
+                <p className="text-xs sm:text-sm font-semibold text-amber-900">{t('absenGuruPage.sedangIzinSakit')}</p>
+                <p className="text-xs text-amber-700 mt-0.5">{t('absenGuruPage.andaTidakPerluMelakukanAbsensi')}</p>
               </div>
             </div>
           </div>
@@ -88,9 +90,9 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-semibold text-slate-600 uppercase tracking-wide">Absen Masuk</p>
+                <p className="text-xs sm:text-sm font-semibold text-slate-600 uppercase tracking-wide">{t('absenGuruPage.absenMasuk')}</p>
                 {todayAttendance?.jamMasuk && (
-                  <p className="text-xs sm:text-xs text-slate-500 mt-0.5">Selesai</p>
+                  <p className="text-xs sm:text-xs text-slate-500 mt-0.5">{t('absenGuruPage.selesai')}</p>
                 )}
               </div>
             </div>
@@ -128,12 +130,12 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-semibold text-slate-600 uppercase tracking-wide">Absen Keluar</p>
+                <p className="text-xs sm:text-sm font-semibold text-slate-600 uppercase tracking-wide">{t('absenGuruPage.absenKeluar')}</p>
                 {todayAttendance?.jamKeluar && todayAttendance?.statusKeluar !== 'alfa' && (
-                  <p className="text-xs sm:text-xs text-slate-500 mt-0.5">Selesai</p>
+                  <p className="text-xs sm:text-xs text-slate-500 mt-0.5">{t('absenGuruPage.selesai')}</p>
                 )}
                 {todayAttendance?.statusKeluar === 'alfa' && (
-                  <p className="text-xs sm:text-xs text-red-600 mt-0.5">Tidak Absen</p>
+                  <p className="text-xs sm:text-xs text-red-600 mt-0.5">{t('absenGuruPage.tidakAbsen')}</p>
                 )}
               </div>
             </div>
@@ -144,7 +146,7 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
             </p>
             {todayAttendance?.statusKeluar === 'alfa' ? (
               <div className="mt-2">
-                <Badge variant="danger">Tidak Absen</Badge>
+                <Badge variant="danger">{t('absenGuruPage.tidakAbsen')}</Badge>
               </div>
             ) : todayAttendance?.jamKeluar && (
               <div className="mt-2">
@@ -164,12 +166,12 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
             >
               <Camera size={16} className="mr-2" />
               {isOnLeaveOrSick
-                ? 'Sedang Izin/Sakit'
+                ? t('absenGuruPage.sedangIzinSakit')
                 : !todayAttendance?.jamMasuk
-                ? 'Scan QR - Absen Masuk'
+                ? t('absenGuruPage.scanQRAbsenMasuk')
                 : !todayAttendance?.jamKeluar
-                ? 'Scan QR - Absen Keluar'
-                : 'Absensi Lengkap'}
+                ? t('absenGuruPage.scanQRAbsenKeluar')
+                : t('absenGuruPage.absensiLengkap')}
             </Button>
 
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -180,7 +182,7 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
                 className="justify-center flex items-center text-xs sm:text-sm py-2 sm:py-2.5"
               >
                 <QrCode size={16} className="mr-1.5 sm:mr-2" />
-                <span className="hidden sm:inline">QR Saya</span>
+                <span className="hidden sm:inline">{t('absenGuruPage.qRSaya')}</span>
                 <span className="sm:hidden">QR</span>
               </Button>
               <Button
@@ -190,7 +192,7 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
                 className="justify-center flex items-center text-xs sm:text-sm py-2 sm:py-2.5"
               >
                 <Download size={16} className="mr-1.5 sm:mr-2" />
-                <span className="hidden sm:inline">Download</span>
+                <span className="hidden sm:inline">{t('absenGuruPage.download')}</span>
                 <span className="sm:hidden">DL</span>
               </Button>
             </div>

@@ -12,9 +12,10 @@ interface KartuPelajarTabProps {
   user: UserType | null;
   myKelas: Kelas | undefined;
   myJurusan: Jurusan | undefined;
+  isSantriNotFromMurid?: boolean;
 }
 
-const KartuPelajarTab: React.FC<KartuPelajarTabProps> = ({ user, myKelas, myJurusan }) => {
+const KartuPelajarTab: React.FC<KartuPelajarTabProps> = ({ user, myKelas, myJurusan, isSantriNotFromMurid = false }) => {
   const [isGeneratingKartu, setIsGeneratingKartu] = useState(false);
   const [orientation, setOrientation] = useState<'potrait' | 'landscape'>('potrait');
   const { backgroundKTA } = useBackgroundKTA();
@@ -34,7 +35,8 @@ const KartuPelajarTab: React.FC<KartuPelajarTabProps> = ({ user, myKelas, myJuru
       return;
     }
 
-    if (showJurusan && !myJurusan) {
+    // For santri not from murid, skip jurusan check
+    if (!isSantriNotFromMurid && showJurusan && !myJurusan) {
       alert('Data jurusan tidak tersedia');
       return;
     }
@@ -58,7 +60,7 @@ const KartuPelajarTab: React.FC<KartuPelajarTabProps> = ({ user, myKelas, myJuru
         <p className="text-xs sm:text-sm text-slate-600 mt-1">Pratinjau dan unduh kartu pelajar digital Anda</p>
       </div>
 
-      {myKelas && user && (!showJurusan || myJurusan) ? (
+      {myKelas && user && (!showJurusan || myJurusan || isSantriNotFromMurid) ? (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-blue-200">
@@ -70,8 +72,14 @@ const KartuPelajarTab: React.FC<KartuPelajarTabProps> = ({ user, myKelas, myJuru
               <p className="text-base sm:text-lg font-bold text-emerald-900 truncate">{user.nisn}</p>
             </div>
             <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-amber-200">
-              <p className="text-xs sm:text-sm font-semibold text-amber-700 uppercase tracking-wide mb-2">Kelas</p>
-              <p className="text-base sm:text-lg font-bold text-amber-900 truncate">{myKelas.name}</p>
+              <p className="text-xs sm:text-sm font-semibold text-amber-700 uppercase tracking-wide mb-2">
+                {isSantriNotFromMurid ? 'Kelas Tahfiz' : 'Kelas'}
+              </p>
+              <p className="text-base sm:text-lg font-bold text-amber-900 truncate">
+                {isSantriNotFromMurid 
+                  ? (myKelas?.name || 'Tidak ada') 
+                  : (myKelas?.name || 'Tidak ada')}
+              </p>
             </div>
             {showJurusan && myJurusan && (
               <div className="bg-gradient-to-br from-violet-50 to-violet-100 rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-violet-200">
@@ -134,7 +142,7 @@ const KartuPelajarTab: React.FC<KartuPelajarTabProps> = ({ user, myKelas, myJuru
                 user={user} 
                 myKelas={myKelas} 
                 myJurusan={myJurusan} 
-                backgroundImage={orientation === 'potrait' ? backgroundDepanMurid : backgroundBelakangMurid}
+                backgroundImage={orientation === 'potrait' ? backgroundBelakangMurid : backgroundDepanMurid}
                 orientation={orientation}
               />
             </div>

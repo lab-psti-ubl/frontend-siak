@@ -3,10 +3,12 @@ import { User, Lock, CreditCard, ArrowLeft, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
 import { useAuth } from '../../context/AuthContext';
-import { User as UserType } from '../../types';
+import { User as UserType, Kelas } from '../../types';
 import { usePasswordChange } from '../../hooks/usePasswordChange';
 import { useKelas } from '../../hooks/useKelas';
 import { useJurusan } from '../../hooks/useJurusan';
+import { useSantri } from '../../hooks/useSantri';
+import { useKelasTahfiz } from '../../hooks/useKelasTahfiz';
 import AccountTab from './pages/profil/AccountTab';
 import KartuPelajarTab from './pages/profil/KartuPelajarTab';
 import PasswordTab from './pages/profil/PasswordTab';
@@ -15,6 +17,8 @@ const ProfilMurid: React.FC = () => {
   const { user: authUser } = useAuth();
   const { kelas } = useKelas();
   const { jurusan } = useJurusan();
+  const { santri } = useSantri();
+  const { kelasTahfiz } = useKelasTahfiz();
   const [activeTab, setActiveTab] = useState('akun');
   const [currentUser, setCurrentUser] = useState<UserType | null>(authUser);
   const [isMobile, setIsMobile] = useState(false);
@@ -43,8 +47,27 @@ const ProfilMurid: React.FC = () => {
     navigate('/login', { replace: true });
   };
 
+  // Check if user is a santri that is NOT from murid collection
+  const santriUser = user?.id ? santri.find(s => s.id === user.id) : null;
+  const isSantriNotFromMurid = santriUser && (santriUser as any).isFromMurid === false;
+  
+  // Get tahfiz classes for this santri
+  const myTahfizClasses = isSantriNotFromMurid && user?.id
+    ? kelasTahfiz.filter(cls => cls.santriIds.includes(user.id))
+    : [];
+
   const myKelas = kelas.find(k => k.id === user?.kelasId);
   const myJurusan = jurusan.find(j => j.id === myKelas?.jurusanId);
+  
+  // For santri not from murid, create a display kelas object with tahfiz classes info
+  const displayKelas: Kelas | undefined = isSantriNotFromMurid && myTahfizClasses.length > 0
+    ? {
+        id: 'santri-tahfiz',
+        name: myTahfizClasses.map(c => c.namaKelas).join(', '),
+        tingkat: 0,
+        createdAt: new Date().toISOString()
+      }
+    : myKelas;
 
   const { message, handlePasswordChange } = usePasswordChange({
     user,
@@ -131,9 +154,9 @@ const ProfilMurid: React.FC = () => {
 
           <Card>
             <div className="p-5 sm:p-6">
-              {activeTab === 'akun' && <AccountTab user={user} myKelas={myKelas} />}
+              {activeTab === 'akun' && <AccountTab user={user} myKelas={displayKelas} isSantriNotFromMurid={isSantriNotFromMurid} myTahfizClasses={myTahfizClasses} />}
               {activeTab === 'kartu' && (
-                <KartuPelajarTab user={user} myKelas={myKelas} myJurusan={myJurusan} />
+                <KartuPelajarTab user={user} myKelas={displayKelas} myJurusan={myJurusan} isSantriNotFromMurid={isSantriNotFromMurid} />
               )}
               {activeTab === 'password' && (
                 <PasswordTab onPasswordChange={handlePasswordChange} message={message} />
@@ -188,9 +211,9 @@ const ProfilMurid: React.FC = () => {
         </div>
 
         <div className="p-5 sm:p-6 lg:p-8">
-          {activeTab === 'akun' && <AccountTab user={user} myKelas={myKelas} />}
+          {activeTab === 'akun' && <AccountTab user={user} myKelas={displayKelas} isSantriNotFromMurid={isSantriNotFromMurid} myTahfizClasses={myTahfizClasses} />}
           {activeTab === 'kartu' && (
-            <KartuPelajarTab user={user} myKelas={myKelas} myJurusan={myJurusan} />
+            <KartuPelajarTab user={user} myKelas={displayKelas} myJurusan={myJurusan} isSantriNotFromMurid={isSantriNotFromMurid} />
           )}
           {activeTab === 'password' && (
             <PasswordTab onPasswordChange={handlePasswordChange} message={message} />

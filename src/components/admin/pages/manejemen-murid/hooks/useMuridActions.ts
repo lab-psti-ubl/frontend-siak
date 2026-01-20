@@ -6,6 +6,7 @@ import { exportToExcel } from '../../../../../utils/exportUtils';
 import { showDangerConfirmation } from '../../../../../utils/confirmationUtils';
 import { apiService } from '../../../../../services/apiService';
 import { showSuccessToast, showErrorToast } from '../../../../ui/ToastContainer';
+import { shouldShowJurusanSync } from '../../../../../utils/jenjangPendidikanUtils';
 
 interface UseMuridActionsProps {
   currentKelas: Kelas | undefined;
@@ -85,13 +86,19 @@ export const useMuridActions = ({
   };
 
   const handleDownloadKartuPelajar = async (murid: User) => {
-    if (!currentKelas || !currentJurusan) {
-      alert('Data kelas atau jurusan tidak lengkap');
+    if (!currentKelas) {
+      alert('Data kelas tidak lengkap');
+      return;
+    }
+
+    const showJurusan = shouldShowJurusanSync();
+    if (showJurusan && !currentJurusan) {
+      alert('Data jurusan tidak lengkap');
       return;
     }
 
     try {
-      await generateMuridKartuPelajar(murid, currentKelas, currentJurusan);
+      await generateMuridKartuPelajar(murid, currentKelas, showJurusan ? currentJurusan : undefined);
       alert('Kartu pelajar berhasil diunduh!');
     } catch (error) {
       console.error('Error generating kartu pelajar:', error);
@@ -118,29 +125,49 @@ export const useMuridActions = ({
   };
 
   const exportMuridData = () => {
-    const data = filteredMurid.map(murid => ({
-      nisn: murid.nisn,
-      nama: murid.name,
-      email: murid.email,
-      kelas: currentKelas?.name,
-      jurusan: currentJurusan?.name,
-      whatsappOrtu: murid.whatsappOrtu || '-',
-      tanggalBergabung: murid.createdAt ? new Date(murid.createdAt).toLocaleDateString('id-ID') : '-',
-      status: murid.isActive !== false ? 'Aktif' : 'Tidak Aktif'
-    }));
+    const showJurusan = shouldShowJurusanSync();
+    
+    const data = filteredMurid.map(murid => {
+      const baseData: any = {
+        nisn: murid.nisn,
+        nama: murid.name,
+        email: murid.email,
+        kelas: currentKelas?.name,
+        whatsappOrtu: murid.whatsappOrtu || '-',
+        tanggalBergabung: murid.createdAt ? new Date(murid.createdAt).toLocaleDateString('id-ID') : '-',
+        status: murid.isActive !== false ? 'Aktif' : 'Tidak Aktif'
+      };
+      
+      if (showJurusan) {
+        baseData.jurusan = currentJurusan?.name || '-';
+      }
+      
+      return baseData;
+    });
 
-    const columns = [
+    const baseColumns = [
       { header: 'NISN', dataKey: 'nisn', width: 15 },
       { header: 'Nama Murid', dataKey: 'nama', width: 25 },
       { header: 'Email', dataKey: 'email', width: 25 },
       { header: 'Kelas', dataKey: 'kelas', width: 15 },
-      { header: 'Jurusan', dataKey: 'jurusan', width: 20 },
+    ];
+
+    const jurusanColumn = showJurusan 
+      ? [{ header: 'Jurusan', dataKey: 'jurusan', width: 20 }]
+      : [];
+
+    const endColumns = [
       { header: 'WhatsApp Ortu', dataKey: 'whatsappOrtu', width: 15 },
       { header: 'Tanggal Bergabung', dataKey: 'tanggalBergabung', width: 15 },
       { header: 'Status', dataKey: 'status', width: 10 }
     ];
 
-    const title = `DATA MURID\nKelas: ${currentKelas?.name}\nJurusan: ${currentJurusan?.name}`;
+    const columns = [...baseColumns, ...jurusanColumn, ...endColumns];
+
+    let title = `DATA MURID\nKelas: ${currentKelas?.name}`;
+    if (showJurusan) {
+      title += `\nJurusan: ${currentJurusan?.name || '-'}`;
+    }
     const filename = `data-murid-${currentKelas?.name}-${new Date().toISOString().split('T')[0]}`;
     
     exportToExcel(data, columns, title, filename);

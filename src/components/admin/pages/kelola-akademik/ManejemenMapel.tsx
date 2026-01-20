@@ -134,7 +134,7 @@ const ManajemenMapel: React.FC = () => {
                       <TableCell header>SKS</TableCell>
                       <TableCell header>Semester</TableCell>
                       <TableCell header>Tingkat Kelas</TableCell>
-                      <TableCell header>Keterangan</TableCell>
+                      <TableCell header>Kategori</TableCell>
                       {showJurusan && <TableCell header>Jurusan</TableCell>}
                       <TableCell header>Status</TableCell>
                       <TableCell header>Aksi</TableCell>
@@ -176,8 +176,18 @@ const ManajemenMapel: React.FC = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={mapel.keterangan === 'umum' ? 'info' : 'warning'}>
-                            {mapel.keterangan === 'umum' ? 'UMUM' : 'JURUSAN'}
+                          <Badge variant={
+                            mapel.keterangan === 'umum' 
+                              ? 'info' 
+                              : mapel.keterangan === 'agama'
+                              ? 'success'
+                              : 'warning'
+                          }>
+                            {mapel.keterangan === 'umum' 
+                              ? 'UMUM' 
+                              : mapel.keterangan === 'agama'
+                              ? 'AGAMA'
+                              : 'JURUSAN'}
                           </Badge>
                         </TableCell>
                         {showJurusan && (
@@ -239,7 +249,11 @@ const ManajemenMapel: React.FC = () => {
                     <div className="p-2 bg-emerald-50 rounded">
                       <p className="text-gray-500">Jenis</p>
                       <p className="font-semibold text-gray-900 truncate">
-                        {mapel.keterangan === 'umum' ? 'Umum' : 'Jurusan'}
+                        {mapel.keterangan === 'umum' 
+                          ? 'Umum' 
+                          : mapel.keterangan === 'agama'
+                          ? 'Agama'
+                          : 'Jurusan'}
                       </p>
                     </div>
                   </div>

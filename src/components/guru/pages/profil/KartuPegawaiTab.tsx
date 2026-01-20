@@ -5,6 +5,7 @@ import KartuPegawaiPreviewFront from './KartuPegawaiPreviewFront';
 import KartuPegawaiPreviewBack from './KartuPegawaiPreviewBack';
 import { User as UserType, Kelas } from '../../../../types';
 import { useBackgroundKTA } from '../../../../hooks/useBackgroundKTA';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 interface KartuPegawaiTabProps {
   user: UserType | null;
@@ -21,6 +22,7 @@ const KartuPegawaiTab: React.FC<KartuPegawaiTabProps> = ({
 }) => {
   const [orientation, setOrientation] = useState<'potrait' | 'landscape'>('potrait');
   const { backgroundKTA } = useBackgroundKTA();
+  const { t } = useLanguage();
 
   const backgroundDepanGuru = useMemo(() => {
     return backgroundKTA?.backgroundDepanGuruBase64 || undefined;
@@ -35,35 +37,35 @@ const KartuPegawaiTab: React.FC<KartuPegawaiTabProps> = ({
       <div className="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-xl sm:rounded-2xl p-5 sm:p-6 shadow-sm">
         <div className="flex items-center gap-3">
           <div>
-            <h3 className="text-lg sm:text-xl font-bold text-white">Kartu Pegawai</h3>
-            <p className="text-xs sm:text-sm text-blue-100 mt-1">Unduh kartu identitas Anda</p>
+            <h3 className="text-lg sm:text-xl font-bold text-white">{t('dashboardGuru.kartuPegawaiTab.title')}</h3>
+            <p className="text-xs sm:text-sm text-blue-100 mt-1">{t('dashboardGuru.kartuPegawaiTab.subtitle')}</p>
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-200 bg-slate-50">
-          <h4 className="text-sm sm:text-base font-semibold text-slate-900 uppercase tracking-wide">Informasi Kartu</h4>
+          <h4 className="text-sm sm:text-base font-semibold text-slate-900 uppercase tracking-wide">{t('dashboardGuru.kartuPegawaiTab.informasiKartu')}</h4>
         </div>
         <div className="p-5 sm:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div className="p-4 sm:p-5 bg-gradient-to-br from-blue-50 to-blue-50 rounded-lg border border-blue-200">
-              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Nama</p>
+              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">{t('dashboardGuru.kartuPegawaiTab.nama')}</p>
               <p className="text-sm sm:text-base font-medium text-blue-900">{user?.name}</p>
             </div>
             <div className="p-4 sm:p-5 bg-gradient-to-br from-blue-50 to-blue-50 rounded-lg border border-blue-200">
-              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">NIP</p>
+              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">{t('dashboardGuru.kartuPegawaiTab.nip')}</p>
               <p className="text-sm sm:text-base font-medium text-blue-900 font-mono">{user?.nip}</p>
             </div>
             <div className="p-4 sm:p-5 bg-gradient-to-br from-emerald-50 to-emerald-50 rounded-lg border border-emerald-200">
-              <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">Jabatan</p>
+              <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">{t('dashboardGuru.kartuPegawaiTab.jabatan')}</p>
               <p className="text-sm sm:text-base font-medium text-emerald-900">
-                {user?.subject || 'Staff'}{user?.isWaliKelas ? ' / Wali Kelas' : ''}
+                {user?.subject || t('dashboardGuru.kartuPegawaiTab.staff')}{user?.isWaliKelas ? ` / ${t('dashboardGuru.kartuPegawaiTab.waliKelas')}` : ''}
               </p>
             </div>
             {user?.isWaliKelas && myKelas && (
               <div className="p-4 sm:p-5 bg-gradient-to-br from-emerald-50 to-emerald-50 rounded-lg border border-emerald-200">
-                <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">Wali Kelas</p>
+                <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">{t('dashboardGuru.kartuPegawaiTab.waliKelas')}</p>
                 <p className="text-sm sm:text-base font-medium text-emerald-900">{myKelas.name}</p>
               </div>
             )}
@@ -74,7 +76,7 @@ const KartuPegawaiTab: React.FC<KartuPegawaiTabProps> = ({
       {/* Orientation Selector */}
       <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6">
         <label className="block text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">
-          Pilih Orientasi KTA
+          {t('dashboardGuru.kartuPegawaiTab.pilihOrientasiKTA')}
         </label>
         <div className="flex gap-4">
           <label className="flex items-center cursor-pointer">
@@ -86,7 +88,7 @@ const KartuPegawaiTab: React.FC<KartuPegawaiTabProps> = ({
               onChange={(e) => setOrientation(e.target.value as 'potrait' | 'landscape')}
               className="w-4 h-4 text-blue-600 focus:ring-blue-500 focus:ring-2"
             />
-            <span className="ml-2 text-sm sm:text-base text-slate-700 font-medium">Potrait</span>
+            <span className="ml-2 text-sm sm:text-base text-slate-700 font-medium">{t('dashboardGuru.kartuPegawaiTab.potrait')}</span>
           </label>
           <label className="flex items-center cursor-pointer">
             <input
@@ -97,19 +99,19 @@ const KartuPegawaiTab: React.FC<KartuPegawaiTabProps> = ({
               onChange={(e) => setOrientation(e.target.value as 'potrait' | 'landscape')}
               className="w-4 h-4 text-blue-600 focus:ring-blue-500 focus:ring-2"
             />
-            <span className="ml-2 text-sm sm:text-base text-slate-700 font-medium">Landscape</span>
+            <span className="ml-2 text-sm sm:text-base text-slate-700 font-medium">{t('dashboardGuru.kartuPegawaiTab.landscape')}</span>
           </label>
         </div>
         <p className="mt-2 text-xs text-slate-500">
           {orientation === 'potrait' 
-            ? 'KTA depan potrait dengan tata tertib di belakang' 
-            : 'KTA depan landscape dengan tata tertib di belakang'}
+            ? t('dashboardGuru.kartuPegawaiTab.ktaDepanPotrait')
+            : t('dashboardGuru.kartuPegawaiTab.ktaDepanLandscape')}
         </p>
       </div>
 
       <div className="grid grid-cols-1 2xl:grid-cols-2 gap-5 sm:gap-6 lg:gap-8">
             <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-4 sm:p-6">
-              <p className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">Depan Kartu</p>
+              <p className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">{t('dashboardGuru.kartuPegawaiTab.depanKartu')}</p>
               <KartuPegawaiPreviewFront 
                 user={user} 
                 myKelas={myKelas} 
@@ -118,10 +120,10 @@ const KartuPegawaiTab: React.FC<KartuPegawaiTabProps> = ({
               />
             </div>
             <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-4 sm:p-6">
-              <p className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">Belakang Kartu</p>
+              <p className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">{t('dashboardGuru.kartuPegawaiTab.belakangKartu')}</p>
               <KartuPegawaiPreviewBack 
                 user={user} 
-                backgroundImage={orientation === 'potrait' ? backgroundDepanGuru : backgroundBelakangGuru}
+                backgroundImage={orientation === 'potrait' ? backgroundBelakangGuru : backgroundDepanGuru}
                 orientation={orientation}
               />
             </div>
@@ -139,12 +141,12 @@ const KartuPegawaiTab: React.FC<KartuPegawaiTabProps> = ({
           {isGenerating ? (
             <>
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              <span>Membuat Kartu...</span>
+              <span>{t('dashboardGuru.kartuPegawaiTab.membuatKartu')}</span>
             </>
           ) : (
             <>
               <Download size={20} />
-              <span>Download Kartu Pegawai</span>
+              <span>{t('dashboardGuru.kartuPegawaiTab.downloadKartuPegawai')}</span>
             </>
           )}
         </Button>
@@ -153,36 +155,36 @@ const KartuPegawaiTab: React.FC<KartuPegawaiTabProps> = ({
       <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl sm:rounded-2xl p-5 sm:p-6">
         <h4 className="font-semibold text-amber-900 mb-3 sm:mb-4 text-sm sm:text-base flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
-          Informasi Kartu Pegawai
+          {t('dashboardGuru.kartuPegawaiTab.informasiKartuPegawai')}
         </h4>
         <ul className="text-xs sm:text-sm text-amber-800 space-y-2 sm:space-y-2.5">
           <li className="flex gap-2">
             <span className="font-bold text-amber-600 flex-shrink-0">•</span>
-            <span>Kartu pegawai berisi QR Code untuk identifikasi</span>
+            <span>{t('dashboardGuru.kartuPegawaiTab.kartuBerisiQRCode')}</span>
           </li>
           <li className="flex gap-2">
             <span className="font-bold text-amber-600 flex-shrink-0">•</span>
-            <span>Wajib dibawa setiap hari ke sekolah</span>
+            <span>{t('dashboardGuru.kartuPegawaiTab.wajibDibawa')}</span>
           </li>
           <li className="flex gap-2">
             <span className="font-bold text-amber-600 flex-shrink-0">•</span>
-            <span>Jangan meminjamkan kartu kepada orang lain</span>
+            <span>{t('dashboardGuru.kartuPegawaiTab.janganMeminjamkan')}</span>
           </li>
           <li className="flex gap-2">
             <span className="font-bold text-amber-600 flex-shrink-0">•</span>
-            <span>Laporkan segera jika kartu hilang</span>
+            <span>{t('dashboardGuru.kartuPegawaiTab.laporkanHilang')}</span>
           </li>
           <li className="flex gap-2">
             <span className="font-bold text-amber-600 flex-shrink-0">•</span>
-            <span>Download dalam format ZIP (depan & belakang)</span>
+            <span>{t('dashboardGuru.kartuPegawaiTab.downloadFormatZIP')}</span>
           </li>
           <li className="flex gap-2">
             <span className="font-bold text-amber-600 flex-shrink-0">•</span>
-            <span>Print dengan ukuran kartu standar (85.6 x 53.98 mm)</span>
+            <span>{t('dashboardGuru.kartuPegawaiTab.printUkuranStandar')}</span>
           </li>
           <li className="flex gap-2">
             <span className="font-bold text-amber-600 flex-shrink-0">•</span>
-            <span>Kartu berisi kode etik guru dan informasi kontak sekolah</span>
+            <span>{t('dashboardGuru.kartuPegawaiTab.kartuBerisiKodeEtik')}</span>
           </li>
         </ul>
       </div>

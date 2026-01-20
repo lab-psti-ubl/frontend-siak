@@ -224,6 +224,8 @@ const MapelListView: React.FC<MapelListViewProps> = ({
                   </div>
                   {mapel?.keterangan === 'umum' ? (
                     <Badge variant="info" className="text-xs whitespace-nowrap">Umum</Badge>
+                  ) : mapel?.keterangan === 'agama' ? (
+                    <Badge variant="success" className="text-xs whitespace-nowrap">Agama</Badge>
                   ) : (
                     <Badge variant="warning" className="text-xs whitespace-nowrap">Khusus</Badge>
                   )}

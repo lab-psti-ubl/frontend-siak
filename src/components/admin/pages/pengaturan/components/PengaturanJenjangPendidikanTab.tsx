@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Save, CheckCircle, AlertCircle, Lock, GraduationCap } from 'lucide-react';
+import { Save, CheckCircle, AlertCircle, Lock, GraduationCap, RotateCcw, AlertTriangle } from 'lucide-react';
 import Card from '../../../../ui/Card';
 import Button from '../../../../ui/Button';
 import { PengaturanJenjangPendidikan } from '../../../../../types';
 import { getJenjangDescription } from '../../../../../utils/jenjangPendidikanUtils';
+import { apiService } from '../../../../../services/apiService';
 
 interface PengaturanJenjangPendidikanTabProps {
   pengaturanJenjang: PengaturanJenjangPendidikan[];
@@ -17,6 +18,8 @@ const PengaturanJenjangPendidikanTab: React.FC<PengaturanJenjangPendidikanTabPro
   const activeJenjang = pengaturanJenjang.find(p => p.isActive);
   const [selectedJenjang, setSelectedJenjang] = useState<'SD' | 'SMP' | 'SMA/SMK' | ''>('');
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const jenjangOptions = [
     {
@@ -61,6 +64,39 @@ const PengaturanJenjangPendidikanTab: React.FC<PengaturanJenjangPendidikanTabPro
     setSelectedJenjang('');
 
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+  };
+
+  const handleResetDatabase = async () => {
+    try {
+      setIsResetting(true);
+      const response = await apiService.resetDatabase();
+      
+      if (response.success) {
+        setMessage({ 
+          type: 'success', 
+          text: 'Database berhasil direset. Semua data telah dihapus dan data default telah dibuat ulang. Silakan refresh halaman.' 
+        });
+        setShowResetConfirm(false);
+        
+        // Reload page after 3 seconds
+        setTimeout(() => {
+          window.location.reload();
+        }, 3000);
+      } else {
+        setMessage({ 
+          type: 'error', 
+          text: response.message || 'Gagal mereset database' 
+        });
+      }
+    } catch (error: any) {
+      console.error('Error resetting database:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.message || 'Terjadi kesalahan saat mereset database' 
+      });
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   return (
@@ -221,6 +257,79 @@ const PengaturanJenjangPendidikanTab: React.FC<PengaturanJenjangPendidikanTabPro
               <span>Jika perlu mengubah, hubungi administrator sistem</span>
             </li>
           </ul>
+        </div>
+      </Card>
+
+      {/* Reset Database Card */}
+      <Card>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-1">Reset Database</h3>
+            <p className="text-xs sm:text-sm text-slate-600">
+              Reset database akan menghapus semua data yang ada di collection database dan mengembalikannya ke kondisi awal dengan data default yang ditambahkan secara otomatis.
+            </p>
+          </div>
+
+          {showResetConfirm ? (
+            <div className="p-4 sm:p-5 bg-red-50 border border-red-200 rounded-lg space-y-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-sm sm:text-base font-semibold text-red-900 mb-2">
+                    Konfirmasi Reset Database
+                  </h4>
+                  <p className="text-xs sm:text-sm text-red-800 mb-4">
+                    Anda yakin ingin mereset database? Tindakan ini akan:
+                  </p>
+                  <ul className="text-xs sm:text-sm text-red-800 space-y-1 mb-4 list-disc list-inside">
+                    <li>Menghapus semua data dari semua collection</li>
+                    <li>Mengembalikan password admin ke default (admin123)</li>
+                    <li>Membuat ulang data default pengaturan sistem</li>
+                    <li>Tindakan ini tidak dapat dibatalkan!</li>
+                  </ul>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      onClick={handleResetDatabase}
+                      disabled={isResetting}
+                      className={`flex-1 flex justify-center items-center text-white text-xs sm:text-sm py-2 sm:py-3 ${
+                        isResetting
+                          ? 'bg-red-400 cursor-not-allowed'
+                          : 'bg-red-600 hover:bg-red-700'
+                      }`}
+                    >
+                      {isResetting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                          Mereset...
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw size={16} className="mr-2" />
+                          Ya, Reset Database
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => setShowResetConfirm(false)}
+                      disabled={isResetting}
+                      className="flex-1 justify-center bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs sm:text-sm py-2 sm:py-3"
+                    >
+                      Batal
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <Button
+              onClick={() => setShowResetConfirm(true)}
+              fullWidth
+              className="justify-center flex items-center bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm py-2 sm:py-3"
+            >
+              <RotateCcw size={16} className="mr-2" />
+              Reset Database
+            </Button>
+          )}
         </div>
       </Card>
     </div>

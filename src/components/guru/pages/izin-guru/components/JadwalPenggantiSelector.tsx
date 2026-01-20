@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { Guru, GuruPenggantiJadwal, JadwalPelajaran, MataPelajaran } from '../../../../../types';
+import { Guru, GuruPenggantiJadwal, JadwalPelajaran, MataPelajaran, TahfizSchedule } from '../../../../../types';
 import {
   JadwalDetail,
   getGurusWithoutScheduleOnDate,
   getGurusWithoutTimeConflict,
+  getUstadzWithoutTimeConflictTahfiz,
   getMataPelajaranNameById,
   getKelasNameById
 } from '../utils/jadwalPenggantiUtils';
 import { useGurus } from '../../../../../hooks/useGurus';
 import { useKelas } from '../../../../../hooks/useKelas';
+import { useUstadz } from '../../../../../hooks/useUstadz';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 interface JadwalPenggantiSelectorProps {
   jadwalDetails: JadwalDetail[];
@@ -19,6 +22,8 @@ interface JadwalPenggantiSelectorProps {
   semester: number;
   jadwalPelajaran: JadwalPelajaran[];
   mataPelajaran: MataPelajaran[];
+  jadwalTahfiz?: TahfizSchedule[];
+  kelasTahfiz?: any[];
   initialSelections?: GuruPenggantiJadwal[];
 }
 
@@ -30,10 +35,14 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
   semester,
   jadwalPelajaran,
   mataPelajaran,
+  jadwalTahfiz = [],
+  kelasTahfiz = [],
   initialSelections = []
 }) => {
+  const { t } = useLanguage();
   const { gurus } = useGurus();
   const { kelas } = useKelas();
+  const { ustadz } = useUstadz();
   const [selections, setSelections] = useState<Map<string, string>>(new Map());
   const [expandedJadwals, setExpandedJadwals] = useState<Set<string>>(new Set());
   const [availableGurusMap, setAvailableGurusMap] = useState<Map<string, Guru[]>>(new Map());
@@ -44,8 +53,21 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
       const initialMap = new Map<string, string>();
       initialSelections.forEach(selection => {
         // Find matching jadwal detail by jadwalId
-        const matchingDetail = jadwalDetails.find(d => d.jadwalKey === selection.jadwalId);
-        if (matchingDetail) {
+        // Try exact match first
+        let matchingDetail = jadwalDetails.find(d => d.jadwalKey === selection.jadwalId);
+        
+        // If not found and jadwalId starts with "tahfiz_", try without prefix (backward compatibility)
+        if (!matchingDetail && selection.jadwalId.startsWith('tahfiz_')) {
+          const idWithoutPrefix = selection.jadwalId.replace('tahfiz_', '');
+          matchingDetail = jadwalDetails.find(d => 
+            d.jadwalKey === `tahfiz_${idWithoutPrefix}` || 
+            (d.isTahfiz && (d.jadwal as any).id === idWithoutPrefix)
+          );
+          // If found, use the new jadwalKey format
+          if (matchingDetail) {
+            initialMap.set(matchingDetail.jadwalKey, selection.guruPenggantiId);
+          }
+        } else if (matchingDetail) {
           initialMap.set(selection.jadwalId, selection.guruPenggantiId);
         }
       });
@@ -79,21 +101,37 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
   }, [JSON.stringify(initialSelections), jadwalDetails.map(d => d.jadwalKey).join(',')]);
 
   useEffect(() => {
-    const gurusMap = new Map<string, Guru[]>();
+    const gurusMap = new Map<string, (Guru | any)[]>();
 
     jadwalDetails.forEach(detail => {
       const key = detail.jadwalKey;
-      const availableGurus = getGurusWithoutTimeConflict(
-        guruIdToExclude,
-        detail.tanggal,
-        detail.jadwal.jamMulai,
-        detail.jadwal.jamSelesai,
-        tahunAjaran,
-        semester,
-        gurus,
-        jadwalPelajaran
-      );
-      gurusMap.set(key, availableGurus);
+      
+      if (detail.isTahfiz) {
+        // For tahfiz schedule, get available ustadz
+        const availableUstadz = getUstadzWithoutTimeConflictTahfiz(
+          guruIdToExclude,
+          detail.tanggal,
+          detail.jadwal.jamMulai,
+          detail.jadwal.jamSelesai,
+          ustadz,
+          jadwalTahfiz,
+          kelasTahfiz
+        );
+        gurusMap.set(key, availableUstadz);
+      } else {
+        // For regular schedule, get available gurus
+        const availableGurus = getGurusWithoutTimeConflict(
+          guruIdToExclude,
+          detail.tanggal,
+          detail.jadwal.jamMulai,
+          detail.jadwal.jamSelesai,
+          tahunAjaran,
+          semester,
+          gurus,
+          jadwalPelajaran
+        );
+        gurusMap.set(key, availableGurus);
+      }
     });
 
     setAvailableGurusMap(gurusMap);
@@ -124,7 +162,7 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
       onSelectionChange(guruPenggantiList);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jadwalDetails.map(d => d.jadwalKey).join(','), guruIdToExclude, tahunAjaran, semester, gurus.length, jadwalPelajaran.length]);
+  }, [jadwalDetails.map(d => d.jadwalKey).join(','), guruIdToExclude, tahunAjaran, semester, gurus.length, jadwalPelajaran.length, ustadz.length, jadwalTahfiz.length, kelasTahfiz.length]);
 
   const handleSelectionChange = (jadwalKey: string, guruId: string) => {
     const newSelections = new Map(selections);
@@ -167,7 +205,7 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
     return (
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-700">
-          Tidak ada jadwal mengajar pada tanggal yang dipilih.
+          {t('izinGuru.jadwalPengganti.tidakAdaJadwalMengajar')}
         </p>
       </div>
     );
@@ -185,8 +223,8 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
   return (
     <div className="space-y-3">
       <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-        <h3 className="text-sm font-semibold text-amber-900">Guru Pengganti Wajib Dipilih</h3>
-        <p className="text-xs text-amber-800 mt-1">Silahkan pilih guru pengganti untuk semua jadwal pelajaran yang ada. Anda tidak dapat mengajukan izin tanpa memilih pengganti untuk setiap jadwal.</p>
+        <h3 className="text-sm font-semibold text-amber-900">{t('izinGuru.jadwalPengganti.guruPenggantiWajibDipilih')}</h3>
+        <p className="text-xs text-amber-800 mt-1">{t('izinGuru.jadwalPengganti.silakanPilihGuruPengganti')}</p>
       </div>
       <div className="space-y-4">
         {Object.entries(groupedByDay).map(([hari, details]) => {
@@ -208,7 +246,7 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
                     {hari}
                   </p>
                   <p className="text-xs text-gray-600 mt-1">
-                    {details.length} jadwal mengajar
+                    {t('izinGuru.jadwalPengganti.jadwalMengajarCount', { count: details.length })}
                   </p>
                 </div>
                 {isExpanded ? (
@@ -226,8 +264,21 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
                     const availableGurus = availableGurusMap.get(key) || [];
                     const selectedGuru = availableGurus.find(g => g.id === selectedGuruId);
 
-                    const mataPelajaranName = getMataPelajaranNameById(detail.jadwal.mataPelajaranId, mataPelajaran);
-                    const kelasName = getKelasNameById(detail.jadwal.kelasId, kelas);
+                    // Get mata pelajaran name and kelas name
+                    let mataPelajaranName = t('izinGuru.jadwalPengganti.tahfizQuran');
+                    let kelasName = t('izinGuru.jadwalPengganti.tidakDiketahui');
+                    
+                    if (detail.isTahfiz) {
+                      // For tahfiz schedule
+                      const tahfizJadwal = detail.jadwal as TahfizSchedule;
+                      const kelasTahfizItem = kelasTahfiz.find(k => k.id === tahfizJadwal.kelasId);
+                      kelasName = kelasTahfizItem?.namaKelas || t('izinGuru.jadwalPengganti.tidakDiketahui');
+                    } else {
+                      // For regular schedule
+                      const regularJadwal = detail.jadwal as JadwalPelajaran;
+                      mataPelajaranName = getMataPelajaranNameById(regularJadwal.mataPelajaranId, mataPelajaran);
+                      kelasName = getKelasNameById(regularJadwal.kelasId, kelas);
+                    }
 
                     return (
                       <div key={key} className="pb-3 border-b border-gray-200 last:border-b-0 last:pb-0">
@@ -237,6 +288,11 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
                               <p className="text-sm font-medium text-gray-900">
                                 {mataPelajaranName}
                               </p>
+                              {detail.isTahfiz && (
+                                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded">
+                                  {t('izinGuru.jadwalPengganti.tahfiz')}
+                                </span>
+                              )}
                               <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
                                 {kelasName}
                               </span>
@@ -250,7 +306,7 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
                         {availableGurus.length > 0 ? (
                           <div className="mt-2">
                             <label className="block text-xs font-medium text-gray-700 mb-1">
-                              Guru Pengganti *
+                              {detail.isTahfiz ? t('izinGuru.jadwalPengganti.ustadzPengganti') : t('izinGuru.jadwalPengganti.guruPengganti')} *
                             </label>
                             <select
                               value={selectedGuruId || ''}
@@ -260,7 +316,7 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
                               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                               required
                             >
-                              <option value="">-- Pilih Guru Pengganti --</option>
+                              <option value="">-- {t('izinGuru.jadwalPengganti.pilihGuruPengganti', { jenis: detail.isTahfiz ? t('izinGuru.jadwalPengganti.ustadz') : t('izinGuru.jadwalPengganti.guru') })} --</option>
                               {availableGurus.map(guru => (
                                 <option key={guru.id} value={guru.id}>
                                   {guru.name}
@@ -269,13 +325,13 @@ const JadwalPenggantiSelector: React.FC<JadwalPenggantiSelectorProps> = ({
                             </select>
                             {selectedGuru && (
                               <p className="text-xs text-green-600 mt-1">
-                                ✓ Terpilih: {selectedGuru.name}
+                                ✓ {t('izinGuru.jadwalPengganti.terpilih')}: {selectedGuru.name}
                               </p>
                             )}
                           </div>
                         ) : (
                           <p className="text-xs text-red-600 mt-2">
-                            Tidak ada guru pengganti yang tersedia.
+                            {t('izinGuru.jadwalPengganti.tidakAdaGuruPengganti', { jenis: detail.isTahfiz ? t('izinGuru.jadwalPengganti.ustadz') : t('izinGuru.jadwalPengganti.guru') })}
                           </p>
                         )}
                       </div>

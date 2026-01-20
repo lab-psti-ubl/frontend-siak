@@ -22,6 +22,7 @@ interface AbsenGuruTableRowProps {
   onEditAbsen: (guru: User) => void;
   getMapelName: (mapelId: string) => string;
   getKelasName: (kelasId: string) => string;
+  systemType?: string;
 }
 
 
@@ -48,7 +49,8 @@ const AbsenGuruTableRow: React.FC<AbsenGuruTableRowProps> = ({
   onViewAbsen,
   onEditAbsen,
   getMapelName,
-  getKelasName
+  getKelasName,
+  systemType
 }) => {
   const { user } = useAuth();
   const absensi = getGuruAbsensiForDate(absensiGuru, guru.id, selectedDate);
@@ -162,15 +164,17 @@ const AbsenGuruTableRow: React.FC<AbsenGuruTableRowProps> = ({
               <span >Edit</span>
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="green"
-            onClick={() => onViewAbsen(guru)}
-            className="!p-1 lg:!p-2 flex items-center text-xs lg:text-sm whitespace-nowrap w-full lg:w-auto justify-center lg:justify-start"
-          >
-            <span>Absen Kelas</span>
-            
-          </Button>
+          {systemType !== 'tahfiz' && (
+            <Button
+              size="sm"
+              variant="green"
+              onClick={() => onViewAbsen(guru)}
+              className="!p-1 lg:!p-2 flex items-center text-xs lg:text-sm whitespace-nowrap w-full lg:w-auto justify-center lg:justify-start"
+            >
+              <span>Absen Kelas</span>
+              
+            </Button>
+          )}
         </div>
       </TableCell>
     </TableRow>

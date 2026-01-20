@@ -21,6 +21,7 @@ interface AbsenGuruMobileListItemProps {
   onEditAbsen: (guru: User) => void;
   getMapelName: (mapelId: string) => string;
   getKelasName: (kelasId: string) => string;
+  systemType?: string;
 }
 
 
@@ -47,7 +48,8 @@ const AbsenGuruMobileListItem: React.FC<AbsenGuruMobileListItemProps> = ({
   onViewAbsen,
   onEditAbsen,
   getMapelName,
-  getKelasName
+  getKelasName,
+  systemType
 }) => {
   const { user } = useAuth();
   const absensi = getGuruAbsensiForDate(absensiGuru, guru.id, selectedDate);
@@ -171,15 +173,17 @@ const AbsenGuruMobileListItem: React.FC<AbsenGuruMobileListItemProps> = ({
             <span>Edit</span>
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="green"
-          onClick={() => onViewAbsen(guru)}
-          className="!px-3 !py-2 flex items-center justify-center text-xs font-medium"
-          title="Absen Kelas"
-        >
-          <span>Absen Kelas</span>
-        </Button>
+        {systemType !== 'tahfiz' && (
+          <Button
+            size="sm"
+            variant="green"
+            onClick={() => onViewAbsen(guru)}
+            className="!px-3 !py-2 flex items-center justify-center text-xs font-medium"
+            title="Absen Kelas"
+          >
+            <span>Absen Kelas</span>
+          </Button>
+        )}
       </div>
     </div>
   );

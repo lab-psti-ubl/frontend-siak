@@ -241,13 +241,33 @@ const RekapAbsenTable: React.FC<RekapAbsenTableProps> = ({ rekapData }) => {
                       </div>
                     </th>
                   ))}
+
+                  {/* Statistik kehadiran per murid */}
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase border-l border-gray-200">
+                    H
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase border-l border-gray-200">
+                    I
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase border-l border-gray-200">
+                    S
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase border-l border-gray-200">
+                    A
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase border-l border-gray-200">
+                    Total
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase border-l border-gray-200">
+                    %
+                  </th>
                 </tr>
               </thead>
 
               <tbody className="bg-white divide-y divide-gray-200">
                 {rekapData.students.length === 0 ? (
                   <tr>
-                    <td colSpan={3 + rekapData.meetings.length} className="px-6 py-12 text-center">
+                    <td colSpan={3 + rekapData.meetings.length + 6} className="px-6 py-12 text-center">
                       <User className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                       <p className="text-gray-500 font-medium text-lg">Tidak ada data murid</p>
                     </td>
@@ -285,6 +305,59 @@ const RekapAbsenTable: React.FC<RekapAbsenTableProps> = ({ rekapData }) => {
                           </td>
                         );
                       })}
+
+                      {(() => {
+                        const stats = {
+                          hadir: 0,
+                          alfa: 0,
+                          izin: 0,
+                          sakit: 0,
+                        };
+
+                        rekapData.meetings.forEach(meeting => {
+                          const attendance = rekapData.attendanceMatrix[student.id]?.[meeting.sesiId || ''] || '-';
+                          if (attendance === 'H') stats.hadir += 1;
+                          else if (attendance === 'A') stats.alfa += 1;
+                          else if (attendance === 'I') stats.izin += 1;
+                          else if (attendance === 'S') stats.sakit += 1;
+                        });
+
+                        const total = rekapData.meetings.length;
+                        const persen = total > 0 ? Math.round((stats.hadir / total) * 100) : 0;
+
+                        return (
+                          <>
+                            <td className="px-4 py-4 text-center border-l border-gray-200 text-xs font-semibold text-emerald-700">
+                              {stats.hadir}
+                            </td>
+                            <td className="px-4 py-4 text-center border-l border-gray-200 text-xs font-semibold text-amber-700">
+                              {stats.izin}
+                            </td>
+                            <td className="px-4 py-4 text-center border-l border-gray-200 text-xs font-semibold text-blue-700">
+                              {stats.sakit}
+                            </td>
+                            <td className="px-4 py-4 text-center border-l border-gray-200 text-xs font-semibold text-red-700">
+                              {stats.alfa}
+                            </td>
+                            <td className="px-4 py-4 text-center border-l border-gray-200 text-xs font-semibold text-slate-900">
+                              {total}
+                            </td>
+                            <td className="px-4 py-4 text-center border-l border-gray-200">
+                              <span
+                                className={`inline-flex items-center justify-center min-w-10 px-2 py-1 rounded-md font-semibold text-xs border ${
+                                  persen >= 75
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : persen >= 50
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : 'bg-red-50 text-red-700 border-red-200'
+                                }`}
+                              >
+                                {persen}%
+                              </span>
+                            </td>
+                          </>
+                        );
+                      })()}
                     </tr>
                   ))
                 )}

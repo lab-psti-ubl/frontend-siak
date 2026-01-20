@@ -14,9 +14,11 @@ import ActiveIzinCard from './pages/izin-guru/components/ActiveIzinCard';
 import IzinGuruTable from './pages/izin-guru/components/IzinGuruTable';
 import FormIzinModal, { FormData } from './pages/izin-guru/modals/FormIzinModal';
 import DetailIzinModal from './pages/izin-guru/modals/DetailIzinModal';
+import { useLanguage } from '../../context/LanguageContext';
 
 const IzinGuruComponent: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { izinGuru, loading: loadingIzinGuru, refreshIzinGuru } = useIzinGuru({ guruId: user?.id });
   const { activeTahunAjaran } = useTahunAjaran();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,7 +38,7 @@ const IzinGuruComponent: React.FC = () => {
     const validation = validateDates(formData.tanggalMulai, tanggalSelesai);
 
     if (!validation.valid) {
-      showErrorNotification('Tanggal Tidak Valid', validation.error || 'Tanggal tidak valid');
+      showErrorNotification(t('izinGuru.tanggalTidakValid'), validation.error || t('izinGuru.tanggalTidakValidDesc'));
       return;
     }
 
@@ -59,15 +61,15 @@ const IzinGuruComponent: React.FC = () => {
         
         if (response.success) {
           await refreshIzinGuru();
-          const jenisDisplay = formData.jenis === 'izin_dispen' ? 'Izin Dispen' : (formData.jenis.charAt(0).toUpperCase() + formData.jenis.slice(1));
+          const jenisDisplay = formData.jenis === 'izin_dispen' ? t('izinGuru.izinDispen') : t(`izinGuru.jenis.${formData.jenis}`);
           showSuccessNotification(
-            'Pengajuan Berhasil Diperbarui',
-            `Pengajuan ${jenisDisplay} Anda telah diperbarui.`
+            t('izinGuru.pengajuanBerhasilDiperbarui'),
+            t('izinGuru.pengajuanBerhasilDiperbaruiDesc', { jenis: jenisDisplay })
           );
           setSelectedIzin(null);
           setIsModalOpen(false);
         } else {
-          showErrorNotification('Gagal', response.message || 'Gagal memperbarui pengajuan izin');
+          showErrorNotification(t('common.error'), response.message || t('izinGuru.gagalMemperbaruiPengajuan'));
         }
       } else {
         // Create new izin
@@ -90,19 +92,19 @@ const IzinGuruComponent: React.FC = () => {
         
         if (response.success) {
           await refreshIzinGuru();
-          const jenisDisplay = formData.jenis === 'izin_dispen' ? 'Izin Dispen' : (formData.jenis.charAt(0).toUpperCase() + formData.jenis.slice(1));
+          const jenisDisplay = formData.jenis === 'izin_dispen' ? t('izinGuru.izinDispen') : t(`izinGuru.jenis.${formData.jenis}`);
           showSuccessNotification(
-            'Pengajuan Berhasil Dikirim',
-            `Pengajuan ${jenisDisplay} Anda telah dikirim dan menunggu persetujuan admin.`
+            t('izinGuru.pengajuanBerhasilDikirim'),
+            t('izinGuru.pengajuanBerhasilDikirimDesc', { jenis: jenisDisplay })
           );
           setIsModalOpen(false);
         } else {
-          showErrorNotification('Gagal', response.message || 'Gagal membuat pengajuan izin');
+          showErrorNotification(t('common.error'), response.message || t('izinGuru.gagalMembuatPengajuan'));
         }
       }
     } catch (error: any) {
       console.error('Error submitting izin:', error);
-      showErrorNotification('Gagal', error.message || 'Terjadi kesalahan saat mengirim pengajuan');
+      showErrorNotification(t('common.error'), error.message || t('izinGuru.terjadiKesalahanMengirim'));
     } finally {
       setIsSubmitting(false);
     }
@@ -119,18 +121,18 @@ const IzinGuruComponent: React.FC = () => {
   };
 
   const handleDeleteIzin = async (izin: IzinGuru) => {
-    if (confirm('Apakah Anda yakin ingin menghapus pengajuan izin ini?')) {
+    if (confirm(t('izinGuru.hapusPengajuanConfirm'))) {
       try {
         const response = await apiService.deleteIzinGuru(izin.id);
         if (response.success) {
           await refreshIzinGuru();
-          showSuccessNotification('Berhasil', 'Pengajuan izin telah dihapus');
+          showSuccessNotification(t('common.success'), t('izinGuru.pengajuanIzinDihapus'));
         } else {
-          showErrorNotification('Gagal', response.message || 'Gagal menghapus pengajuan izin');
+          showErrorNotification(t('common.error'), response.message || t('izinGuru.gagalMenghapusPengajuan'));
         }
       } catch (error: any) {
         console.error('Error deleting izin:', error);
-        showErrorNotification('Gagal', error.message || 'Terjadi kesalahan saat menghapus pengajuan');
+        showErrorNotification(t('common.error'), error.message || t('izinGuru.terjadiKesalahanMenghapus'));
       }
     }
   };
@@ -144,7 +146,7 @@ const IzinGuruComponent: React.FC = () => {
   if (loadingIzinGuru) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-600">Memuat data...</p>
+        <p className="text-gray-600">{t('common.loading')}</p>
       </div>
     );
   }
@@ -153,15 +155,15 @@ const IzinGuruComponent: React.FC = () => {
     <div className="space-y-5 lg:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">Pengajuan Izin</h2>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">Ajukan izin, sakit, cuti, atau dispen kepada admin</p>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{t('izinGuru.pengajuanIzin')}</h2>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">{t('izinGuru.pengajuanIzinDesc')}</p>
         </div>
         <Button
         onClick={() => setIsModalOpen(true)}
         className="w-full sm:w-auto justify-center flex items-center gap-2 text-sm sm:text-base"
       >
         <Plus size={18} />
-        Ajukan Izin
+        {t('izinGuru.ajukanIzin')}
       </Button>
         {/* <div className="flex-shrink-0">
           <Badge variant="info" className="inline-block text-xs sm:text-sm">

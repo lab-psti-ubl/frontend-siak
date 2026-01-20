@@ -16,6 +16,8 @@ import {
   Briefcase,
   Eye,
   Trophy,
+  Users,
+  UserCheck,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -25,8 +27,11 @@ import { useKelas } from '../../hooks/useKelas';
 import { useTahunAjaran } from '../../hooks/useTahunAjaran';
 import { usePengumumanKelulusan } from '../../hooks/usePengumumanKelulusan';
 import { useRiwayatWaliKelasData } from '../../hooks/useRiwayatWaliKelasData';
+import { useUstadz } from '../../hooks/useUstadz';
+import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
 import { User as UserType, Kelas, TahunAjaran, IzinGuru } from '../../types';
 import { isMaxTingkatSync } from '../../utils/jenjangPendidikanUtils';
+import { getTeacherTerm } from '../../utils/terminologyUtils';
 
 interface MenuCard {
   id: string;
@@ -51,7 +56,13 @@ const GuruMenuCards: React.FC = () => {
   const { pengumumanKelulusan } = usePengumumanKelulusan();
   const { izinGuru } = useIzinGuru();
   const { riwayatWaliKelas: riwayatWaliKelasData } = useRiwayatWaliKelasData();
+  const { ustadz } = useUstadz();
+  const { systemType } = usePengaturanSistem();
   const [showAllCards, setShowAllCards] = useState(false);
+  
+  const teacherTerm = getTeacherTerm(systemType);
+  const isTahfizSystem = systemType === 'tahfiz';
+  const isSekolahUmumTahfiz = systemType === 'sekolah_umum_tahfiz';
 
   const activeIzinForSubstitute = (() => {
     const today = new Date().toISOString().split('T')[0];
@@ -76,6 +87,8 @@ const GuruMenuCards: React.FC = () => {
   })();
 
   const hasRiwayatWaliKelas = riwayatWaliKelasData.some((r: any) => r.guruId === user?.id);
+
+  const isUstadz = ustadz.some((u) => u.id === user?.id);
 
   const shouldShowInfoKelulusan = (() => {
     if (!user?.isWaliKelas) return false;
@@ -131,12 +144,20 @@ const GuruMenuCards: React.FC = () => {
   const baseMenuCards: MenuCard[] = [
     {
       id: 'absen-guru',
-      label: 'Absen',
+      label: isTahfizSystem ? 'Absen Saya' : 'Absen',
       icon: ClipboardList,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-purple-600 to-purple-700',
       route: '/dashboard/absen-guru',
     },
+    ...(isSekolahUmumTahfiz ? [{
+      id: 'absen-siswa',
+      label: 'Absen Siswa',
+      icon: UserCheck,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-indigo-600 to-indigo-700',
+      route: '/dashboard/absen-siswa',
+    }] : []),
     {
       id: 'izin-guru',
       label: 'Pengajuan Izin',
@@ -254,6 +275,57 @@ const GuruMenuCards: React.FC = () => {
     }] : []),
   ];
 
+  const tahfizQuranCards: MenuCard[] = [
+    {
+      id: 'data-santri-tahfiz-guru',
+      label: 'Data Santri Tahfiz',
+      icon: Users,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
+      route: '/dashboard/data-santri-tahfiz-guru',
+    },
+    {
+      id: 'jadwal-tahfiz-guru',
+      label: 'Jadwal Tahfiz',
+      icon: Calendar,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-cyan-600 to-cyan-700',
+      route: '/dashboard/jadwal-tahfiz-guru',
+    },
+    {
+      id: 'absensi-tahfiz',
+      label: 'Absensi Tahfiz',
+      icon: ClipboardList,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-red-600 to-red-800',
+      route: '/dashboard/absensi-tahfiz',
+    },
+    {
+      id: 'riwayat-absensi-tahfiz',
+      label: 'Riwayat Absensi Tahfiz',
+      icon: FileText,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-orange-600 to-orange-700',
+      route: '/dashboard/riwayat-absensi-tahfiz',
+    },
+    {
+      id: 'progress-tahfiz',
+      label: 'Progress Tahfiz',
+      icon: BarChart3,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-violet-600 to-violet-700',
+      route: '/dashboard/progress-tahfiz',
+    },
+    {
+      id: 'izin-santri-tahfiz',
+      label: 'Izin Santri',
+      icon: FileText,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-pink-600 to-pink-700',
+      route: '/dashboard/izin-santri-tahfiz',
+    },
+  ];
+
   const riwayatCards: MenuCard[] = [
     {
       id: 'riwayat-wali-kelas',
@@ -273,34 +345,117 @@ const GuruMenuCards: React.FC = () => {
     },
   ];
 
-  const sections: MenuSection[] = [
-    {
-      title: 'Mengajar',
-      cards: mengajarCards,
-    },
-    ...(user?.isWaliKelas ? [{
-      title: 'Wali Kelas',
-      cards: waliKelasCards,
-    }] : []),
-    ...(hasRiwayatWaliKelas ? [{
-      title: 'Riwayat',
-      cards: riwayatCards,
-    }] : []),
-  ];
+  // Untuk sistem tahfiz, hanya tampilkan menu dasar dan tahfiz
+  // Tambahkan menu absensi tahfiz dan absensi murid ke base menu jika ustadz untuk memastikan tetap tersedia
+  const baseDisplayCards = isTahfizSystem 
+    ? (isUstadz 
+        ? [...baseMenuCards, {
+            id: 'absen-siswa',
+            label: 'Absensi Murid',
+            icon: UserCheck,
+            color: 'text-white',
+            bgColor: 'bg-gradient-to-br from-indigo-600 to-indigo-700',
+            route: '/dashboard/absen-siswa',
+          }, {
+            id: 'absensi-tahfiz',
+            label: 'Absensi Tahfiz',
+            icon: ClipboardList,
+            color: 'text-white',
+            bgColor: 'bg-gradient-to-br from-red-600 to-red-800',
+            route: '/dashboard/absensi-tahfiz',
+          }]
+        : baseMenuCards)
+    : isSekolahUmumTahfiz
+    ? [...mengajarCards, ...baseMenuCards]
+    : [...mengajarCards, ...baseMenuCards];
+  
+  const shouldShowMoreButton = isTahfizSystem
+    ? isUstadz
+    : isSekolahUmumTahfiz
+    ? (user?.isWaliKelas || isUstadz || hasRiwayatWaliKelas)
+    : (user?.isWaliKelas || isUstadz || hasRiwayatWaliKelas);
 
-  const baseDisplayCards = [...mengajarCards, ...baseMenuCards];
-  const shouldShowMoreButton = user?.isWaliKelas || hasRiwayatWaliKelas;
+  const sections: MenuSection[] = isTahfizSystem
+    ? [
+        ...(isUstadz ? [{
+          title: 'Tahfiz Qur\'an',
+          cards: tahfizQuranCards,
+        }] : []),
+      ]
+    : isSekolahUmumTahfiz
+    ? [
+        {
+          title: 'Mengajar',
+          cards: mengajarCards,
+        },
+        ...(user?.isWaliKelas ? [{
+          title: 'Wali Kelas',
+          cards: waliKelasCards,
+        }] : []),
+        ...(isUstadz ? [{
+          title: 'Tahfiz Qur\'an',
+          cards: tahfizQuranCards,
+        }] : []),
+        ...(hasRiwayatWaliKelas ? [{
+          title: 'Riwayat',
+          cards: riwayatCards,
+        }] : []),
+      ]
+    : [
+        {
+          title: 'Mengajar',
+          cards: mengajarCards,
+        },
+        ...(user?.isWaliKelas ? [{
+          title: 'Wali Kelas',
+          cards: waliKelasCards,
+        }] : []),
+        ...(isUstadz ? [{
+          title: 'Tahfiz Qur\'an',
+          cards: tahfizQuranCards,
+        }] : []),
+        ...(hasRiwayatWaliKelas ? [{
+          title: 'Riwayat',
+          cards: riwayatCards,
+        }] : []),
+      ];
 
-  const sectionsForExpanded: MenuSection[] = [
-    ...(user?.isWaliKelas ? [{
-      title: 'Wali Kelas',
-      cards: waliKelasCards,
-    }] : []),
-    ...(hasRiwayatWaliKelas ? [{
-      title: 'Riwayat',
-      cards: riwayatCards,
-    }] : []),
-  ];
+  const sectionsForExpanded: MenuSection[] = isTahfizSystem
+    ? [
+        ...(isUstadz ? [{
+          title: 'Tahfiz Qur\'an',
+          cards: tahfizQuranCards,
+        }] : []),
+      ]
+    : isSekolahUmumTahfiz
+    ? [
+        ...(user?.isWaliKelas ? [{
+          title: 'Wali Kelas',
+          cards: waliKelasCards,
+        }] : []),
+        ...(isUstadz ? [{
+          title: 'Tahfiz Qur\'an',
+          cards: tahfizQuranCards,
+        }] : []),
+        ...(hasRiwayatWaliKelas ? [{
+          title: 'Riwayat',
+          cards: riwayatCards,
+        }] : []),
+      ]
+    : [
+        ...(user?.isWaliKelas ? [{
+          title: 'Wali Kelas',
+          cards: waliKelasCards,
+        }] : []),
+        ...(isUstadz ? [{
+          title: 'Tahfiz Qur\'an',
+          cards: tahfizQuranCards,
+        }] : []),
+        ...(hasRiwayatWaliKelas ? [{
+          title: 'Riwayat',
+          cards: riwayatCards,
+        }] : []),
+      ];
 
   const renderMenuCards = (cards: MenuCard[]) => {
     return (

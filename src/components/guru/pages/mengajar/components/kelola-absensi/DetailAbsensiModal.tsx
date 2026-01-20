@@ -108,10 +108,12 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
     return () => window.removeEventListener('resize', checkSize);
   }, []);
 
-  const getFileIcon = (type: string) => {
-    if (type.includes('pdf')) return '📄';
-    if (type.includes('word')) return '📝';
-    if (type.includes('presentation')) return '📊';
+  const getFileIcon = (type: string | undefined) => {
+    if (!type) return '📁';
+    const typeLower = type.toLowerCase();
+    if (typeLower.includes('pdf')) return '📄';
+    if (typeLower.includes('word') || typeLower.includes('doc')) return '📝';
+    if (typeLower.includes('presentation') || typeLower.includes('ppt') || typeLower.includes('pptx')) return '📊';
     return '📁';
   };
 
@@ -256,12 +258,12 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                   <p className="text-xs sm:text-sm font-semibold text-green-800 uppercase tracking-wide mb-1.5">Deskripsi</p>
                   <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{jurnal.deskripsi}</p>
                 </div>
-                {jurnal.file && (
-                  <div className="border border-green-300 rounded-lg p-3 sm:p-4 bg-white">
-                    <p className="text-xs sm:text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2.5">File Lampiran</p>
+                <div className="border border-green-300 rounded-lg p-3 sm:p-4 bg-white">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2.5">File Lampiran</p>
+                  {jurnal.file && jurnal.file.name && jurnal.file.data && jurnal.file.size ? (
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                        <span className="text-xl sm:text-2xl">{getFileIcon(jurnal.file.type)}</span>
+                        <span className="text-xl sm:text-2xl">{getFileIcon(jurnal.file?.type)}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs sm:text-sm font-medium text-slate-900 truncate">
                             {jurnal.file.name}
@@ -289,10 +291,12 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                         </a>
                       </div>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <p className="text-sm text-slate-500 text-center py-2">Tidak ada file materi</p>
+                  )}
+                </div>
                 <p className="text-xs text-slate-600">
-                  Diinput: {new Date(jurnal.waktuInput).toLocaleString('id-ID')}
+                  Diinput: {jurnal.waktuInput ? new Date(jurnal.waktuInput).toLocaleString('id-ID') : '-'}
                 </p>
               </div>
             </div>

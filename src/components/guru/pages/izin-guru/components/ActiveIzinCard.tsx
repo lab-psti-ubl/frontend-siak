@@ -4,6 +4,7 @@ import Button from '../../../../ui/Button';
 import Badge from '../../../../ui/Badge';
 import { IzinGuru } from '../../../../../types';
 import { getJenisBadge } from '../utils/izinGuruUtils';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 interface ActiveIzinCardProps {
   activeIzin: IzinGuru;
@@ -11,6 +12,7 @@ interface ActiveIzinCardProps {
 }
 
 const ActiveIzinCard: React.FC<ActiveIzinCardProps> = ({ activeIzin, onViewDetail }) => {
+  const { t } = useLanguage();
   const daysRemaining = Math.ceil(
     (new Date(activeIzin.tanggalSelesai).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
   );
@@ -24,13 +26,13 @@ const ActiveIzinCard: React.FC<ActiveIzinCardProps> = ({ activeIzin, onViewDetai
               <div className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-emerald-500 shadow-md">
                 <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-emerald-900">Izin Aktif</h3>
+              <h3 className="text-base sm:text-lg font-bold text-emerald-900">{t('izinGuru.izinAktif')}</h3>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <Badge variant={getJenisBadge(activeIzin.jenis) as any} className="text-xs sm:text-sm">
-                  {activeIzin.jenis === 'izin_dispen' ? 'DISPEN' : activeIzin.jenis.toUpperCase()}
+                  {activeIzin.jenis === 'izin_dispen' ? t('izinGuru.izinDispen').toUpperCase() : t(`izinGuru.jenis.${activeIzin.jenis}`).toUpperCase()}
                 </Badge>
                 <span className="text-sm sm:text-base text-emerald-900 font-medium">{activeIzin.alasan}</span>
               </div>
@@ -54,7 +56,7 @@ const ActiveIzinCard: React.FC<ActiveIzinCardProps> = ({ activeIzin, onViewDetai
               </div>
 
               <div className="pt-2 text-xs sm:text-sm text-emerald-600 font-medium">
-                Sisa waktu: <span className="font-bold">{daysRemaining} hari</span>
+                {t('izinGuru.sisaWaktu')}: <span className="font-bold">{daysRemaining} {t('izinGuru.hari')}</span>
               </div>
             </div>
           </div>
@@ -65,7 +67,7 @@ const ActiveIzinCard: React.FC<ActiveIzinCardProps> = ({ activeIzin, onViewDetai
             onClick={() => onViewDetail(activeIzin)}
             className="w-full sm:w-auto flex-shrink-0 text-xs sm:text-sm"
           >
-            Lihat Detail
+            {t('izinGuru.lihatDetail')}
           </Button>
         </div>
       </div>

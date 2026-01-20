@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { User as UserType, Kelas } from '../../../../types';
 import { normalizeTeacherQRCode } from '../../../../utils/qrCodeGenerator';
 import { DEFAULT_PROFILE_ICON } from '../../../../utils/profilePlaceholder';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 interface KartuPegawaiPreviewFrontProps {
   user: UserType | null;
@@ -12,6 +13,7 @@ interface KartuPegawaiPreviewFrontProps {
 }
 
 const KartuPegawaiPreviewFront: React.FC<KartuPegawaiPreviewFrontProps> = ({ user, myKelas, backgroundImage, orientation = 'potrait' }) => {
+  const { t } = useLanguage();
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
@@ -61,7 +63,7 @@ const KartuPegawaiPreviewFront: React.FC<KartuPegawaiPreviewFrontProps> = ({ use
   if (orientation === 'landscape') {
     return (
       <div className="text-center">
-        <h4 className="font-semibold text-gray-900 mb-4">Sisi Depan</h4>
+        <h4 className="font-semibold text-gray-900 mb-4">{t('dashboardGuru.kartuPegawaiTab.preview.sisiDepan')}</h4>
         <div className="flex justify-center overflow-x-auto pl-12 sm:pl-0 pb-2">
           <div
             className="rounded-xl text-white relative overflow-hidden shadow-xl flex items-center justify-between flex-shrink-0"
@@ -110,19 +112,19 @@ const KartuPegawaiPreviewFront: React.FC<KartuPegawaiPreviewFrontProps> = ({ use
                 fontSize: values.textSize === 'text-xs' ? '16px' : values.textSize === 'text-[9px]' ? '9px' : '8px',
                 lineHeight: 1.4,
               }}>
-                <span className="font-medium">Nama</span>
+                <span className="font-medium">{t('dashboardGuru.kartuPegawaiTab.preview.nama')}</span>
                 <span>:</span>
                 <span className="truncate">{user?.name || '-'}</span>
 
-                <span className="font-medium">NIP</span>
+                <span className="font-medium">{t('dashboardGuru.kartuPegawaiTab.preview.nip')}</span>
                 <span>:</span>
-                <span className="truncate">{user?.nip || '-'}</span>
+                <span className="truncate">{(user as any)?.nip || '-'}</span>
 
-                <span className="font-medium">Jabatan</span>
+                <span className="font-medium">{t('dashboardGuru.kartuPegawaiTab.preview.jabatan')}</span>
                 <span>:</span>
-                <span className="truncate">{user?.subject || 'Staff'}{user?.isWaliKelas ? ' / Wali Kelas' : ''}</span>
+                <span className="truncate">{(user as any)?.subject || t('dashboardGuru.kartuPegawaiTab.preview.staff')}{(user as any)?.isWaliKelas ? ` / ${t('dashboardGuru.kartuPegawaiTab.preview.waliKelas')}` : ''}</span>
 
-                <span className="font-medium">Telp.</span>
+                <span className="font-medium">{t('dashboardGuru.kartuPegawaiTab.preview.telp')}</span>
                 <span>:</span>
                 <span className="truncate">{user?.phone || '-'}</span>
               </div>
@@ -136,7 +138,7 @@ const KartuPegawaiPreviewFront: React.FC<KartuPegawaiPreviewFrontProps> = ({ use
   // Potrait layout (default)
   return (
     <div className="text-center">
-      <h4 className="font-semibold text-gray-900 mb-4">Sisi Depan</h4>
+      <h4 className="font-semibold text-gray-900 mb-4">{t('dashboardGuru.kartuPegawaiTab.preview.sisiDepan')}</h4>
       <div className="flex justify-center overflow-x-auto pb-2">
         <div
           className="rounded-xl text-white relative overflow-hidden shadow-xl flex flex-col items-center justify-center flex-shrink-0"
@@ -185,15 +187,15 @@ const KartuPegawaiPreviewFront: React.FC<KartuPegawaiPreviewFrontProps> = ({ use
               fontSize: (values.textSize as string) === 'text-xs' ? '16px' : (values.textSize as string) === 'text-[9px]' ? '11px' : '8px',
               maxWidth: '100%',
             }}>
-              <span className="font-medium">NIP</span>
+              <span className="font-medium">{t('dashboardGuru.kartuPegawaiTab.preview.nip')}</span>
               <span>:</span>
-              <span className="truncate">{user?.nip || '-'}</span>
+              <span className="truncate">{(user as any)?.nip || '-'}</span>
 
-              <span className="font-medium">Jabatan</span>
+              <span className="font-medium">{t('dashboardGuru.kartuPegawaiTab.preview.jabatan')}</span>
               <span>:</span>
-              <span className="truncate">{user?.subject || 'Staff'}{user?.isWaliKelas ? ' / Wali Kelas' : ''}</span>
+              <span className="truncate">{(user as any)?.subject || t('dashboardGuru.kartuPegawaiTab.preview.staff')}{(user as any)?.isWaliKelas ? ` / ${t('dashboardGuru.kartuPegawaiTab.preview.waliKelas')}` : ''}</span>
 
-              <span className="font-medium">Bergabung</span>
+              <span className="font-medium">{t('dashboardGuru.kartuPegawaiTab.preview.bergabung')}</span>
               <span>:</span>
               <span>{new Date(user?.createdAt || '').getFullYear()}</span>
             </div>

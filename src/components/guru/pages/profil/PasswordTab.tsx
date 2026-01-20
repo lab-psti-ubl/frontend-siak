@@ -1,6 +1,7 @@
 import React from 'react';
 import { Eye, EyeOff, Save } from 'lucide-react';
 import Button from '../../../ui/Button';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 interface PasswordTabProps {
   passwordForm: {
@@ -31,13 +32,14 @@ const PasswordTab: React.FC<PasswordTabProps> = ({
   onToggleConfirmPassword,
   onSubmit,
 }) => {
+  const { t } = useLanguage();
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-xl sm:rounded-2xl p-5 sm:p-6 shadow-sm">
         <div className="flex items-center gap-3">
           <div>
-            <h3 className="text-lg sm:text-xl font-bold text-white">Ubah Password</h3>
-            <p className="text-xs sm:text-sm text-blue-100 mt-1">Perbarui kata sandi akun Anda</p>
+            <h3 className="text-lg sm:text-xl font-bold text-white">{t('dashboardGuru.passwordTab.title')}</h3>
+            <p className="text-xs sm:text-sm text-blue-100 mt-1">{t('dashboardGuru.passwordTab.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -47,7 +49,7 @@ const PasswordTab: React.FC<PasswordTabProps> = ({
           <div className="space-y-5 sm:space-y-6 max-w-2xl">
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
-                Password Saat Ini
+                {t('dashboardGuru.passwordTab.passwordSaatIni')}
               </label>
               <div className="relative">
                 <input
@@ -69,7 +71,7 @@ const PasswordTab: React.FC<PasswordTabProps> = ({
 
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
-                Password Baru
+                {t('dashboardGuru.passwordTab.passwordBaru')}
               </label>
               <div className="relative">
                 <input
@@ -88,12 +90,12 @@ const PasswordTab: React.FC<PasswordTabProps> = ({
                   {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              <p className="text-xs text-slate-500 mt-2">Minimal 6 karakter</p>
+              <p className="text-xs text-slate-500 mt-2">{t('dashboardGuru.passwordTab.minimal6Karakter')}</p>
             </div>
 
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
-                Konfirmasi Password Baru
+                {t('dashboardGuru.passwordTab.konfirmasiPasswordBaru')}
               </label>
               <div className="relative">
                 <input
@@ -126,7 +128,7 @@ const PasswordTab: React.FC<PasswordTabProps> = ({
 
             <Button type="submit" className="flex items-center justify-center gap-2 w-full sm:w-auto text-sm sm:text-base py-2.5 sm:py-3">
               <Save size={18} />
-              Ubah Password
+              {t('dashboardGuru.passwordTab.ubahPassword')}
             </Button>
           </div>
         </div>

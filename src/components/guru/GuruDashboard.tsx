@@ -9,17 +9,22 @@ import GuruMenuCards from './GuruMenuCards';
 import { useAuth } from '../../context/AuthContext';
 import { useRiwayatWaliKelas } from '../../hooks/useRiwayatWaliKelas';
 import { useJadwalPelajaran } from '../../hooks/useJadwalPelajaran';
+import { useJadwalTahfiz } from '../../hooks/useJadwalTahfiz';
 import { useSesiAbsensi } from '../../hooks/useSesiAbsensi';
+import { useSesiAbsensiTahfiz } from '../../hooks/useSesiAbsensiTahfiz';
 import { useSuratIzin } from '../../hooks/useSuratIzin';
 import { useIzinGuru } from '../../hooks/useIzinGuru';
 import { useKelas } from '../../hooks/useKelas';
+import { useKelasTahfiz } from '../../hooks/useKelasTahfiz';
 import { useMataPelajaran } from '../../hooks/useMataPelajaran';
 import { useTahunAjaran } from '../../hooks/useTahunAjaran';
 import { useAbsensiGuru } from '../../hooks/useAbsensiGuru';
 import { useMurid } from '../../hooks/useMurid';
+import { useSantri } from '../../hooks/useSantri';
 import { useAbsensi } from '../../hooks/useAbsensi';
 import { usePengaturanAbsen } from '../../hooks/usePengaturanAbsen';
 import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
+import { useLanguage } from '../../context/LanguageContext';
 import { apiService } from '../../services/apiService';
 import { calculateAttendanceStatus } from '../../utils/absensiUtils';
 import { showSuccessNotification, showErrorNotification } from '../../utils/notificationUtils';
@@ -30,6 +35,9 @@ import { JadwalPelajaran, SesiAbsensi, SuratIzin, Kelas, MataPelajaran, IzinGuru
 const GuruDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLanguage();
+  const { systemType } = usePengaturanSistem();
+  const isTahfiz = systemType === 'tahfiz';
   useRiwayatWaliKelas(user?.id);
   const [isSubmittingMasuk, setIsSubmittingMasuk] = useState(false);
   const [isSubmittingPulang, setIsSubmittingPulang] = useState(false);
@@ -37,35 +45,59 @@ const GuruDashboard: React.FC = () => {
   // Get active tahun ajaran first
   const { tahunAjaran, activeTahunAjaran } = useTahunAjaran();
   
-  // Get data with filters based on active tahun ajaran
+  // Get jadwal - for tahfiz use jadwal tahfiz, for non-tahfiz use jadwal pelajaran
   const { jadwalPelajaran } = useJadwalPelajaran(
-    activeTahunAjaran
+    !isTahfiz && activeTahunAjaran
       ? {
           guruId: user?.id,
           tahunAjaran: activeTahunAjaran.tahun,
           semester: activeTahunAjaran.semester,
         }
-      : { guruId: user?.id }
+      : !isTahfiz ? { guruId: user?.id } : undefined
   );
+  const { jadwalTahfiz } = useJadwalTahfiz();
   
   const today = new Date().toISOString().split('T')[0];
-  const { sesiAbsensi } = useSesiAbsensi({ tanggal: today });
+  const { sesiAbsensi } = useSesiAbsensi(!isTahfiz ? { tanggal: today } : undefined);
+  const { sesiAbsensiTahfiz } = useSesiAbsensiTahfiz(isTahfiz ? { tanggal: today } : undefined);
   const { suratIzin } = useSuratIzin();
   const { izinGuru } = useIzinGuru({ guruId: user?.id });
   const { kelas } = useKelas();
+  const { kelasTahfiz } = useKelasTahfiz();
   const { mataPelajaran } = useMataPelajaran();
   const { absensiGuru, refreshAbsensiGuru, createAbsensiGuru, updateAbsensiGuru } = useAbsensiGuru(user?.id);
   const { activePengaturanAbsen } = usePengaturanAbsen();
   const { enableEarlyDeparture } = usePengaturanSistem();
   
-  // Get murid and absensi for wali kelas statistics
+  // Get kelas tahfiz milik ustadz untuk sistem tahfiz
+  const myKelasTahfiz = React.useMemo(() => {
+    if (!isTahfiz || !user?.id) return null;
+    return kelasTahfiz.find(k => k.ustadzId === user.id) || null;
+  }, [isTahfiz, user?.id, kelasTahfiz]);
+
+  // Get jadwal tahfiz milik ustadz
+  const myJadwalTahfiz = React.useMemo(() => {
+    if (!isTahfiz || !myKelasTahfiz) return [];
+    return jadwalTahfiz.filter(j => j.kelasId === myKelasTahfiz.id);
+  }, [isTahfiz, myKelasTahfiz, jadwalTahfiz]);
+
+  // Get santri for tahfiz kelas or murid for regular kelas
   const { murid: muridKelas } = useMurid(
-    user?.isWaliKelas && user?.kelasWali
+    !isTahfiz && user?.isWaliKelas && user?.kelasWali
       ? { kelasId: user.kelasWali, status: 'active' }
       : undefined
   );
+  const { santri: santriKelas } = useSantri();
+  
+  // Get santri in my tahfiz kelas
+  const santriInKelas = React.useMemo(() => {
+    if (!isTahfiz || !myKelasTahfiz) return [];
+    return santriKelas.filter(s => myKelasTahfiz.santriIds.includes(s.id));
+  }, [isTahfiz, myKelasTahfiz, santriKelas]);
+
+  // Get absensi for kelas statistics (only for non-tahfiz)
   const { absensi: absensiKelas } = useAbsensi(
-    user?.isWaliKelas && user?.kelasWali && activeTahunAjaran
+    !isTahfiz && user?.isWaliKelas && user?.kelasWali && activeTahunAjaran
       ? {
           kelasId: user.kelasWali,
           tahunAjaranId: activeTahunAjaran.id,
@@ -98,28 +130,58 @@ const GuruDashboard: React.FC = () => {
 
   const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
 
-  // Get guru's schedules
-  const mySchedules = jadwalPelajaran.filter(j => 
-    j.guruId === user?.id &&
-    j.tahunAjaran === activeTahunAjaran?.tahun &&
-    j.semester === activeTahunAjaran?.semester
-  );
-  const todaySchedules = mySchedules.filter(j => j.hari === currentDay);
+  // Get guru's schedules - for tahfiz use jadwal tahfiz, for non-tahfiz use jadwal pelajaran
+  const mySchedules = React.useMemo(() => {
+    if (isTahfiz) {
+      // For tahfiz, use jadwal tahfiz milik ustadz
+      return myJadwalTahfiz;
+    }
+    // For non-tahfiz, filter jadwal pelajaran by tahun ajaran and semester
+    return jadwalPelajaran.filter(j => 
+      j.guruId === user?.id &&
+      j.tahunAjaran === activeTahunAjaran?.tahun &&
+      j.semester === activeTahunAjaran?.semester
+    );
+  }, [isTahfiz, myJadwalTahfiz, jadwalPelajaran, user?.id, activeTahunAjaran]);
+  
+  const todaySchedules = React.useMemo(() => {
+    return mySchedules.filter(j => j.hari === currentDay);
+  }, [mySchedules, currentDay]);
 
-  // Get today's sessions
-  const todaySessions = sesiAbsensi.filter(s => 
-    s.tanggal === today && 
-    mySchedules.some(j => j.id === s.jadwalId)
-  );
+  // Get today's sessions - for tahfiz use sesi absensi tahfiz, for non-tahfiz use sesi absensi biasa
+  const todaySessions = React.useMemo(() => {
+    if (isTahfiz) {
+      return sesiAbsensiTahfiz.filter(s => 
+        s.tanggal === today && 
+        myJadwalTahfiz.some(j => j.id === s.jadwalId)
+      );
+    }
+    return sesiAbsensi.filter(s => 
+      s.tanggal === today && 
+      mySchedules.some(j => j.id === s.jadwalId)
+    );
+  }, [isTahfiz, sesiAbsensiTahfiz, sesiAbsensi, today, myJadwalTahfiz, mySchedules]);
 
   // Get pending surat izin if wali kelas (only from kelas wali)
-  const pendingSuratIzin = user?.isWaliKelas && user?.kelasWali ? 
-    suratIzin.filter(s => {
-      if (s.status !== 'menunggu') return false;
-      // Filter by murid's kelasId
-      const murid = muridKelas.find(m => m.id === s.muridId);
-      return murid && (murid as any).kelasId === user.kelasWali;
-    }) : [];
+  // For tahfiz: filter by santri in my tahfiz kelas
+  // For non-tahfiz: filter by murid in kelas wali
+  const pendingSuratIzin = React.useMemo(() => {
+    if (isTahfiz && myKelasTahfiz) {
+      return suratIzin.filter(s => {
+        if (s.status !== 'menunggu') return false;
+        // Filter by santri in my tahfiz kelas
+        return myKelasTahfiz.santriIds.includes(s.muridId);
+      });
+    } else if (!isTahfiz && user?.isWaliKelas && user?.kelasWali) {
+      return suratIzin.filter(s => {
+        if (s.status !== 'menunggu') return false;
+        // Filter by murid's kelasId
+        const murid = muridKelas.find(m => m.id === s.muridId);
+        return murid && (murid as any).kelasId === user.kelasWali;
+      });
+    }
+    return [];
+  }, [isTahfiz, myKelasTahfiz, suratIzin, user?.isWaliKelas, user?.kelasWali, muridKelas]);
   
   // Get my izin guru (already filtered by guruId in hook)
   const pendingIzinGuru = izinGuru.filter(i => i.status === 'menunggu');
@@ -211,7 +273,13 @@ const GuruDashboard: React.FC = () => {
 
   // Handle Absen Masuk
   const handleAbsenMasuk = async () => {
-    if (!user || !activeTahunAjaran) {
+    if (!user) {
+      showErrorNotification('Error', 'Data tidak lengkap');
+      return;
+    }
+    
+    // For non-tahfiz, require activeTahunAjaran
+    if (!isTahfiz && !activeTahunAjaran) {
       showErrorNotification('Error', 'Data tidak lengkap');
       return;
     }
@@ -265,8 +333,15 @@ const GuruDashboard: React.FC = () => {
         jamMasuk: now.toISOString(),
         statusMasuk: statusMasuk as 'tepat_waktu' | 'terlambat' | 'tidak_masuk' | 'izin' | 'sakit' | 'alfa',
         statusKeluar: 'tidak_keluar',
-        tahunAjaranId: activeTahunAjaran.id,
-        semester: activeTahunAjaran.semester,
+        ...(isTahfiz 
+          ? {} // No tahun ajaran/semester for tahfiz
+          : activeTahunAjaran 
+          ? {
+              tahunAjaranId: activeTahunAjaran.id,
+              semester: activeTahunAjaran.semester,
+            }
+          : {}
+        ),
       };
 
       await createAbsensiGuru(newAbsensi);
@@ -283,7 +358,13 @@ const GuruDashboard: React.FC = () => {
 
   // Handle Absen Pulang
   const handleAbsenPulang = async () => {
-    if (!user || !activeTahunAjaran) {
+    if (!user) {
+      showErrorNotification('Error', 'Data tidak lengkap');
+      return;
+    }
+    
+    // For non-tahfiz, require activeTahunAjaran
+    if (!isTahfiz && !activeTahunAjaran) {
       showErrorNotification('Error', 'Data tidak lengkap');
       return;
     }
@@ -382,15 +463,15 @@ const GuruDashboard: React.FC = () => {
     }
     // Jika ada absen masuk tapi absen pulangnya alfa
     if (hasMasuk && todayAbsensiGuru?.statusKeluar === 'alfa') {
-      return 'Anda Bolos, Tidak Absen Pulang';
+      return t('dashboardGuru.andaBolosTidakAbsenPulang');
     }
     if (hasMasuk && hasPulang) {
-      return 'Sudah absen masuk dan pulang';
+      return t('dashboardGuru.sudahAbsenMasukDanPulang');
     }
     if (hasMasuk) {
-      return 'Sudah absen masuk';
+      return t('dashboardGuru.sudahAbsenMasuk');
     }
-    return 'Belum absen masuk';
+    return t('dashboardGuru.belumAbsenMasuk');
   };
 
   // Get status bar background color based on status
@@ -432,33 +513,36 @@ const GuruDashboard: React.FC = () => {
     return 'bg-gradient-to-r from-orange-500 to-orange-600';
   };
 
+  const studentTerm = isTahfiz ? 'santri' : 'murid';
+  const teacherTerm = isTahfiz ? 'ustadz' : 'guru';
+
   const stats = [
     {
-      title: 'Jadwal Hari Ini',
+      title: t('dashboardGuru.jadwalHariIni'),
       value: todaySchedules.length,
       icon: Calendar,
       color: 'bg-blue-500',
     },
     {
-      title: 'Sesi Aktif',
+      title: t('dashboardGuru.sesiAktif'),
       value: todaySessions.filter(s => s.status === 'dibuka').length,
       icon: Clock,
       color: 'bg-emerald-500',
     },
     {
-      title: 'Total Jadwal',
+      title: t('dashboardGuru.totalJadwal'),
       value: mySchedules.length,
       icon: ClipboardList,
       color: 'bg-purple-500',
     },
     ...(user?.isWaliKelas ? [{
-      title: 'Surat Izin Pending',
+      title: t('dashboardGuru.suratIzinPending'),
       value: pendingSuratIzin.length,
       icon: FileText,
       color: 'bg-orange-500',
     }] : []),
     {
-      title: 'Izin Saya Pending',
+      title: t('dashboardGuru.izinSayaPending'),
       value: pendingIzinGuruCount,
       icon: FileText,
       color: 'bg-yellow-500',
@@ -471,7 +555,10 @@ const GuruDashboard: React.FC = () => {
   };
 
   const handlePhotoCapture = async (imageBase64: string) => {
-    if (!selectedJadwalForPhoto || !user || !activeTahunAjaran) return;
+    if (!selectedJadwalForPhoto || !user) return;
+    
+    // For non-tahfiz, require activeTahunAjaran
+    if (!isTahfiz && !activeTahunAjaran) return;
 
     setIsSavingPhoto(true);
 
@@ -510,8 +597,15 @@ const GuruDashboard: React.FC = () => {
           statusKeluar: 'tidak_keluar',
           fotoMengajar: [newFoto],
           keterangan: 'Foto bukti mengajar',
-          tahunAjaranId: activeTahunAjaran.id || activeTahunAjaran.tahun,
-          semester: activeTahunAjaran.semester,
+          ...(isTahfiz 
+            ? {} // No tahun ajaran/semester for tahfiz
+            : activeTahunAjaran 
+            ? {
+                tahunAjaranId: activeTahunAjaran.id || activeTahunAjaran.tahun,
+                semester: activeTahunAjaran.semester,
+              }
+            : {}
+          ),
         };
 
         const response = await apiService.createAbsensiGuru(newAbsensi);
@@ -535,6 +629,12 @@ const GuruDashboard: React.FC = () => {
   };
 
   const getKelasName = (kelasId: string) => {
+    if (isTahfiz) {
+      // For tahfiz, use kelas tahfiz name
+      const kelasTahfizData = kelasTahfiz.find(k => k.id === kelasId);
+      return kelasTahfizData?.namaKelas || 'Unknown';
+    }
+    // For non-tahfiz, use regular kelas name
     return kelas.find(k => k.id === kelasId)?.name || 'Unknown';
   };
 
@@ -542,12 +642,18 @@ const GuruDashboard: React.FC = () => {
     return mataPelajaran.find(m => m.id === mapelId)?.name || 'Unknown';
   };
 
+  // Helper to check if jadwal is tahfiz schedule
+  const isJadwalTahfiz = (jadwal: any): boolean => {
+    return isTahfiz && !('mataPelajaranId' in jadwal);
+  };
+
   const hasPhotoForJadwal = (jadwalId: string) => {
+    if (isTahfiz) return false; // Photo evidence not used for tahfiz
     const todayAbsensi = absensiGuru.find(a => a.guruId === user?.id && a.tanggal === today);
     return todayAbsensi?.fotoMengajar?.some(f => f.jadwalId === jadwalId) || false;
   };
 
-  const isJadwalFinished = (jadwal: JadwalPelajaran) => {
+  const isJadwalFinished = (jadwal: any) => {
     const now = new Date();
     const currentTime = now.toTimeString().slice(0, 5);
     return currentTime >= jadwal.jamSelesai;
@@ -565,10 +671,17 @@ const GuruDashboard: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1 sm:mb-2">
-                Selamat Datang, {user?.name}!
+                {t('dashboardGuru.welcome', { name: user?.name || '' })}
               </h1>
               <p className="text-sm sm:text-base text-emerald-100">
-                {activeTahunAjaran?.tahun || ''} Semester {activeTahunAjaran?.semester || ''} - {user?.isWaliKelas ? 'Wali Kelas' : 'Guru Mata Pelajaran'}
+                {isTahfiz 
+                  ? (user?.isWaliKelas 
+                      ? t('dashboardGuru.waliKelasTahfiz')
+                      : t('dashboardGuru.ustadzMataPelajaran'))
+                  : (activeTahunAjaran 
+                      ? `${t('dashboardGuru.tahunAjaranSemester', { tahun: activeTahunAjaran.tahun || '', semester: activeTahunAjaran.semester || '' })} - ${user?.isWaliKelas ? t('dashboardGuru.waliKelas') : t('dashboardGuru.guruMataPelajaran')}`
+                      : (user?.isWaliKelas ? t('dashboardGuru.waliKelas') : t('dashboardGuru.guruMataPelajaran')))
+                }
               </p>
             </div>
           </div>
@@ -588,14 +701,16 @@ const GuruDashboard: React.FC = () => {
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-400/30 rounded-lg flex items-center justify-center">
                     <LogIn className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" />
                   </div>
-                  <span className="text-slate-600 font-bold text-sm sm:text-base uppercase">Masuk</span>
+                  <span className="text-slate-600 font-bold text-sm sm:text-base uppercase">{t('dashboardGuru.masuk')}</span>
                 </div>
                 <div className="space-y-1">
                   <p className="text-slate-600 font-bold text-2xl sm:text-3xl">
                     {formatTimeWithDot(waktuMasuk)}
                   </p>
                   <p className="text-slate-600 text-xs sm:text-sm font-medium">
-                    {getDisplayStatusMasuk()}
+                    {getDisplayStatusMasuk() === 'Tepat Waktu' ? t('dashboardGuru.tepatWaktu') : 
+                     getDisplayStatusMasuk() === 'Terlambat' ? t('dashboardGuru.terlambat') : 
+                     getDisplayStatusMasuk()}
                   </p>
                 </div>
               </div>
@@ -630,7 +745,7 @@ const GuruDashboard: React.FC = () => {
                       : todayAbsensiGuru?.statusMasuk === 'izin'
                       ? 'text-yellow-600'
                       : 'text-blue-600'
-                  }`}>Masuk</span>
+                  }`}>{t('dashboardGuru.masuk')}</span>
                 </div>
                 <div className="space-y-1">
                   <p className={`font-bold text-2xl sm:text-3xl uppercase ${
@@ -657,8 +772,8 @@ const GuruDashboard: React.FC = () => {
                   </p>
                 </div>
               </div>
-            ) : (
-              // Button mode: Clickable or disabled
+            ) : (activePengaturanAbsen?.enableManualAbsen !== false) ? (
+              // Button mode: Clickable or disabled (only show if manual absen is enabled)
               <button
                 onClick={handleAbsenMasuk}
                 disabled={
@@ -705,14 +820,14 @@ const GuruDashboard: React.FC = () => {
                   todayAbsensiGuru?.statusMasuk === 'alfa'
                     ? 'text-slate-600'
                     : 'text-white'
-                }`}>Absen Masuk</span>
+                  }`}>{t('dashboardGuru.absenMasuk')}</span>
                 {isSubmittingMasuk && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-2xl">
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 )}
               </button>
-            )}
+            ) : null}
 
             {/* Absen Pulang Button */}
             {hasPulang && (waktuPulang || todayAbsensiGuru?.statusKeluar === 'alfa') && todayAbsensiGuru?.statusKeluar !== 'izin' && todayAbsensiGuru?.statusKeluar !== 'sakit' ? (
@@ -722,7 +837,7 @@ const GuruDashboard: React.FC = () => {
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-300/30 rounded-lg flex items-center justify-center">
                     <LogOut className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500" />
                   </div>
-                  <span className="text-slate-500 font-bold text-sm sm:text-base uppercase">Pulang</span>
+                  <span className="text-slate-500 font-bold text-sm sm:text-base uppercase">{t('dashboardGuru.pulang')}</span>
                 </div>
                 <div className="space-y-1">
                   <p className={`font-bold text-2xl sm:text-3xl ${
@@ -735,7 +850,10 @@ const GuruDashboard: React.FC = () => {
                       : formatTimeWithDot(waktuPulang)}
                   </p>
                   <p className="text-slate-500 text-xs sm:text-sm font-medium">
-                    {getDisplayStatusPulang()}
+                    {getDisplayStatusPulang() === 'Tepat Waktu' ? t('dashboardGuru.tepatWaktu') : 
+                     getDisplayStatusPulang() === 'Pulang Cepat' ? t('dashboardGuru.pulangCepat') : 
+                     getDisplayStatusPulang() === 'Tidak Absen' ? t('dashboardGuru.tidakAbsen') :
+                     getDisplayStatusPulang()}
                   </p>
                 </div>
               </div>
@@ -770,7 +888,7 @@ const GuruDashboard: React.FC = () => {
                       : todayAbsensiGuru?.statusKeluar === 'izin'
                       ? 'text-yellow-600'
                       : 'text-blue-600'
-                  }`}>Pulang</span>
+                  }`}>{t('dashboardGuru.pulang')}</span>
                 </div>
                 <div className="space-y-1">
                   <p className={`font-bold text-2xl sm:text-3xl uppercase ${
@@ -797,8 +915,8 @@ const GuruDashboard: React.FC = () => {
                   </p>
                 </div>
               </div>
-            ) : (
-              // Button mode: Clickable or disabled
+            ) : (activePengaturanAbsen?.enableManualAbsen !== false) ? (
+              // Button mode: Clickable or disabled (only show if manual absen is enabled)
               <button
                 onClick={handleAbsenPulang}
                 disabled={
@@ -850,28 +968,28 @@ const GuruDashboard: React.FC = () => {
                   todayAbsensiGuru?.statusKeluar === 'alfa'
                     ? 'text-slate-500'
                     : 'text-white'
-                }`}>Absen Pulang</span>
+                }`}>{t('dashboardGuru.absenPulang')}</span>
                 {isSubmittingPulang && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-2xl">
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 )}
               </button>
-            )}
+            ) : null}
           </div>
 
           {/* Status Bar */}
           <div className={`${getStatusBarColor()} rounded-2xl shadow-lg overflow-hidden transition-all duration-300`}>
             <div className="px-5 py-4 flex items-center justify-between">
               <div className="flex-1">
-                <p className="text-white font-bold text-sm mb-1">Status Hari Ini</p>
+                <p className="text-white font-bold text-sm mb-1">{t('dashboardGuru.statusHariIni')}</p>
                 <p className="text-white text-base">{getStatusText()}</p>
               </div>
               <button
                 onClick={() => navigate('/dashboard/absen-guru')}
                 className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-semibold px-4 py-2 rounded-xl transition-all duration-200 active:scale-95"
               >
-                Lihat
+                {t('dashboardGuru.lihat')}
               </button>
             </div>
           </div>
@@ -924,7 +1042,7 @@ const GuruDashboard: React.FC = () => {
                 <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-800" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-white">Jadwal Hari Ini</h3>
+                <h3 className="text-base sm:text-lg font-bold text-white">{t('dashboardGuru.jadwalHariIni')}</h3>
                 <p className="text-xs sm:text-sm text-white">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
               </div>
             </div>
@@ -934,25 +1052,32 @@ const GuruDashboard: React.FC = () => {
               <div className="space-y-3">
                 {todaySchedules.map((jadwal) => {
                   const session = todaySessions.find(s => s.jadwalId === jadwal.id);
-                  const isFinished = isJadwalFinished(jadwal);
-                  const hasPhoto = hasPhotoForJadwal(jadwal.id);
+                  const isJadwalTahfizType = isJadwalTahfiz(jadwal);
+                  const isFinished = isJadwalTahfizType ? 
+                    (() => {
+                      const now = new Date();
+                      const currentTime = now.toTimeString().slice(0, 5);
+                      return currentTime >= jadwal.jamSelesai;
+                    })() :
+                    isJadwalFinished(jadwal);
+                  const hasPhoto = isJadwalTahfizType ? false : hasPhotoForJadwal(jadwal.id);
                   const sessionOpened = hasSessionOpened(jadwal.id);
 
                   return (
                     <div 
                       key={jadwal.id} 
-                      onClick={() => navigate('/dashboard/absensi', { state: { scrollToJadwalId: jadwal.id } })}
+                      onClick={() => navigate(isJadwalTahfizType ? '/dashboard/absensi-tahfiz' : '/dashboard/absensi', { state: { scrollToJadwalId: jadwal.id } })}
                       className="group relative bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-blue-300 rounded-lg sm:rounded-xl p-3 sm:p-4 transition-all duration-300 cursor-pointer hover:shadow-lg hover:shadow-blue-500/10 hover:-translate-y-1 hover:scale-[1.02] active:scale-[0.98]"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="flex-1">
                           <p className="font-semibold text-slate-900 text-sm sm:text-base mb-1">
-                            {getMapelName(jadwal.mataPelajaranId)}
+                            {isJadwalTahfizType ? getKelasName(jadwal.kelasId) : getMapelName((jadwal as any).mataPelajaranId)}
                           </p>
                           <div className="flex items-center gap-1.5 text-slate-600 text-xs sm:text-sm">
                             <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             <p>
-                              {getKelasName(jadwal.kelasId)} • {jadwal.jamMulai} - {jadwal.jamSelesai}
+                              {isJadwalTahfizType ? '' : `${getKelasName(jadwal.kelasId)} • `}{jadwal.jamMulai} - {jadwal.jamSelesai}
                             </p>
                           </div>
                         </div>
@@ -961,11 +1086,11 @@ const GuruDashboard: React.FC = () => {
                             <span className={`inline-flex items-center px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold ${
                               session.status === 'dibuka' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-200 text-slate-700 border border-slate-300'
                             }`}>
-                              {session.status === 'dibuka' ? 'Sesi Aktif' : 'Sesi Tutup'}
+                              {session.status === 'dibuka' ? t('dashboardGuru.sesiAktifBadge') : t('dashboardGuru.sesiTutup')}
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
-                              Belum Dibuka
+                              {t('dashboardGuru.belumDibuka')}
                             </span>
                           )}
                         </div>
@@ -979,13 +1104,13 @@ const GuruDashboard: React.FC = () => {
                               <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
                                 <Camera size={14} className="text-blue-600" />
                               </div>
-                              <span className="text-xs sm:text-sm font-medium text-slate-700">Bukti Mengajar:</span>
+                              <span className="text-xs sm:text-sm font-medium text-slate-700">{t('dashboardGuru.buktiMengajar')}</span>
                             </div>
                             <div className="flex items-center space-x-2">
                               {hasPhoto ? (
                                 <span className="inline-flex items-center px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
                                   <CheckCircle size={12} className="mr-1" />
-                                  Tersimpan
+                                  {t('dashboardGuru.tersimpan')}
                                 </span>
                               ) : isFinished ? (
                                 <Button
@@ -997,11 +1122,11 @@ const GuruDashboard: React.FC = () => {
                                   className="flex items-center gap-1 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white border-0"
                                 >
                                   <Camera size={14} />
-                                  Ambil Foto
+                                  {t('dashboardGuru.ambilFoto')}
                                 </Button>
                               ) : (
                                 <span className="inline-flex items-center px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                  Selesai untuk foto
+                                  {t('dashboardGuru.selesaiUntukFoto')}
                                 </span>
                               )}
                             </div>
@@ -1017,8 +1142,8 @@ const GuruDashboard: React.FC = () => {
                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Calendar className="w-8 h-8 text-slate-400" />
                 </div>
-                <p className="text-sm sm:text-base font-medium text-slate-500">Tidak ada jadwal hari ini</p>
-                <p className="text-xs sm:text-sm text-slate-400 mt-1">Nikmati hari istirahatmu!</p>
+                <p className="text-sm sm:text-base font-medium text-slate-500">{t('dashboardGuru.tidakAdaJadwalHariIni')}</p>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1">{t('dashboardGuru.nikmatiHariIstirahatmu')}</p>
               </div>
             )}
           </div>
@@ -1032,8 +1157,8 @@ const GuruDashboard: React.FC = () => {
                 <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-800" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-white">Aktivitas Penting</h3>
-                <p className="text-xs sm:text-sm text-white">Status dan notifikasi</p>
+                <h3 className="text-base sm:text-lg font-bold text-white">{t('dashboardGuru.aktivitasPenting')}</h3>
+                <p className="text-xs sm:text-sm text-white">{t('dashboardGuru.statusDanNotifikasi')}</p>
               </div>
             </div>
           </div>
@@ -1046,10 +1171,10 @@ const GuruDashboard: React.FC = () => {
                 <div className="w-2 h-2 bg-emerald-500 rounded-full mt-1.5 flex-shrink-0"></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs sm:text-sm font-semibold text-emerald-900">
-                    Izin {activeIzinGuru.jenis} Aktif
+                    {t('dashboardGuru.izinAktif', { jenis: activeIzinGuru.jenis })}
                   </p>
                   <p className="text-xs text-emerald-700 mt-0.5">
-                    Sampai {new Date(activeIzinGuru.tanggalSelesai).toLocaleDateString('id-ID')}
+                    {t('dashboardGuru.sampai')} {new Date(activeIzinGuru.tanggalSelesai).toLocaleDateString('id-ID')}
                   </p>
                 </div>
               </div>
@@ -1062,13 +1187,13 @@ const GuruDashboard: React.FC = () => {
                 <div className="w-2 h-2 bg-amber-500 rounded-full mt-1.5 flex-shrink-0"></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs sm:text-sm font-semibold text-amber-900">
-                    {pendingIzinGuruCount} Izin Menunggu Verifikasi
+                    {t('dashboardGuru.izinMenungguVerifikasi', { count: pendingIzinGuruCount })}
                   </p>
-                  <p className="text-xs text-amber-700 mt-0.5">Segera hubungi admin untuk persetujuan</p>
+                  <p className="text-xs text-amber-700 mt-0.5">{t('dashboardGuru.segeraHubungiAdmin')}</p>
                 </div>
               </div>
             )}
-            {user?.isWaliKelas && pendingSuratIzin.length > 0 && (
+            {((isTahfiz && myKelasTahfiz) || (!isTahfiz && user?.isWaliKelas)) && pendingSuratIzin.length > 0 && (
               <div 
                 onClick={() => navigate('/dashboard/surat-izin')}
                 className="flex items-start gap-3 p-3 sm:p-4 bg-gradient-to-br from-orange-50 to-orange-50/50 rounded-lg border border-orange-200 hover:border-orange-300 cursor-pointer hover:from-orange-100 hover:to-orange-100/50 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-1 hover:scale-[1.02] active:scale-[0.98]"
@@ -1076,9 +1201,9 @@ const GuruDashboard: React.FC = () => {
                 <div className="w-2 h-2 bg-orange-500 rounded-full mt-1.5 flex-shrink-0"></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs sm:text-sm font-semibold text-orange-900">
-                    {pendingSuratIzin.length} Surat Izin Membutuhkan Verifikasi
+                    {t('dashboardGuru.suratIzinMembutuhkanVerifikasi', { count: pendingSuratIzin.length })}
                   </p>
-                  <p className="text-xs text-orange-700 mt-0.5">Sebagai wali kelas ({getKelasName(user.kelasWali || '')})</p>
+                  <p className="text-xs text-orange-700 mt-0.5">{t(isTahfiz ? 'dashboardGuru.sebagaiWaliKelasTahfiz' : 'dashboardGuru.sebagaiWaliKelas', { kelas: isTahfiz ? (myKelasTahfiz?.namaKelas || '') : getKelasName(user.kelasWali || '') })}</p>
                 </div>
               </div>
             )}
@@ -1090,35 +1215,65 @@ const GuruDashboard: React.FC = () => {
                 <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs sm:text-sm font-semibold text-blue-900">
-                    {todaySessions.filter(s => s.status === 'dibuka').length} Sesi Absensi Aktif
+                    {t('dashboardGuru.sesiAbsensiAktif', { count: todaySessions.filter(s => s.status === 'dibuka').length })}
                   </p>
-                  <p className="text-xs text-blue-700 mt-0.5">Siap untuk pembukaan sesi</p>
+                  <p className="text-xs text-blue-700 mt-0.5">{t('dashboardGuru.siapUntukPembukaanSesi')}</p>
                 </div>
               </div>
             )}
-            {!activeIzinGuru && pendingIzinGuruCount === 0 && (!user?.isWaliKelas || pendingSuratIzin.length === 0) && (
+            {!activeIzinGuru && pendingIzinGuruCount === 0 && (((isTahfiz && myKelasTahfiz) || (!isTahfiz && user?.isWaliKelas)) ? pendingSuratIzin.length === 0 : true) && (
               <div className="text-center py-6 text-slate-500">
                 <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-2">
                   <CheckCircle className="w-6 h-6 text-slate-400" />
                 </div>
-                <p className="text-xs sm:text-sm font-medium">Semua normal!</p>
-                <p className="text-xs text-slate-400 mt-0.5">Tidak ada aktivitas yang perlu perhatian</p>
+                <p className="text-xs sm:text-sm font-medium">{t('dashboardGuru.semuaNormal')}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{t('dashboardGuru.tidakAdaAktivitasPerluPerhatian')}</p>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {user?.isWaliKelas && (() => {
-        // Calculate attendance statistics for wali kelas
+      {((isTahfiz && myKelasTahfiz) || (!isTahfiz && user?.isWaliKelas)) && (() => {
+        // Calculate attendance statistics for wali kelas/ustadz
         let classAttendanceRate = '0';
         
-        if (muridKelas.length > 0 && absensiKelas.length > 0 && activeTahunAjaran) {
-          // Filter absensi for current tahun ajaran and semester
-          const filteredAbsensi = absensiKelas.filter(a => 
-            a.tahunAjaranId === activeTahunAjaran.id &&
-            a.semester === activeTahunAjaran.semester
+        if (isTahfiz && myKelasTahfiz && santriInKelas.length > 0) {
+          // For tahfiz: calculate attendance from sesi absensi tahfiz
+          // Get all sesi absensi tahfiz for this class
+          const allSesiTahfiz = sesiAbsensiTahfiz.filter(s => 
+            myJadwalTahfiz.some(j => j.id === s.jadwalId)
           );
+          
+          // Calculate total hadir from all sesi absensi tahfiz
+          // Each sesi absensi tahfiz has absensiSantri array with santri who attended
+          let totalHadir = 0;
+          let totalAbsensi = 0;
+          
+          allSesiTahfiz.forEach(sesi => {
+            const absensiList = sesi.absensiSantri || [];
+            // Count how many santri in this class attended this session
+            const hadirInSesi = absensiList.filter(a => 
+              myKelasTahfiz.santriIds.includes(a.santriId) &&
+              (a.status === 'hadir' || a.status === 'tepat_waktu')
+            ).length;
+            totalHadir += hadirInSesi;
+            // Total possible attendance = number of santri in class
+            totalAbsensi += santriInKelas.length;
+          });
+
+          // Calculate attendance rate: (total hadir / total absensi) * 100
+          if (totalAbsensi > 0) {
+            classAttendanceRate = ((totalHadir / totalAbsensi) * 100).toFixed(1);
+          }
+        } else if (!isTahfiz && muridKelas.length > 0 && absensiKelas.length > 0) {
+          // Filter absensi - only for non-tahfiz
+          const filteredAbsensi = activeTahunAjaran
+            ? absensiKelas.filter(a => 
+                a.tahunAjaranId === activeTahunAjaran.id &&
+                a.semester === activeTahunAjaran.semester
+              )
+            : [];
 
           // Count total hadir (using new structure: statusMasuk === 'tepat_waktu' or 'hadir' or status === 'hadir')
           const totalHadir = filteredAbsensi.filter(a => {
@@ -1137,6 +1292,12 @@ const GuruDashboard: React.FC = () => {
             classAttendanceRate = ((totalHadir / totalAbsensi) * 100).toFixed(1);
           }
         }
+        
+        // Get class name and student count
+        const className = isTahfiz 
+          ? (myKelasTahfiz?.namaKelas || '') 
+          : getKelasName(user?.kelasWali || '');
+        const studentCount = isTahfiz ? santriInKelas.length : muridKelas.length;
 
         return (
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 overflow-hidden">
@@ -1146,8 +1307,8 @@ const GuruDashboard: React.FC = () => {
                   <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-800" />
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-white">Ringkasan Wali Kelas</h3>
-                  <p className="text-xs sm:text-sm text-white">Data kelas yang Anda ampu</p>
+                  <h3 className="text-base sm:text-lg font-bold text-white">{t(isTahfiz ? 'dashboardGuru.ringkasanWaliKelasTahfiz' : 'dashboardGuru.ringkasanWaliKelas')}</h3>
+                  <p className="text-xs sm:text-sm text-white">{t('dashboardGuru.dataKelasYangAndaAmpu')}</p>
                 </div>
               </div>
             </div>
@@ -1156,9 +1317,12 @@ const GuruDashboard: React.FC = () => {
                 <div className="group bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 sm:p-5 border border-blue-100 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02]">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <p className="text-xs sm:text-sm font-semibold text-blue-600 uppercase tracking-wide mb-2">Kelas Wali</p>
-                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-900">{getKelasName(user.kelasWali || '')}</p>
-                      <p className="text-xs text-blue-600 mt-1">{muridKelas.length} murid aktif</p>
+                      <p className="text-xs sm:text-sm font-semibold text-blue-600 uppercase tracking-wide mb-2">{t(isTahfiz ? 'dashboardGuru.kelasWaliTahfiz' : 'dashboardGuru.kelasWali')}</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-900">{className}</p>
+                      <p className="text-xs text-blue-600 mt-1">{isTahfiz 
+                        ? t('dashboardGuru.santriAktif', { count: studentCount })
+                        : t('dashboardGuru.muridAktif', { count: studentCount })
+                      }</p>
                     </div>
                     <div className="bg-blue-600 rounded-lg p-2 sm:p-2.5 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
                       <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
@@ -1169,9 +1333,9 @@ const GuruDashboard: React.FC = () => {
                 <div className="group bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 sm:p-5 border border-emerald-100 hover:border-emerald-300 hover:shadow-xl hover:shadow-emerald-500/20 transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02]">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <p className="text-xs sm:text-sm font-semibold text-emerald-600 uppercase tracking-wide mb-2">Kehadiran Kelas</p>
+                      <p className="text-xs sm:text-sm font-semibold text-emerald-600 uppercase tracking-wide mb-2">{t('dashboardGuru.kehadiranKelas')}</p>
                       <p className="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-900">{classAttendanceRate}%</p>
-                      <p className="text-xs text-emerald-600 mt-1">Tingkat rata-rata</p>
+                      <p className="text-xs text-emerald-600 mt-1">{t('dashboardGuru.tingkatRataRata')}</p>
                     </div>
                     <div className="bg-emerald-600 rounded-lg p-2 sm:p-2.5 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
                       <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
@@ -1182,9 +1346,9 @@ const GuruDashboard: React.FC = () => {
                 <div className="group bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 sm:p-5 border border-orange-100 hover:border-orange-300 hover:shadow-xl hover:shadow-orange-500/20 transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02]">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <p className="text-xs sm:text-sm font-semibold text-orange-600 uppercase tracking-wide mb-2">Surat Izin</p>
+                      <p className="text-xs sm:text-sm font-semibold text-orange-600 uppercase tracking-wide mb-2">{t('dashboardGuru.suratIzinPending')}</p>
                       <p className="text-lg sm:text-xl lg:text-2xl font-bold text-orange-900">{pendingSuratIzin.length}</p>
-                      <p className="text-xs text-orange-600 mt-1">Menunggu verifikasi</p>
+                      <p className="text-xs text-orange-600 mt-1">{t('dashboardGuru.menungguVerifikasi')}</p>
                     </div>
                     <div className="bg-orange-600 rounded-lg p-2 sm:p-2.5 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
                       <FileText className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />

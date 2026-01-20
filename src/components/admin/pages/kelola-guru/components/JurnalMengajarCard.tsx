@@ -24,13 +24,13 @@ const JurnalMengajarCard: React.FC<JurnalMengajarCardProps> = ({
             <h5 className="text-sm sm:text-base font-bold text-gray-900">Jurnal Mengajar</h5>
             <p className="text-xs text-gray-600 mt-0.5 flex items-center gap-1.5">
               <Clock size={12} />
-              Diinput: {new Date(jurnal.waktuInput).toLocaleString('id-ID', {
+              Diinput: {jurnal.waktuInput ? new Date(jurnal.waktuInput).toLocaleString('id-ID', {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
-              })}
+              }) : '-'}
             </p>
           </div>
         </div>
@@ -43,9 +43,9 @@ const JurnalMengajarCard: React.FC<JurnalMengajarCardProps> = ({
             <p className="text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">Deskripsi</p>
             <p className="text-sm sm:text-base text-gray-900 whitespace-pre-wrap leading-relaxed">{jurnal.deskripsi}</p>
           </div>
-          {jurnal.file && (
-            <div className="bg-white rounded-lg p-3 sm:p-4 border-2 border-green-200">
-              <p className="text-xs sm:text-sm font-semibold text-gray-700 mb-3">File Materi</p>
+          <div className="bg-white rounded-lg p-3 sm:p-4 border-2 border-green-200">
+            <p className="text-xs sm:text-sm font-semibold text-gray-700 mb-3">File Materi</p>
+            {jurnal.file && jurnal.file.name && jurnal.file.data && jurnal.file.size ? (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                   <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
@@ -75,8 +75,10 @@ const JurnalMengajarCard: React.FC<JurnalMengajarCardProps> = ({
                   </a>
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-2">Tidak ada file materi</p>
+            )}
+          </div>
         </div>
       </Card>
     );

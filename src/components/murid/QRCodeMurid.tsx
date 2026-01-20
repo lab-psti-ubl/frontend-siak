@@ -5,23 +5,45 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { useKelas } from '../../hooks/useKelas';
+import { useSantri } from '../../hooks/useSantri';
+import { useKelasTahfiz } from '../../hooks/useKelasTahfiz';
 import { generateQRCodeData, generateQRCodeURL, downloadQRCode } from '../../utils/qrCodeGenerator';
 
 const QRCodeMurid: React.FC = () => {
   const { user } = useAuth();
   const { kelas } = useKelas();
+  const { santri } = useSantri();
+  const { kelasTahfiz } = useKelasTahfiz();
   const [copied, setCopied] = useState(false);
   const [qrCodeURL, setQrCodeURL] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
+  // Check if user is a santri that is NOT from murid collection
+  const santriUser = user?.id ? santri.find(s => s.id === user.id) : null;
+  const isSantriNotFromMurid = santriUser && (santriUser as any).isFromMurid === false;
+  
+  // Get tahfiz classes for this santri
+  const myTahfizClasses = isSantriNotFromMurid && user?.id
+    ? kelasTahfiz.filter(cls => cls.santriIds.includes(user.id))
+    : [];
+
   const myKelas = kelas.find(k => k.id === user?.kelasId);
+  
+  // For santri not from murid, show tahfiz classes; otherwise show regular class
+  const displayKelasName = isSantriNotFromMurid && myTahfizClasses.length > 0
+    ? myTahfizClasses.map(c => c.namaKelas).join(', ')
+    : myKelas?.name || 'Tidak ada';
 
   useEffect(() => {
     const generateQR = async () => {
       if (user) {
         setLoading(true);
         try {
-          const qrData = generateQRCodeData(user.id, user.nisn || '', user.name, user.kelasId || '');
+          // For santri not from murid, use empty string or first tahfiz class ID as kelasId
+          const kelasIdForQR = isSantriNotFromMurid 
+            ? (myTahfizClasses.length > 0 ? myTahfizClasses[0].id : '')
+            : (user.kelasId || '');
+          const qrData = generateQRCodeData(user.id, user.nisn || '', user.name, kelasIdForQR);
           const url = await generateQRCodeURL(qrData, 400);
           setQrCodeURL(url);
         } catch (error) {
@@ -32,11 +54,14 @@ const QRCodeMurid: React.FC = () => {
     };
 
     generateQR();
-  }, [user]);
+  }, [user, isSantriNotFromMurid, myTahfizClasses]);
 
   const handleCopyQRData = () => {
     if (user) {
-      const qrData = generateQRCodeData(user.id, user.nisn || '', user.name, user.kelasId || '');
+      const kelasIdForQR = isSantriNotFromMurid 
+        ? (myTahfizClasses.length > 0 ? myTahfizClasses[0].id : '')
+        : (user.kelasId || '');
+      const qrData = generateQRCodeData(user.id, user.nisn || '', user.name, kelasIdForQR);
       navigator.clipboard.writeText(qrData).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -62,7 +87,10 @@ const QRCodeMurid: React.FC = () => {
   const handleDownloadQR = async () => {
     if (user) {
       try {
-        const qrData = generateQRCodeData(user.id, user.nisn || '', user.name, user.kelasId || '');
+        const kelasIdForQR = isSantriNotFromMurid 
+          ? (myTahfizClasses.length > 0 ? myTahfizClasses[0].id : '')
+          : (user.kelasId || '');
+        const qrData = generateQRCodeData(user.id, user.nisn || '', user.name, kelasIdForQR);
         await downloadQRCode(qrData, `qr-code-${user.name.replace(/\s+/g, '-')}`);
       } catch (error) {
         console.error('Error downloading QR code:', error);
@@ -167,7 +195,7 @@ const QRCodeMurid: React.FC = () => {
                 <h2>QR Code Absensi</h2>
                 <p><strong>Nama:</strong> ${user.name}</p>
                 <p><strong>NISN:</strong> ${user.nisn}</p>
-                <p><strong>Kelas:</strong> ${myKelas?.name || 'Tidak ada'}</p>
+                <p><strong>Kelas:</strong> ${displayKelasName}</p>
               </div>
               <div class="qr-code">
                 <img src="${qrCodeURL}" alt="QR Code" />
@@ -334,7 +362,7 @@ const QRCodeMurid: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-amber-700 mb-1">Kelas</p>
-                        <p className="font-semibold text-amber-900 truncate">{myKelas?.name || 'Tidak ada'}</p>
+                        <p className="font-semibold text-amber-900 truncate">{displayKelasName}</p>
                       </div>
                     </div>
                   </div>

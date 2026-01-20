@@ -182,6 +182,7 @@ const TambahTahunAjaranForm: React.FC<TambahTahunAjaranFormProps> = ({
 
   const generateTahunOptions = () => {
     const currentYear = new Date().getFullYear();
+    const BASE_YEAR = 2025; // Tahun dasar untuk memulai tahun ajaran
     
     // Kelompokkan tahun ajaran yang sudah ada berdasarkan tahun
     const tahunAjaranMap = new Map<string, { semester1: boolean; semester2: boolean }>();
@@ -201,10 +202,14 @@ const TambahTahunAjaranForm: React.FC<TambahTahunAjaranFormProps> = ({
       }
     });
     
-    // Tentukan tahun minimum untuk dropdown
-    let minYear = currentYear; // Default: mulai dari tahun sekarang
+    // Hitung berapa banyak tahun ajaran lengkap yang ada
+    const jumlahTahunAjaranLengkap = tahunAjaranLengkap.size;
     
-    if (tahunAjaran.length > 0) {
+    // Tentukan tahun minimum untuk dropdown
+    let minYear = BASE_YEAR; // Default: mulai dari 2024
+    
+    // Hanya ubah minYear jika sudah ada minimal 2 tahun ajaran lengkap di database
+    if (jumlahTahunAjaranLengkap >= 2 && tahunAjaran.length > 0) {
       // Cari tahun ajaran terbaru yang ada di database
       const tahunAjaranTerbaru = tahunAjaran
         .map(ta => parseInt(ta.tahun.split('/')[0]))

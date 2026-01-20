@@ -12,9 +12,11 @@ import { DEFAULT_PROFILE_ICON } from '../../../../utils/profilePlaceholder';
 interface AccountTabProps {
   user: UserType | null;
   myKelas: Kelas | undefined;
+  isSantriNotFromMurid?: boolean;
+  myTahfizClasses?: Array<{ namaKelas: string; ruangan: string }>;
 }
 
-const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas }) => {
+const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromMurid = false, myTahfizClasses = [] }) => {
   const { setUser } = useAuth();
   const { refreshMurid } = useMurid(); // Hook untuk refresh cache murid dari MongoDB
   const [profileImage, setProfileImage] = useState<string | null>(user?.profileImage || null);
@@ -286,11 +288,15 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas }) => {
         </div>
         <div>
           <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
-            Kelas
+            {isSantriNotFromMurid ? 'Kelas Tahfiz' : 'Kelas'}
           </label>
           <input
             type="text"
-            value={myKelas?.name || 'Tidak ada'}
+            value={
+              isSantriNotFromMurid && myTahfizClasses.length > 0
+                ? myTahfizClasses.map(c => c.namaKelas).join(', ')
+                : myKelas?.name || 'Tidak ada'
+            }
             className="w-full px-4 py-2.5 sm:py-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-600 text-sm sm:text-base"
             disabled
           />

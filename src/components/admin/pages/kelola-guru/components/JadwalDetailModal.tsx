@@ -13,6 +13,9 @@ import { useAbsensiGuru } from '../../../../../hooks/useAbsensiGuru';
 import { useMataPelajaran } from '../../../../../hooks/useMataPelajaran';
 import { useKelas } from '../../../../../hooks/useKelas';
 import { useJurnal } from '../../../../../hooks/useJurnal';
+import { useRiwayatKelasMurid } from '../../../../../hooks/useRiwayatKelasMurid';
+import { useTahunAjaran } from '../../../../../hooks/useTahunAjaran';
+import { getMuridByKelasAndTahunAjaran } from '../../../../../utils/riwayatKelasMuridUtils';
 
 interface JadwalDetailModalProps {
   isOpen: boolean;
@@ -41,6 +44,8 @@ const JadwalDetailModal: React.FC<JadwalDetailModalProps> = ({
   const { absensiGuru } = useAbsensiGuru();
   const { mataPelajaran } = useMataPelajaran();
   const { kelas } = useKelas();
+  const { riwayatKelasMurid } = useRiwayatKelasMurid();
+  const { tahunAjaran, activeTahunAjaran } = useTahunAjaran();
   
   // Fetch jurnal from jurnal collection
   const { jurnal: allJurnal } = useJurnal();
@@ -56,9 +61,47 @@ const JadwalDetailModal: React.FC<JadwalDetailModalProps> = ({
     return kelasData?.name || kelasId;
   };
 
-  // Get students by kelasId from cache
+  // Get students by kelasId using riwayat kelas murid and tahun ajaran
   const muridKelas = useMemo(() => {
     if (!selectedJadwal || !allMurid || !Array.isArray(allMurid)) return [];
+    
+    // Get tahun ajaran from sesi if available, otherwise use active tahun ajaran
+    const sesiDibuka = sesiAbsensi.find(s =>
+      s.jadwalId === selectedJadwal.id &&
+      s.tanggal === selectedJadwalDate &&
+      s.createdBy === selectedGuru?.id
+    );
+    
+    // Try to get tahunAjaranId from sesi first
+    let tahunAjaranId = sesiDibuka?.tahunAjaranId;
+    
+    // If not found in sesi, try to get from jadwal
+    if (!tahunAjaranId) {
+      const tahunAjaranData = tahunAjaran.find(
+        ta => ta.tahun === selectedJadwal.tahunAjaran && ta.semester === selectedJadwal.semester
+      );
+      tahunAjaranId = tahunAjaranData?.id;
+    }
+    
+    // If still not found, use active tahun ajaran
+    if (!tahunAjaranId && activeTahunAjaran) {
+      tahunAjaranId = activeTahunAjaran.id;
+    }
+    
+    // If we have tahunAjaranId, use getMuridByKelasAndTahunAjaran
+    if (tahunAjaranId && riwayatKelasMurid.length > 0) {
+      const muridList = getMuridByKelasAndTahunAjaran(
+        selectedJadwal.kelasId,
+        tahunAjaranId,
+        allMurid,
+        riwayatKelasMurid
+      );
+      return muridList
+        .filter(u => (u as any).isActive !== false)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }
+    
+    // Fallback: use direct kelasId filter if no riwayat data
     return allMurid
       .filter(u => 
         u.role === 'murid' && 
@@ -66,7 +109,7 @@ const JadwalDetailModal: React.FC<JadwalDetailModalProps> = ({
         (u as any).isActive !== false
       )
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [allMurid, selectedJadwal]);
+  }, [allMurid, selectedJadwal, sesiAbsensi, selectedJadwalDate, selectedGuru, riwayatKelasMurid, tahunAjaran, activeTahunAjaran]);
 
   // Get jurnal from jurnal collection - must be before early return (Rules of Hooks)
   const jurnal = useMemo(() => {

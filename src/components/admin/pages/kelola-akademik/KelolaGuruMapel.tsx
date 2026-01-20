@@ -152,7 +152,7 @@ const KelolaGuruMapel: React.FC = () => {
 
   const getAvailableMapelForGuru = () => {
     // Get all mata pelajaran yang bisa diajarkan
-    return mataPelajaran.filter(m => m.keterangan === 'umum' || m.keterangan === 'jurusan');
+    return mataPelajaran.filter(m => m.keterangan === 'umum' || m.keterangan === 'agama' || m.keterangan === 'jurusan');
   };
 
   const handleEditGuru = (guru: typeof activeGurus[0]) => {
@@ -210,9 +210,16 @@ const KelolaGuruMapel: React.FC = () => {
       const mapel = mataPelajaran.find(m => m.id === gm.mataPelajaranId);
       return mapel?.keterangan === 'umum';
     }).length;
-    const mapelJurusan = totalMapel - mapelUmum;
+    const mapelAgama = guruMapelList.filter(gm => {
+      const mapel = mataPelajaran.find(m => m.id === gm.mataPelajaranId);
+      return mapel?.keterangan === 'agama';
+    }).length;
+    const mapelJurusan = guruMapelList.filter(gm => {
+      const mapel = mataPelajaran.find(m => m.id === gm.mataPelajaranId);
+      return mapel?.keterangan === 'jurusan';
+    }).length;
 
-    return { totalMapel, mapelUmum, mapelJurusan };
+    return { totalMapel, mapelUmum, mapelAgama, mapelJurusan };
   };
 
   const getInitials = (name: string) => {
@@ -221,6 +228,7 @@ const KelolaGuruMapel: React.FC = () => {
 
   const groupedMataPelajaran = useMemo(() => ({
     umum: mataPelajaran.filter(m => m.keterangan === 'umum'),
+    agama: mataPelajaran.filter(m => m.keterangan === 'agama'),
     jurusan: mataPelajaran.filter(m => m.keterangan === 'jurusan')
   }), [mataPelajaran]);
 
@@ -397,6 +405,7 @@ const KelolaGuruMapel: React.FC = () => {
                           </div>
                           <div className="flex space-x-1 flex-wrap">
                             <Badge variant="info" size="sm" className="text-xs">U: {stats.mapelUmum}</Badge>
+                            <Badge variant="success" size="sm" className="text-xs">A: {stats.mapelAgama}</Badge>
                             {isJurusanVisible && (
                               <Badge variant="warning" size="sm" className="text-xs">J: {stats.mapelJurusan}</Badge>
                             )}
@@ -483,7 +492,13 @@ const KelolaGuruMapel: React.FC = () => {
                             <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0"></div>
                             <span className="text-xs text-slate-700">{getMapelName(gm.mataPelajaranId)}</span>
                             <Badge
-                              variant={mataPelajaran.find(m => m.id === gm.mataPelajaranId)?.keterangan === 'umum' ? 'info' : 'warning'}
+                              variant={
+                                mataPelajaran.find(m => m.id === gm.mataPelajaranId)?.keterangan === 'umum' 
+                                  ? 'info' 
+                                  : mataPelajaran.find(m => m.id === gm.mataPelajaranId)?.keterangan === 'agama'
+                                  ? 'success'
+                                  : 'warning'
+                              }
                               size="sm"
                               className="text-xs"
                             >
@@ -503,7 +518,7 @@ const KelolaGuruMapel: React.FC = () => {
                   </div>
 
                   {/* Stats */}
-                  <div className={`grid gap-2 pt-2 border-t border-slate-100 ${isJurusanVisible ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                  <div className={`grid gap-2 pt-2 border-t border-slate-100 ${isJurusanVisible ? 'grid-cols-4' : 'grid-cols-3'}`}>
                     <div className="text-center">
                       <p className="text-lg font-bold text-slate-900">{stats.totalMapel}</p>
                       <p className="text-xs text-slate-600">Total</p>
@@ -511,6 +526,10 @@ const KelolaGuruMapel: React.FC = () => {
                     <div className="text-center">
                       <p className="text-lg font-bold text-slate-900">{stats.mapelUmum}</p>
                       <p className="text-xs text-slate-600">Umum</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-slate-900">{stats.mapelAgama}</p>
+                      <p className="text-xs text-slate-600">Agama</p>
                     </div>
                     {isJurusanVisible && (
                       <div className="text-center">
@@ -627,6 +646,48 @@ const KelolaGuruMapel: React.FC = () => {
                 </div>
               )}
 
+              {/* Mata Pelajaran Agama */}
+              {groupedMataPelajaran.agama.length > 0 && (
+                <div>
+                  <h5 className="font-medium text-gray-800 mb-3 flex items-center">
+                    <BookOpen size={16} className="mr-2 text-green-600" />
+                    Mata Pelajaran Agama
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {groupedMataPelajaran.agama.map((mapel) => (
+                      <div
+                        key={mapel.id}
+                        className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                          selectedMapelIds.includes(mapel.id)
+                            ? 'border-green-500 bg-green-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => handleMapelToggle(mapel.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900">{mapel.name}</p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Badge variant="success" size="sm">{mapel.code}</Badge>
+                              <span className="text-xs text-gray-500">{mapel.sks} SKS</span>
+                            </div>
+                          </div>
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                            selectedMapelIds.includes(mapel.id)
+                              ? 'border-green-500 bg-green-500'
+                              : 'border-gray-300'
+                          }`}>
+                            {selectedMapelIds.includes(mapel.id) && (
+                              <CheckCircle size={12} className="text-white" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Mata Pelajaran Jurusan */}
               {groupedMataPelajaran.jurusan.length > 0 && (
                 <div>
@@ -703,7 +764,7 @@ const KelolaGuruMapel: React.FC = () => {
             {selectedMapelIds.length > 0 && (
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
                 <h4 className="font-medium text-emerald-900 mb-2">Ringkasan Pilihan:</h4>
-                <div className={`grid gap-4 text-sm ${isJurusanVisible ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                <div className={`grid gap-4 text-sm ${isJurusanVisible ? 'grid-cols-4' : 'grid-cols-3'}`}>
                   <div>
                     <span className="text-emerald-700">Total Mata Pelajaran:</span>
                     <span className="ml-2 font-medium text-emerald-900">{selectedMapelIds.length}</span>
@@ -714,6 +775,15 @@ const KelolaGuruMapel: React.FC = () => {
                       {selectedMapelIds.filter(id => {
                         const mapel = mataPelajaran.find(m => m.id === id);
                         return mapel?.keterangan === 'umum';
+                      }).length}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-emerald-700">Mata Pelajaran Agama:</span>
+                    <span className="ml-2 font-medium text-emerald-900">
+                      {selectedMapelIds.filter(id => {
+                        const mapel = mataPelajaran.find(m => m.id === id);
+                        return mapel?.keterangan === 'agama';
                       }).length}
                     </span>
                   </div>

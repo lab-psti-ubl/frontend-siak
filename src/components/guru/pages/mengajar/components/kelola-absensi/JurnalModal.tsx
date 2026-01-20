@@ -72,10 +72,15 @@ const JurnalModal: React.FC<JurnalModalProps> = ({
     }
   };
 
-  const getFileIcon = (type: string) => {
-    if (type.includes('pdf')) return '📄';
-    if (type.includes('word')) return '📝';
-    if (type.includes('presentation')) return '📊';
+  const getFileIcon = (type: string | undefined) => {
+    if (!type || typeof type !== 'string') return '📁';
+    const lowerType = type.toLowerCase();
+    if (lowerType.includes('pdf')) return '📄';
+    if (lowerType.includes('word') || lowerType.includes('document')) return '📝';
+    if (lowerType.includes('presentation') || lowerType.includes('powerpoint')) return '📊';
+    if (lowerType.includes('excel') || lowerType.includes('spreadsheet')) return '📈';
+    if (lowerType.includes('image')) return '🖼️';
+    if (lowerType.includes('video')) return '🎥';
     return '📁';
   };
 
@@ -146,7 +151,7 @@ const JurnalModal: React.FC<JurnalModalProps> = ({
               File Pendukung <span className="text-slate-500 font-normal">(Opsional)</span>
             </label>
             <div className="space-y-3">
-              {existingFile && !jurnalFile && (
+              {existingFile && existingFile.data && existingFile.name && !jurnalFile && (
                 <div className="border-2 border-blue-300 rounded-lg p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-cyan-50">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -190,29 +195,34 @@ const JurnalModal: React.FC<JurnalModalProps> = ({
                 </div>
               )}
 
-              {!jurnalFile && !existingFile && (
-                <div className="relative">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    onChange={handleFileChange}
-                    accept=".pdf,.doc,.docx,.ppt,.pptx"
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className="flex items-center justify-center w-full px-4 py-4 sm:py-6 border-2 border-dashed border-slate-300 rounded-lg sm:rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all"
-                  >
-                    <div className="text-center">
-                      <Upload size={20} className="mx-auto mb-2 text-slate-400" />
-                      <span className="text-sm sm:text-base text-slate-600 font-medium">
-                        Klik atau seret file di sini
-                      </span>
-                      <p className="text-xs text-slate-500 mt-1">PDF, Word, PowerPoint • Maks 10MB</p>
-                    </div>
-                  </label>
-                </div>
+              {!jurnalFile && (!existingFile || !existingFile.data || !existingFile.name) && (
+                <>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                    <p className="text-sm text-gray-500 italic">Tidak ada file materi</p>
+                  </div>
+                  <div className="relative">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={handleFileChange}
+                      accept=".pdf,.doc,.docx,.ppt,.pptx"
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="flex items-center justify-center w-full px-4 py-4 sm:py-6 border-2 border-dashed border-slate-300 rounded-lg sm:rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all"
+                    >
+                      <div className="text-center">
+                        <Upload size={20} className="mx-auto mb-2 text-slate-400" />
+                        <span className="text-sm sm:text-base text-slate-600 font-medium">
+                          Klik atau seret file di sini
+                        </span>
+                        <p className="text-xs text-slate-500 mt-1">PDF, Word, PowerPoint • Maks 10MB</p>
+                      </div>
+                    </label>
+                  </div>
+                </>
               )}
 
               {jurnalFile && (

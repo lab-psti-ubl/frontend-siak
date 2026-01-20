@@ -1,0 +1,190 @@
+import { SesiAbsensiTahfiz, AbsensiPelajaran, User, TahfizSchedule, KelasTahfiz } from '../../../../types';
+import { parseSubjectQRCodeData } from '../../../../utils/qrCodeGenerator';
+import { showSuccessNotification, showErrorNotification, showWarningNotification } from '../../../../utils/notificationUtils';
+import { apiService } from '../../../../services/apiService';
+import { clearSesiAbsensiTahfizCache } from '../../../../hooks/useSesiAbsensiTahfiz';
+import { getLocalTimeISOString } from '../../../../utils/absensiUtils';
+
+interface QRScanHandlerTahfizParams {
+  qrData: string;
+  user: User | null;
+  selectedSesi: SesiAbsensiTahfiz | null;
+  sesiAbsensiTahfiz: SesiAbsensiTahfiz[];
+  jadwalTahfiz: TahfizSchedule[];
+  kelasTahfiz: KelasTahfiz[];
+  refreshSesiAbsensiTahfiz: () => Promise<void>;
+  setRefreshKey: React.Dispatch<React.SetStateAction<number>>;
+  lastProcessedScan: {data: string, time: number} | null;
+  setLastProcessedScan: (scan: {data: string, time: number} | null) => void;
+  SCAN_DEBOUNCE_TIME: number;
+}
+
+let isProcessingTahfiz = false;
+let lastProcessedTimeTahfiz = 0;
+let lastSuccessfulScanTahfiz: {data: string, time: number} | null = null;
+const processedScansTahfiz = new Set<string>();
+const processedScanTimeoutsTahfiz = new Map<string, NodeJS.Timeout>();
+const PROCESSED_SCAN_CLEANUP_TIME = 5 * 60 * 1000;
+
+export const resetQRScanStateTahfiz = () => {
+  isProcessingTahfiz = false;
+  lastProcessedTimeTahfiz = 0;
+  lastSuccessfulScanTahfiz = null;
+};
+
+export const handleQRScanResultTahfiz = async ({
+  qrData,
+  user,
+  selectedSesi,
+  sesiAbsensiTahfiz,
+  jadwalTahfiz,
+  kelasTahfiz,
+  refreshSesiAbsensiTahfiz,
+  setRefreshKey,
+  lastProcessedScan,
+  setLastProcessedScan,
+  SCAN_DEBOUNCE_TIME
+}: QRScanHandlerTahfizParams): Promise<boolean> => {
+  const currentTime = Date.now();
+
+  // Check if scan already processed
+  if (processedScansTahfiz.has(qrData)) {
+    return false;
+  }
+
+  if (isProcessingTahfiz) {
+    return false;
+  }
+
+  if ((currentTime - lastProcessedTimeTahfiz) < SCAN_DEBOUNCE_TIME) {
+    return false;
+  }
+
+  if (lastProcessedScan &&
+      lastProcessedScan.data === qrData &&
+      (currentTime - lastProcessedScan.time) < SCAN_DEBOUNCE_TIME) {
+    return false;
+  }
+
+  if (lastSuccessfulScanTahfiz &&
+      lastSuccessfulScanTahfiz.data === qrData &&
+      (currentTime - lastSuccessfulScanTahfiz.time) < (SCAN_DEBOUNCE_TIME * 10)) {
+    return false;
+  }
+
+  isProcessingTahfiz = true;
+  lastProcessedTimeTahfiz = currentTime;
+  setLastProcessedScan({ data: qrData, time: currentTime });
+
+  if (!processedScansTahfiz.has(qrData)) {
+    processedScansTahfiz.add(qrData);
+    const cleanupTimeout = setTimeout(() => {
+      processedScansTahfiz.delete(qrData);
+      processedScanTimeoutsTahfiz.delete(qrData);
+    }, PROCESSED_SCAN_CLEANUP_TIME);
+    processedScanTimeoutsTahfiz.set(qrData, cleanupTimeout);
+  }
+
+  if (!user) {
+    isProcessingTahfiz = false;
+    const timeout = processedScanTimeoutsTahfiz.get(qrData);
+    if (timeout) {
+      clearTimeout(timeout);
+      processedScanTimeoutsTahfiz.delete(qrData);
+    }
+    processedScansTahfiz.delete(qrData);
+    showErrorNotification('Error', 'User tidak valid!');
+    return false;
+  }
+
+  const subjectParsed = parseSubjectQRCodeData(qrData);
+
+  if (subjectParsed.isValid) {
+    clearSesiAbsensiTahfizCache();
+
+    let sesi: SesiAbsensiTahfiz | null = null;
+    try {
+      const sesiResponse = await apiService.getSesiAbsensiTahfizById(subjectParsed.sesiId);
+      if (sesiResponse.success && sesiResponse.sesiAbsensiTahfiz) {
+        sesi = sesiResponse.sesiAbsensiTahfiz;
+      }
+    } catch (error) {
+      console.error('Error fetching sesi tahfiz:', error);
+      sesi = sesiAbsensiTahfiz.find(s => s.id === subjectParsed.sesiId) || null;
+    }
+
+    if (!sesi) {
+      isProcessingTahfiz = false;
+      showErrorNotification('Sesi Tidak Ditemukan', 'Sesi absensi tahfiz tidak ditemukan!');
+      return false;
+    }
+
+    if (sesi.status !== 'dibuka') {
+      isProcessingTahfiz = false;
+      showErrorNotification('Sesi Ditutup', 'Sesi absensi tahfiz sudah ditutup!');
+      return false;
+    }
+
+    const jadwal = jadwalTahfiz.find(j => j.id === sesi.jadwalId);
+    if (!jadwal) {
+      isProcessingTahfiz = false;
+      showErrorNotification('Jadwal Tidak Ditemukan', 'Jadwal tahfiz tidak ditemukan!');
+      return false;
+    }
+
+    const kelas = kelasTahfiz.find(k => k.id === jadwal.kelasId);
+    if (!kelas || !kelas.santriIds.includes(user.id)) {
+      isProcessingTahfiz = false;
+      showErrorNotification('Kelas Tidak Sesuai', 'Anda bukan santri dari kelas ini!');
+      return false;
+    }
+
+    try {
+      const existingAbsensiPelajaran = sesi.dataAbsensi?.find(a => a.muridId === user.id);
+
+      if (existingAbsensiPelajaran) {
+        isProcessingTahfiz = false;
+        showWarningNotification('Sudah Absen', 'Anda sudah melakukan absensi untuk tahfiz ini!');
+        return false;
+      }
+
+      const absensiPelajaranData = {
+        id: `absensi-tahfiz-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        muridId: user.id,
+        status: 'hadir',
+        waktu: getLocalTimeISOString(),
+        keterangan: 'Absen via QR Code',
+        method: 'qr',
+        statusAbsen: 'tepat_waktu',
+        keteranganAbsensi: 'Hadir',
+      };
+
+      const response = await apiService.addAbsensiToSesiTahfiz(sesi.id, absensiPelajaranData);
+
+      if (!response.success) {
+        throw new Error(response.message || 'Gagal menyimpan absensi tahfiz');
+      }
+
+      clearSesiAbsensiTahfizCache();
+      await refreshSesiAbsensiTahfiz();
+
+      showSuccessNotification('Absensi Berhasil!', `Tahfiz Qur'an - ${new Date().toLocaleTimeString('id-ID')}`);
+
+      lastSuccessfulScanTahfiz = { data: qrData, time: currentTime };
+      setRefreshKey(prev => prev + 1);
+      isProcessingTahfiz = false;
+
+      return true;
+    } catch (error) {
+      console.error('Error creating absensi tahfiz:', error);
+      isProcessingTahfiz = false;
+      showErrorNotification('Error', 'Gagal menyimpan absensi tahfiz');
+      return false;
+    }
+  } else {
+    isProcessingTahfiz = false;
+    showErrorNotification('QR Code Tidak Valid', 'QR Code tidak valid atau tidak dikenali!');
+    return false;
+  }
+};
+

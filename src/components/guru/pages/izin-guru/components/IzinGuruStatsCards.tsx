@@ -1,5 +1,6 @@
 import React from 'react';
 import { Clock, CheckCircle, X } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 interface IzinGuruStatsCardsProps {
   pendingCount: number;
@@ -12,6 +13,7 @@ const IzinGuruStatsCards: React.FC<IzinGuruStatsCardsProps> = ({
   approvedCount,
   rejectedCount,
 }) => {
+  const { t } = useLanguage();
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
       <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1 overflow-hidden">
@@ -19,7 +21,7 @@ const IzinGuruStatsCards: React.FC<IzinGuruStatsCardsProps> = ({
           <div className="flex flex-col gap-3 sm:gap-4">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">Menunggu</p>
+                <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">{t('izinGuru.status.menunggu')}</p>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{pendingCount}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-amber-100 shadow-md group-hover:scale-110 transition-transform duration-200">
@@ -35,7 +37,7 @@ const IzinGuruStatsCards: React.FC<IzinGuruStatsCardsProps> = ({
           <div className="flex flex-col gap-3 sm:gap-4">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">Diterima</p>
+                <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">{t('izinGuru.status.diterima')}</p>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{approvedCount}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-emerald-100 shadow-md group-hover:scale-110 transition-transform duration-200">
@@ -51,7 +53,7 @@ const IzinGuruStatsCards: React.FC<IzinGuruStatsCardsProps> = ({
           <div className="flex flex-col gap-3 sm:gap-4">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">Ditolak</p>
+                <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">{t('izinGuru.status.ditolak')}</p>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{rejectedCount}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-red-100 shadow-md group-hover:scale-110 transition-transform duration-200">

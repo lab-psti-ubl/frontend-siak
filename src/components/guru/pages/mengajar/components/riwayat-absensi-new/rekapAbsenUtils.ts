@@ -247,14 +247,30 @@ export const exportRekapAbsenToExcel = async (
   rekapData.meetings.forEach(meeting => {
     headers.push(`${meeting.pertemuanKe}(${formatTanggalShort(meeting.tanggal)})`);
   });
+  headers.push('H', 'I', 'S', 'A', 'Total', 'Persentase');
 
   const data = rekapData.students.map((student, idx) => {
     const row: any[] = [idx + 1, student.name, student.nisn];
 
+    let hadir = 0;
+    let izin = 0;
+    let sakit = 0;
+    let alfa = 0;
+
     rekapData.meetings.forEach(meeting => {
-      const attendance = rekapData.attendanceMatrix[student.id]?.[meeting.sesiId || ''] || '-';
-      row.push(attendance);
+      const status = rekapData.attendanceMatrix[student.id]?.[meeting.sesiId || ''] || '-';
+      row.push(status);
+
+      if (status === 'H') hadir += 1;
+      else if (status === 'I') izin += 1;
+      else if (status === 'S') sakit += 1;
+      else if (status === 'A') alfa += 1;
     });
+
+    const total = rekapData.meetings.length;
+    const persen = total > 0 ? Math.round((hadir / total) * 100) : 0;
+
+    row.push(hadir, izin, sakit, alfa, total, `${persen}%`);
 
     return row;
   });
@@ -282,6 +298,12 @@ export const exportRekapAbsenToExcel = async (
     { wch: 25 },
     { wch: 15 },
     ...rekapData.meetings.map(() => ({ wch: 8 })),
+    { wch: 6 }, // H
+    { wch: 6 }, // I
+    { wch: 6 }, // S
+    { wch: 6 }, // A
+    { wch: 8 }, // Total
+    { wch: 10 }, // Persentase
   ];
 
   for (let R = 0; R <= 4; R++) {
@@ -353,19 +375,53 @@ export const printRekapAbsen = (
   doc.text(`Semester: ${semester}`, 14, 40);
 
   const headers = [
-    // ['No', 'Nama Murid', 'NISN', ...rekapData.meetings.map(m => `${m.pertemuanKe}\n${formatTanggalShort(m.tanggal)}`)],
-     ['No', 'Nama Murid', 'NISN', ...rekapData.meetings.map(m => `${m.pertemuanKe}`)],
+    [
+      'No',
+      'Nama Murid',
+      'NISN',
+      ...rekapData.meetings.map(m => `${m.pertemuanKe}\n${formatTanggalShort(m.tanggal)}`),
+      'H',
+      'I',
+      'S',
+      'A',
+      'Total',
+      '%',
+    ],
   ];
 
   const data = rekapData.students.map((student, idx) => {
-    const row = [
+    const row: any[] = [
       (idx + 1).toString(),
       student.name,
       student.nisn,
-      ...rekapData.meetings.map(meeting => {
-        return rekapData.attendanceMatrix[student.id]?.[meeting.sesiId || ''] || '-';
-      }),
     ];
+
+    let hadir = 0;
+    let izin = 0;
+    let sakit = 0;
+    let alfa = 0;
+
+    rekapData.meetings.forEach(meeting => {
+      const status = rekapData.attendanceMatrix[student.id]?.[meeting.sesiId || ''] || '-';
+      row.push(status);
+      if (status === 'H') hadir += 1;
+      else if (status === 'I') izin += 1;
+      else if (status === 'S') sakit += 1;
+      else if (status === 'A') alfa += 1;
+    });
+
+    const total = rekapData.meetings.length;
+    const persen = total > 0 ? Math.round((hadir / total) * 100) : 0;
+
+    row.push(
+      hadir.toString(),
+      izin.toString(),
+      sakit.toString(),
+      alfa.toString(),
+      total.toString(),
+      `${persen}%`
+    );
+
     return row;
   });
 

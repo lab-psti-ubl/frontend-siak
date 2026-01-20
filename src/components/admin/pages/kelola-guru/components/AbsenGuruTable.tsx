@@ -6,6 +6,7 @@ import { Table, TableHeader, TableBody, TableRow, TableCell } from '../../../../
 import { User, AbsensiGuru, JadwalPelajaran, IzinGuru, TahunAjaran } from '../../../../../types';
 import AbsenGuruTableRow from './AbsenGuruTableRow';
 import AbsenGuruMobileListItem from './AbsenGuruMobileListItem';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 interface AbsenGuruTableProps {
   filteredGurus: User[];
@@ -21,6 +22,8 @@ interface AbsenGuruTableProps {
   getMapelName: (mapelId: string) => string;
   getKelasName: (kelasId: string) => string;
   searchTerm: string;
+  systemType: string;
+  dateLocale: string;
 }
 
 const AbsenGuruTable: React.FC<AbsenGuruTableProps> = ({
@@ -36,13 +39,17 @@ const AbsenGuruTable: React.FC<AbsenGuruTableProps> = ({
   onViewRekapAbsen,
   getMapelName,
   getKelasName,
-  searchTerm
+  searchTerm,
+  systemType,
+  dateLocale
 }) => {
+  const { t, language } = useLanguage();
+  
   return (
     <Card>
       <div className="p-4 lg:p-6 border-b border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 lg:gap-4">
         <h3 className="text-base lg:text-lg font-semibold text-gray-900">
-          Absensi Guru - {new Date(selectedDate).toLocaleDateString('id-ID', {
+          {systemType === 'tahfiz' ? t('absenGuru.absensiUstadz') : t('absenGuru.absensiGuru')} - {new Date(selectedDate).toLocaleDateString(dateLocale, {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -52,8 +59,8 @@ const AbsenGuruTable: React.FC<AbsenGuruTableProps> = ({
         {onViewRekapAbsen && (
           <Button onClick={onViewRekapAbsen} variant="primary" className="flex items-center gap-2 text-sm lg:text-base justify-center">
             <BarChart3 size={16} />
-            <span className="hidden sm:inline">Lihat Rekapan</span>
-            <span className="sm:hidden">Rekapan</span>
+            <span className="hidden sm:inline">{t('absenGuru.lihatRekapan')}</span>
+            <span className="sm:hidden">{t('absenGuru.rekapan')}</span>
           </Button>
         )}
       </div>
@@ -63,14 +70,16 @@ const AbsenGuruTable: React.FC<AbsenGuruTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50">
-              <TableCell header className="text-xs lg:text-sm">Guru</TableCell>
-              <TableCell header className="text-xs lg:text-sm">Jadwal Mengajar</TableCell>
-              <TableCell header className="text-xs lg:text-sm">Jam Masuk</TableCell>
-              <TableCell header className="text-xs lg:text-sm">Status Masuk</TableCell>
-              <TableCell header className="text-xs lg:text-sm">Jam Keluar</TableCell>
-              <TableCell header className="text-xs lg:text-sm">Status Keluar</TableCell>
-              <TableCell header className="text-xs lg:text-sm">Keterangan</TableCell>
-              <TableCell header className="text-xs lg:text-sm">Aksi</TableCell>
+              <TableCell header className="text-xs lg:text-sm">
+                {systemType === 'tahfiz' ? t('absenGuru.ustadzLabel') : t('absenGuru.guruLabel')}
+              </TableCell>
+              <TableCell header className="text-xs lg:text-sm">{t('absenGuru.jadwalMengajar')}</TableCell>
+              <TableCell header className="text-xs lg:text-sm">{t('absenGuru.jamMasuk')}</TableCell>
+              <TableCell header className="text-xs lg:text-sm">{t('absenGuru.statusMasuk')}</TableCell>
+              <TableCell header className="text-xs lg:text-sm">{t('absenGuru.jamKeluar')}</TableCell>
+              <TableCell header className="text-xs lg:text-sm">{t('absenGuru.statusKeluar')}</TableCell>
+              <TableCell header className="text-xs lg:text-sm">{t('absenGuru.keterangan')}</TableCell>
+              <TableCell header className="text-xs lg:text-sm">{t('absenGuru.aksi')}</TableCell>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -88,6 +97,7 @@ const AbsenGuruTable: React.FC<AbsenGuruTableProps> = ({
                 onEditAbsen={onEditAbsen}
                 getMapelName={getMapelName}
                 getKelasName={getKelasName}
+                systemType={systemType}
               />
             ))}
           </TableBody>
@@ -111,6 +121,7 @@ const AbsenGuruTable: React.FC<AbsenGuruTableProps> = ({
               onEditAbsen={onEditAbsen}
               getMapelName={getMapelName}
               getKelasName={getKelasName}
+              systemType={systemType}
             />
           ))}
         </div>
@@ -120,12 +131,12 @@ const AbsenGuruTable: React.FC<AbsenGuruTableProps> = ({
         <div className="text-center py-12 px-4">
           <Users className="w-12 h-12 lg:w-16 lg:h-16 mx-auto mb-3 lg:mb-4 text-gray-300" />
           <h3 className="text-base lg:text-lg font-medium text-gray-900 mb-1 lg:mb-2">
-            {searchTerm ? 'Tidak ada hasil' : 'Belum ada data guru'}
+            {searchTerm ? (language === 'ms' ? 'Tiada hasil' : 'Tidak ada hasil') : (systemType === 'tahfiz' ? t('absenGuru.belumAdaDataUstadz') : t('absenGuru.belumAdaDataGuru'))}
           </h3>
           <p className="text-sm lg:text-base text-gray-600">
             {searchTerm
-              ? `Tidak ditemukan guru dengan kata kunci "${searchTerm}"`
-              : 'Belum ada data absensi guru untuk tanggal ini'
+              ? t('absenGuru.tidakDitemukan', { searchTerm, term: systemType === 'tahfiz' ? t('absenGuru.ustadz') : t('absenGuru.guru') })
+              : (systemType === 'tahfiz' ? t('absenGuru.belumAdaDataAbsensiUstadz') : t('absenGuru.belumAdaDataAbsensiGuru'))
             }
           </p>
         </div>

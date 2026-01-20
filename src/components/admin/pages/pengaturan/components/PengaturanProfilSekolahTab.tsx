@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Upload, Save, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Upload, Save, X, MapPin } from 'lucide-react';
 import Card from '../../../../ui/Card';
 import Button from '../../../../ui/Button';
 import { ProfilSekolah } from '../../../../../types';
@@ -31,12 +31,27 @@ const PengaturanProfilSekolahTab: React.FC<PengaturanProfilSekolahTabProps> = ({
       deskripsi: '',
       misiSekolah: '',
       visiSekolah: '',
+      latitude: undefined,
+      longitude: undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
   );
   const [logoPreview, setLogoPreview] = useState<string>(formData.logoSekolah || '');
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+
+  // Update form data when profilSekolah prop changes
+  useEffect(() => {
+    if (profilSekolah) {
+      setFormData({
+        ...profilSekolah,
+        latitude: profilSekolah.latitude,
+        longitude: profilSekolah.longitude,
+      });
+      setLogoPreview(profilSekolah.logoSekolah || '');
+    }
+  }, [profilSekolah]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -78,6 +93,66 @@ const PengaturanProfilSekolahTab: React.FC<PengaturanProfilSekolahTabProps> = ({
 
   const handleChooseLogo = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setMessage({
+        type: 'error',
+        text: 'Geolocation tidak didukung oleh browser Anda',
+      });
+      setTimeout(() => {
+        setMessage({ type: '', text: '' });
+      }, 3000);
+      return;
+    }
+
+    setIsGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData((prev) => ({
+          ...prev,
+          latitude: parseFloat(latitude.toFixed(6)),
+          longitude: parseFloat(longitude.toFixed(6)),
+        }));
+        setMessage({
+          type: 'success',
+          text: 'Lokasi berhasil diambil!',
+        });
+        setIsGettingLocation(false);
+        setTimeout(() => {
+          setMessage({ type: '', text: '' });
+        }, 3000);
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        let errorMessage = 'Gagal mengambil lokasi';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Akses lokasi ditolak. Mohon izinkan akses lokasi di pengaturan browser.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Informasi lokasi tidak tersedia.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Waktu permintaan lokasi habis.';
+            break;
+        }
+        setMessage({
+          type: 'error',
+          text: errorMessage,
+        });
+        setTimeout(() => {
+          setMessage({ type: '', text: '' });
+        }, 5000);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
   };
 
   const handleSave = async () => {
@@ -314,6 +389,62 @@ const PengaturanProfilSekolahTab: React.FC<PengaturanProfilSekolahTabProps> = ({
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="https://example.com"
               />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Lokasi Sekolah (Koordinat)
+              </label>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    name="latitude"
+                    value={formData.latitude || ''}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                      setFormData((prev) => ({
+                        ...prev,
+                        latitude: value,
+                      }));
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Latitude (contoh: -6.200000)"
+                    step="any"
+                  />
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    name="longitude"
+                    value={formData.longitude || ''}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                      setFormData((prev) => ({
+                        ...prev,
+                        longitude: value,
+                      }));
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Longitude (contoh: 106.816666)"
+                    step="any"
+                  />
+                </div>
+                <div>
+                  <Button
+                    type="button"
+                    onClick={handleGetCurrentLocation}
+                    disabled={isGettingLocation}
+                    className="whitespace-nowrap w-full sm:w-auto flex items-center justify-center"
+                  >
+                    <MapPin size={16} className="mr-2" />
+                    {isGettingLocation ? 'Mengambil...' : 'Ambil Lokasi Saat Ini'}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                Gunakan tombol di atas untuk mengambil lokasi secara otomatis, atau masukkan koordinat secara manual
+              </p>
             </div>
           </div>
         </div>

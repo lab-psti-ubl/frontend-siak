@@ -3,6 +3,7 @@ import { Calendar, Users, ClipboardList, TrendingUp, BookOpen, School, AlertCirc
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useGurus } from '../../hooks/useGurus';
 import { useMurid } from '../../hooks/useMurid';
 import { useKelas } from '../../hooks/useKelas';
@@ -10,10 +11,15 @@ import { useJadwalPelajaran } from '../../hooks/useJadwalPelajaran';
 import { useTahunAjaran } from '../../hooks/useTahunAjaran';
 import { useAbsensiGuru } from '../../hooks/useAbsensiGuru';
 import { usePengaturanAbsen } from '../../hooks/usePengaturanAbsen';
+import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
 import { getTingkatKelasOptionsSync } from '../../utils/jenjangPendidikanUtils';
+import { getTerminology } from '../../utils/terminologyUtils';
 
 const KepalaSekolahDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
+  const { systemType } = usePengaturanSistem();
+  const terminology = getTerminology(systemType);
   
   // Use API hooks with cache instead of localStorage
   const { gurus } = useGurus();
@@ -34,6 +40,12 @@ const KepalaSekolahDashboard: React.FC = () => {
   );
 
   const today = new Date().toISOString().split('T')[0];
+  
+  // Set locale for date formatting based on language
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
+  
+  // Get current year for tahfiz system
+  const currentYear = new Date().getFullYear().toString();
 
   // Filter kelas: exclude alumni classes (tingkat 99 or name contains 'Alumni') and only include valid tingkat levels
   const activeKelas = useMemo(() => {
@@ -57,16 +69,22 @@ const KepalaSekolahDashboard: React.FC = () => {
   );
 
   const gurusWithScheduleToday = useMemo(() => {
-    const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
+    const currentDay = new Date().toLocaleDateString(dateLocale, { weekday: 'long' }).toLowerCase();
     return gurus.filter(u => {
-      return jadwal.some(j =>
-        j.guruId === u.id &&
-        j.hari === currentDay &&
-        j.tahunAjaran === activeTahunAjaran?.tahun &&
-        j.semester === activeTahunAjaran?.semester
-      );
+      return jadwal.some(j => {
+        if (systemType === 'tahfiz') {
+          return j.guruId === u.id &&
+                 j.hari === currentDay &&
+                 j.tahunAjaran === currentYear;
+        } else {
+          return j.guruId === u.id &&
+                 j.hari === currentDay &&
+                 j.tahunAjaran === activeTahunAjaran?.tahun &&
+                 j.semester === activeTahunAjaran?.semester;
+        }
+      });
     });
-  }, [gurus, jadwal, activeTahunAjaran]);
+  }, [gurus, jadwal, activeTahunAjaran, dateLocale, systemType, currentYear]);
 
   const attendanceRate = useMemo(() => {
     return gurusWithScheduleToday.length > 0
@@ -76,7 +94,7 @@ const KepalaSekolahDashboard: React.FC = () => {
 
   const mainStats = [
     {
-      title: 'Total Guru',
+      title: systemType === 'tahfiz' ? t('dashboardKepalaSekolah.totalUstadz') : t('dashboardKepalaSekolah.totalGuru'),
       value: totalGuru,
       icon: Users,
       color: 'from-blue-500 to-blue-600',
@@ -84,7 +102,7 @@ const KepalaSekolahDashboard: React.FC = () => {
       textColor: 'text-blue-600',
     },
     {
-      title: 'Total Murid',
+      title: systemType === 'tahfiz' ? t('dashboardKepalaSekolah.totalSantri') : t('dashboardKepalaSekolah.totalMurid'),
       value: totalMurid,
       icon: ClipboardList,
       color: 'from-emerald-500 to-emerald-600',
@@ -92,7 +110,7 @@ const KepalaSekolahDashboard: React.FC = () => {
       textColor: 'text-emerald-600',
     },
     {
-      title: 'Total Kelas',
+      title: t('dashboardKepalaSekolah.totalKelas'),
       value: totalKelas,
       icon: School,
       color: 'from-orange-500 to-orange-600',
@@ -100,7 +118,7 @@ const KepalaSekolahDashboard: React.FC = () => {
       textColor: 'text-orange-600',
     },
     {
-      title: 'Kehadiran Guru Hari Ini',
+      title: systemType === 'tahfiz' ? t('dashboardKepalaSekolah.kehadiranUstadzHariIni') : t('dashboardKepalaSekolah.kehadiranGuruHariIni'),
       value: `${attendanceRate}%`,
       icon: TrendingUp,
       color: 'from-purple-500 to-purple-600',
@@ -114,18 +132,22 @@ const KepalaSekolahDashboard: React.FC = () => {
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Selamat Datang, Kepala Sekolah!</h1>
+            <h1 className="text-3xl font-bold mb-2">{t('dashboardKepalaSekolah.welcome')}</h1>
             <p className="text-blue-100 text-lg">
-              {new Date().toLocaleDateString('id-ID', {
+              {new Date().toLocaleDateString(dateLocale, {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
               })}
             </p>
-            {activeTahunAjaran && (
+            {systemType === 'tahfiz' ? (
               <p className="text-blue-200 mt-2">
-                Tahun Ajaran {activeTahunAjaran.tahun} - Semester {activeTahunAjaran.semester}
+                {t('dashboardKepalaSekolah.tahun')} {currentYear}
+              </p>
+            ) : activeTahunAjaran && (
+              <p className="text-blue-200 mt-2">
+                {t('dashboardKepalaSekolah.tahunAjaran')} {activeTahunAjaran.tahun} - {t('dashboardKepalaSekolah.semester')} {activeTahunAjaran.semester}
               </p>
             )}
           </div>
@@ -167,7 +189,7 @@ const KepalaSekolahDashboard: React.FC = () => {
           <div className="p-6">
             <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
               <div className="w-2 h-6 bg-purple-500 rounded-full mr-3"></div>
-              Status Sistem
+              {t('dashboardKepalaSekolah.statusSistem')}
             </h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-xl">
@@ -175,18 +197,24 @@ const KepalaSekolahDashboard: React.FC = () => {
                   <CheckCircle className="w-6 h-6 text-emerald-600 mr-3" />
                   <div>
                     <p className="font-medium text-emerald-900">
-                      {activeTahunAjaran ? 'Semester Aktif' : 'Tidak Ada Semester Aktif'}
+                      {systemType === 'tahfiz' 
+                        ? (t('dashboardKepalaSekolah.tahunAktif'))
+                        : (activeTahunAjaran ? t('dashboardKepalaSekolah.semesterAktif') : t('dashboardKepalaSekolah.tidakAdaSemesterAktif'))
+                      }
                     </p>
                     <p className="text-sm text-emerald-700">
-                      {activeTahunAjaran ?
-                        `${activeTahunAjaran.semester === 1 ? 'Ganjil' : 'Genap'} ${activeTahunAjaran.tahun}` :
-                        'Silakan hubungi admin untuk aktivasi'
+                      {systemType === 'tahfiz' 
+                        ? currentYear
+                        : (activeTahunAjaran ?
+                          `${activeTahunAjaran.semester === 1 ? t('dashboardKepalaSekolah.ganjil') : t('dashboardKepalaSekolah.genap')} ${activeTahunAjaran.tahun}` :
+                          t('dashboardKepalaSekolah.silakanHubungiAdmin')
+                        )
                       }
                     </p>
                   </div>
                 </div>
-                <Badge variant={activeTahunAjaran ? 'success' : 'warning'}>
-                  {activeTahunAjaran ? 'Aktif' : 'Tidak Aktif'}
+                <Badge variant={systemType === 'tahfiz' || activeTahunAjaran ? 'success' : 'warning'}>
+                  {systemType === 'tahfiz' || activeTahunAjaran ? t('dashboardKepalaSekolah.aktif') : t('dashboardKepalaSekolah.tidakAktif')}
                 </Badge>
               </div>
 
@@ -194,11 +222,13 @@ const KepalaSekolahDashboard: React.FC = () => {
                 <div className="flex items-center">
                   <TrendingUp className="w-6 h-6 text-blue-600 mr-3" />
                   <div>
-                    <p className="font-medium text-blue-900">Tingkat Kehadiran Guru</p>
+                    <p className="font-medium text-blue-900">
+                      {systemType === 'tahfiz' ? t('dashboardKepalaSekolah.tingkatKehadiranUstadz') : t('dashboardKepalaSekolah.tingkatKehadiranGuru')}
+                    </p>
                     <p className="text-sm text-blue-700">
                       {gurusWithScheduleToday.length > 0 ?
-                        `${todayAbsensiGuru.filter(a => a.jamMasuk).length} dari ${gurusWithScheduleToday.length} guru` :
-                        'Tidak ada jadwal hari ini'
+                        `${todayAbsensiGuru.filter(a => a.jamMasuk).length} ${t('dashboardKepalaSekolah.dari')} ${gurusWithScheduleToday.length} ${systemType === 'tahfiz' ? t('dashboardKepalaSekolah.ustadz') : t('dashboardKepalaSekolah.guru')}` :
+                        t('dashboardKepalaSekolah.tidakAdaJadwalHariIni')
                       }
                     </p>
                   </div>
@@ -210,21 +240,27 @@ const KepalaSekolahDashboard: React.FC = () => {
                 <div className="flex items-center">
                   <BookOpen className="w-6 h-6 text-purple-600 mr-3" />
                   <div>
-                    <p className="font-medium text-purple-900">Jadwal Aktif</p>
+                    <p className="font-medium text-purple-900">{t('dashboardKepalaSekolah.jadwalAktif')}</p>
                     <p className="text-sm text-purple-700">
-                      {activeTahunAjaran ?
-                        `Semester ${activeTahunAjaran.semester} - ${activeTahunAjaran.tahun}` :
-                        'Belum ada tahun ajaran aktif'
+                      {systemType === 'tahfiz' 
+                        ? `${t('dashboardKepalaSekolah.tahun')} ${currentYear}`
+                        : (activeTahunAjaran ?
+                          `${t('dashboardKepalaSekolah.semester')} ${activeTahunAjaran.semester} - ${activeTahunAjaran.tahun}` :
+                          t('dashboardKepalaSekolah.belumAdaTahunAjaranAktif')
+                        )
                       }
                     </p>
                   </div>
                 </div>
                 <span className="text-2xl font-bold text-purple-600">
-                  {activeTahunAjaran ?
-                    jadwal.filter(j =>
-                      j.tahunAjaran === activeTahunAjaran.tahun &&
-                      j.semester === activeTahunAjaran.semester
-                    ).length : 0
+                  {systemType === 'tahfiz' 
+                    ? jadwal.filter(j => j.tahunAjaran === currentYear).length
+                    : (activeTahunAjaran ?
+                      jadwal.filter(j =>
+                        j.tahunAjaran === activeTahunAjaran.tahun &&
+                        j.semester === activeTahunAjaran.semester
+                      ).length : 0
+                    )
                   }
                 </span>
               </div>
@@ -233,17 +269,17 @@ const KepalaSekolahDashboard: React.FC = () => {
                 <div className="flex items-center">
                   <AlertCircle className="w-6 h-6 text-orange-600 mr-3" />
                   <div>
-                    <p className="font-medium text-orange-900">Pengaturan Absen</p>
+                    <p className="font-medium text-orange-900">{t('dashboardKepalaSekolah.pengaturanAbsen')}</p>
                     <p className="text-sm text-orange-700">
                       {activePengaturan ?
                         `${activePengaturan.jamMasuk} - ${activePengaturan.jamPulang}` :
-                        'Belum dikonfigurasi'
+                        t('dashboardKepalaSekolah.belumDikonfigurasi')
                       }
                     </p>
                   </div>
                 </div>
                 <Badge variant={activePengaturan ? 'success' : 'warning'}>
-                  {activePengaturan ? 'Aktif' : 'Perlu Setup'}
+                  {activePengaturan ? t('dashboardKepalaSekolah.aktif') : t('dashboardKepalaSekolah.perluSetup')}
                 </Badge>
               </div>
             </div>
@@ -254,20 +290,23 @@ const KepalaSekolahDashboard: React.FC = () => {
           <div className="p-6">
             <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
               <div className="w-2 h-6 bg-indigo-500 rounded-full mr-3"></div>
-              Ringkasan Akademik
+              {t('dashboardKepalaSekolah.ringkasanAkademik')}
             </h3>
             <div className="grid grid-cols-2 gap-4 sm:gap-6">
               <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
                 <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 mx-auto mb-2 sm:mb-3" />
                 <p className="text-xl sm:text-2xl font-bold text-blue-900">
-                  {activeTahunAjaran ?
-                    jadwal.filter(j =>
-                      j.tahunAjaran === activeTahunAjaran.tahun &&
-                      j.semester === activeTahunAjaran.semester
-                    ).length : 0
+                  {systemType === 'tahfiz' 
+                    ? jadwal.filter(j => j.tahunAjaran === currentYear).length
+                    : (activeTahunAjaran ?
+                      jadwal.filter(j =>
+                        j.tahunAjaran === activeTahunAjaran.tahun &&
+                        j.semester === activeTahunAjaran.semester
+                      ).length : 0
+                    )
                   }
                 </p>
-                <p className="text-xs sm:text-sm text-blue-700">Jadwal Aktif</p>
+                <p className="text-xs sm:text-sm text-blue-700">{t('dashboardKepalaSekolah.jadwalAktif')}</p>
               </div>
 
               <div className="text-center p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl">
@@ -275,19 +314,21 @@ const KepalaSekolahDashboard: React.FC = () => {
                 <p className="text-xl sm:text-2xl font-bold text-emerald-900">
                   {gurus.filter(u => u.isWaliKelas).length}
                 </p>
-                <p className="text-xs sm:text-sm text-emerald-700">Wali Kelas</p>
+                <p className="text-xs sm:text-sm text-emerald-700">{t('dashboardKepalaSekolah.waliKelas')}</p>
               </div>
 
               <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
                 <School className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 mx-auto mb-2 sm:mb-3" />
                 <p className="text-xl sm:text-2xl font-bold text-purple-900">{activeKelas.length}</p>
-                <p className="text-xs sm:text-sm text-purple-700">Kelas Aktif</p>
+                <p className="text-xs sm:text-sm text-purple-700">{t('dashboardKepalaSekolah.kelasAktif')}</p>
               </div>
 
               <div className="text-center p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl">
                 <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 mx-auto mb-2 sm:mb-3" />
                 <p className="text-xl sm:text-2xl font-bold text-orange-900">{attendanceRate}%</p>
-                <p className="text-xs sm:text-sm text-orange-700">Kehadiran Guru</p>
+                <p className="text-xs sm:text-sm text-orange-700">
+                  {systemType === 'tahfiz' ? t('dashboardKepalaSekolah.kehadiranUstadzHariIni') : t('dashboardKepalaSekolah.kehadiranGuruHariIni')}
+                </p>
               </div>
             </div>
           </div>
@@ -299,17 +340,19 @@ const KepalaSekolahDashboard: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-semibold text-gray-900 flex items-center">
               <div className="w-2 h-6 bg-green-500 rounded-full mr-3"></div>
-              Ringkasan Hari Ini
+              {t('dashboardKepalaSekolah.ringkasanHariIni')}
             </h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-4 bg-blue-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-blue-600">Guru Mengajar</p>
+                  <p className="text-sm text-blue-600">
+                    {systemType === 'tahfiz' ? t('dashboardKepalaSekolah.ustadzMengajar') : t('dashboardKepalaSekolah.guruMengajar')}
+                  </p>
                   <p className="text-2xl font-bold text-blue-900">{gurusWithScheduleToday.length}</p>
                   <p className="text-xs text-blue-700">
-                    {todayAbsensiGuru.filter(a => a.jamMasuk).length} sudah absen masuk
+                    {todayAbsensiGuru.filter(a => a.jamMasuk).length} {t('dashboardKepalaSekolah.sudahAbsenMasuk')}
                   </p>
                 </div>
                 <Users className="w-8 h-8 text-blue-600" />
@@ -319,10 +362,12 @@ const KepalaSekolahDashboard: React.FC = () => {
             <div className="p-4 bg-emerald-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-emerald-600">Total Murid</p>
+                  <p className="text-sm text-emerald-600">
+                    {systemType === 'tahfiz' ? t('dashboardKepalaSekolah.totalSantri') : t('dashboardKepalaSekolah.totalMurid')}
+                  </p>
                   <p className="text-2xl font-bold text-emerald-900">{totalMurid}</p>
                   <p className="text-xs text-emerald-700">
-                    Dari {totalKelas} kelas aktif
+                    {t('dashboardKepalaSekolah.dariKelasAktif', { totalKelas })}
                   </p>
                 </div>
                 <ClipboardList className="w-8 h-8 text-emerald-600" />
@@ -332,12 +377,17 @@ const KepalaSekolahDashboard: React.FC = () => {
             <div className="p-4 bg-purple-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-purple-600">Tahun Ajaran</p>
+                  <p className="text-sm text-purple-600">
+                    {systemType === 'tahfiz' ? t('dashboardKepalaSekolah.tahun') : t('dashboardKepalaSekolah.tahunAjaran')}
+                  </p>
                   <p className="text-2xl font-bold text-purple-900">
-                    {activeTahunAjaran ? activeTahunAjaran.tahun : '-'}
+                    {systemType === 'tahfiz' ? currentYear : (activeTahunAjaran ? activeTahunAjaran.tahun : '-')}
                   </p>
                   <p className="text-xs text-purple-700">
-                    {activeTahunAjaran ? `Semester ${activeTahunAjaran.semester}` : 'Tidak aktif'}
+                    {systemType === 'tahfiz' 
+                      ? t('dashboardKepalaSekolah.aktif')
+                      : (activeTahunAjaran ? `${t('dashboardKepalaSekolah.semester')} ${activeTahunAjaran.semester}` : t('dashboardKepalaSekolah.tidakAktif'))
+                    }
                   </p>
                 </div>
                 <Calendar className="w-8 h-8 text-purple-600" />

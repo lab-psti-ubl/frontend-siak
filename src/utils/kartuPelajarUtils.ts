@@ -1,7 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { User, Kelas, Jurusan } from '../types';
 import { normalizeStudentQRCode } from './qrCodeGenerator';
-import { shouldShowJurusan } from './jenjangPendidikanUtils';
+import { shouldShowJurusanSync } from './jenjangPendidikanUtils';
 import { DEFAULT_PROFILE_ICON } from './profilePlaceholder';
 
 export interface KartuPelajarOptions {
@@ -22,7 +22,7 @@ export function generateMuridKartuPelajar(
     try {
       // Determine which background to use based on orientation
       const frontBackground = orientation === 'potrait' ? backgroundDepan : backgroundBelakang;
-      const backBackground = orientation === 'potrait' ? backgroundDepan : backgroundBelakang;
+      const backBackground = orientation === 'potrait' ? backgroundBelakang : backgroundDepan;
       
       // Create both front and back cards
       Promise.all([
@@ -243,7 +243,7 @@ function generateKartuPelajarFrontCanvas(
           ctx.fillText(murid.nisn || '-', padding + labelWidth + colonWidth, detailsStartY);
 
           // Jurusan or Kelas
-          const showJurusanFlag = shouldShowJurusan();
+          const showJurusanFlag = shouldShowJurusanSync();
           const jurusanY = detailsStartY + lineHeight;
           ctx.font = `bold ${width * 0.035}px Arial, sans-serif`;
           const label = showJurusanFlag ? 'Jurusan' : 'Kelas';
@@ -401,7 +401,7 @@ function generateKartuPelajarBackCanvas(
             ctx.fillText(': ' + (murid.nisn || '-'), detailsX + labelWidth, nisnY);
 
             // Jurusan or Kelas
-            const showJurusanFlag = shouldShowJurusan();
+            const showJurusanFlag = shouldShowJurusanSync();
             const jurusanY = nisnY + lineHeight;
             ctx.font = `bold ${width * 0.04}px Arial, sans-serif`;
             const label = showJurusanFlag ? 'Jurusan' : 'Kelas';
@@ -442,7 +442,7 @@ function generateKartuPelajarBackCanvas(
             ctx.font = `${width * 0.04}px Arial, sans-serif`;
             ctx.fillText(': ' + (murid.nisn || '-'), detailsX + labelWidth, nisnY);
 
-            const showJurusanFlag = shouldShowJurusan();
+            const showJurusanFlag = shouldShowJurusanSync();
             const jurusanY = nisnY + lineHeight;
             ctx.font = `bold ${width * 0.04}px Arial, sans-serif`;
             const label = showJurusanFlag ? 'Jurusan' : 'Kelas';
@@ -747,7 +747,7 @@ export async function generateAllMuridKartuPelajar(
   
   // Determine which background to use based on orientation
   const frontBackground = orientation === 'potrait' ? backgroundDepan : backgroundBelakang;
-  const backBackground = orientation === 'potrait' ? backgroundDepan : backgroundBelakang;
+  const backBackground = orientation === 'potrait' ? backgroundBelakang : backgroundDepan;
   
   // Process each murid
   for (let i = 0; i < muridList.length; i++) {

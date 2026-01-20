@@ -29,6 +29,9 @@ import DetailAbsensiModal from './components/kelola-absensi/DetailAbsensiModal';
 import EditAbsensiModal from './components/kelola-absensi/EditAbsensiModal';
 import { useKelolaAbsensiHandlers } from './components/kelola-absensi/useKelolaAbsensiHandlers';
 import { isTimeOverlapping } from '../../../../utils/izinDispenMuridUtils';
+import { apiService } from '../../../../services/apiService';
+import { getLocalTimeISOString } from '../../../../utils/absensiUtils';
+import { AbsensiPelajaran } from '../../../../types';
 
 const KelolaAbsensi: React.FC = () => {
   const { user } = useAuth();
@@ -241,13 +244,48 @@ const KelolaAbsensi: React.FC = () => {
       });
 
       if (sessionsToClose.length > 0) {
-        // Update sessions via API
+        // Update sessions via API and mark unmarked students as alfa
         for (const sesi of sessionsToClose) {
           try {
+            // Get the jadwal for this session
+            const jadwal = mySchedules.find(j => j.id === sesi.jadwalId);
+            if (!jadwal) continue;
+
+            // Get all students in the class
+            const muridList = getMuridsByKelas(jadwal.kelasId);
+            
+            // Check existing absensi for this session
+            const existingAbsensiMap = new Map(
+              (sesi.dataAbsensi || []).map(a => [a.muridId, a])
+            );
+
+            // Find students who don't have absensi
+            const newAbsensiRecords: Partial<AbsensiPelajaran>[] = [];
+            muridList.forEach(murid => {
+              if (!existingAbsensiMap.has(murid.id)) {
+                const alfaAbsensi: Partial<AbsensiPelajaran> = {
+                  id: `absensi-alfa-auto-${murid.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  muridId: murid.id,
+                  status: 'alfa',
+                  waktu: getLocalTimeISOString(),
+                  keterangan: 'Absen otomatis alfa - sesi ditutup karena waktu pelajaran berakhir',
+                  method: 'manual',
+                };
+                newAbsensiRecords.push(alfaAbsensi);
+              }
+            });
+
+            // Update session status via API
             await updateSesiAbsensiAPI(sesi.id, {
               status: 'ditutup',
               jamTutup: currentTime
             });
+
+            // Bulk add alfa absensi if any
+            if (newAbsensiRecords.length > 0) {
+              await apiService.bulkAddAbsensiToSesi(sesi.id, newAbsensiRecords);
+              console.log(`Session ${sesi.id} closed: ${newAbsensiRecords.length} students marked as alfa`);
+            }
           } catch (error) {
             console.error('Error closing session:', error);
           }
@@ -313,7 +351,7 @@ const KelolaAbsensi: React.FC = () => {
     const interval = setInterval(checkAndCloseSessions, 60000);
 
     return () => clearInterval(interval);
-  }, [sesiAbsensi, mySchedules, today, currentDay, user?.id, refreshSesiAbsensi, refreshAbsensiGuru, createAbsensiGuruAPI, absensiGuru, mataPelajaran, tahunAjaran]);
+  }, [sesiAbsensi, mySchedules, today, currentDay, user?.id, refreshSesiAbsensi, refreshAbsensiGuru, createAbsensiGuruAPI, absensiGuru, mataPelajaran, tahunAjaran, getMuridsByKelas, updateSesiAbsensiAPI, allMurid, riwayatKelasMurid]);
 
   return (
     <div className="space-y-5 lg:space-y-6">

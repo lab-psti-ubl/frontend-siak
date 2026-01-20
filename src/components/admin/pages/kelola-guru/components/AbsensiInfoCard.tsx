@@ -1,196 +1,89 @@
 import React from 'react';
-import { UserCircle, ListChecks, BarChart3 } from 'lucide-react';
-import Modal from '../../../../ui/Modal';
-import Button from '../../../../ui/Button';
-import { User, AbsensiGuru, IzinGuru, JadwalPelajaran, SesiAbsensi, FotoMengajar, TahunAjaran } from '../../../../../types';
-import GuruProfileHeader from './GuruProfileHeader';
-import AbsensiInfoCard from './AbsensiInfoCard';
-import JadwalMengajarCard from './JadwalMengajarCard';
-import LihatKehadiranView from './LihatKehadiranView';
-import LihatPertemuanView from './LihatPertemuanView';
-import RekapMengajarGuruModal from './RekapMengajarGuruModal';
-import { getGuruAbsensiForDate, getGuruIzinForDate } from '../utils/absenGuruDataHelpers';
+import { UserCheck } from 'lucide-react';
+import Card from '../../../../ui/Card';
+import Badge from '../../../../ui/Badge';
+import { AbsensiGuru, IzinGuru } from '../../../../../types';
+import StatusBadgeMapper from './StatusBadgeMapper';
+import { formatTimeDisplay } from '../../../../../utils/absensiUtils';
 
-interface DetailAbsensiModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  selectedGuru: User | null;
+interface AbsensiInfoCardProps {
   detailDate: string;
-  onDetailDateChange: (date: string) => void;
-  detailView: 'default' | 'kehadiran' | 'pertemuan';
-  onDetailViewChange: (view: 'default' | 'kehadiran' | 'pertemuan') => void;
-  isRekapMengajarOpen: boolean;
-  onRekapMengajarOpen: (open: boolean) => void;
-  absensiGuru: AbsensiGuru[];
-  izinGuru: IzinGuru[];
-  jadwalPelajaran: JadwalPelajaran[];
-  sesiAbsensi: SesiAbsensi[];
-  pengaturanAbsen: any[];
-  tahunAjaran: TahunAjaran[];
-  mataPelajaran: any[];
-  kelas: any[];
-  onViewPhoto: (foto: FotoMengajar) => void;
-  onViewJadwalDetail: (jadwal: JadwalPelajaran, tanggal: string) => void;
-  onViewJurnalFile: (file: any) => void;
-  getMapelName: (mapelId: string) => string;
-  getKelasName: (kelasId: string) => string;
-  tahunAjaranAktif?: string;
-  semesterAktif?: number;
+  absensi: AbsensiGuru | undefined;
+  izinAktif: IzinGuru | undefined;
 }
 
-const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
-  isOpen,
-  onClose,
-  selectedGuru,
+const AbsensiInfoCard: React.FC<AbsensiInfoCardProps> = ({
   detailDate,
-  onDetailDateChange,
-  detailView,
-  onDetailViewChange,
-  isRekapMengajarOpen,
-  onRekapMengajarOpen,
-  absensiGuru,
-  izinGuru,
-  jadwalPelajaran,
-  sesiAbsensi,
-  pengaturanAbsen,
-  tahunAjaran,
-  mataPelajaran,
-  kelas,
-  onViewPhoto,
-  onViewJadwalDetail,
-  onViewJurnalFile,
-  getMapelName,
-  getKelasName,
-  tahunAjaranAktif,
-  semesterAktif
+  absensi,
+  izinAktif
 }) => {
   return (
-    <>
-      <Modal
-        isOpen={isOpen}
-        onClose={onClose}
-        title={`Detail Absensi - ${selectedGuru?.name}`}
-        size="xl"
-      >
-        {selectedGuru && detailView === 'default' && (
-          <div className="space-y-4 sm:space-y-6">
-            <GuruProfileHeader
-              guru={selectedGuru}
-              getKelasName={getKelasName}
-            />
+    <Card className="p-4">
+      <h4 className="font-semibold text-gray-900 mb-4">
+        Absensi {new Date(detailDate).toLocaleDateString('id-ID', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        })}
+      </h4>
 
-            <div className="p-3 sm:p-4  bg-blue-50 rounded-lg">
-              <h4 className="font-medium text-sm sm:text-base text-blue-900 mb-3">Filter Tanggal</h4>
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-row items-center gap-2 sm:gap-3">
-                  <label className="text-xs sm:text-sm font-medium text-blue-700 whitespace-nowrap flex-shrink-0">Tanggal:</label>
-                  <input
-                    type="date"
-                    value={detailDate}
-                    onChange={(e) => onDetailDateChange(e.target.value)}
-                    className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex-1 min-w-0"
-                  />
-                   <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => onDetailDateChange(new Date().toISOString().split('T')[0])}
-                    className="text-xs sm:text-sm flex-shrink-0 whitespace-nowrap"
-                  >
-                    Hari Ini
-                  </Button>
-                </div>
-               
-                <div className="flex flex-col sm:flex-row gap-2 w-full">
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    onClick={() => onDetailViewChange('kehadiran')}
-                    className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1"
-                  >
-                    <UserCircle size={14} className="sm:w-4 sm:h-4" />
-                    <span className="truncate">Lihat Kehadiran</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="info"
-                    onClick={() => onDetailViewChange('pertemuan')}
-                    className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1"
-                  >
-                    <ListChecks size={14} className="sm:w-4 sm:h-4" />
-                    <span className="truncate">Lihat Pertemuan</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="success"
-                    onClick={() => onRekapMengajarOpen(true)}
-                    className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1"
-                  >
-                    <BarChart3 size={14} className="sm:w-4 sm:h-4" />
-                    <span className="truncate">Rekap Mengajar</span>
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              <AbsensiInfoCard
-                detailDate={detailDate}
-                absensi={getGuruAbsensiForDate(absensiGuru, selectedGuru.id, detailDate)}
-                izinAktif={getGuruIzinForDate(izinGuru, selectedGuru.id, detailDate)}
-              />
-
-              <JadwalMengajarCard
-                detailDate={detailDate}
-                selectedGuru={selectedGuru}
-                jadwalPelajaran={jadwalPelajaran}
-                sesiAbsensi={sesiAbsensi}
-                absensiGuru={absensiGuru}
-                onViewPhoto={onViewPhoto}
-                onViewDetail={onViewJadwalDetail}
-                getMapelName={getMapelName}
-                getKelasName={getKelasName}
-                tahunAjaranAktif={tahunAjaranAktif}
-                semesterAktif={semesterAktif}
-              />
+      {izinAktif && !absensi ? (
+        <div className="text-center py-6">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <UserCheck className="w-8 h-8 text-blue-600" />
+          </div>
+          <Badge variant="info" className="mb-2">
+            {izinAktif.jenis.charAt(0).toUpperCase() + izinAktif.jenis.slice(1)}
+          </Badge>
+          <p className="text-sm text-gray-600">{izinAktif.alasan}</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <h5 className="font-medium text-gray-900 ">Status Masuk:</h5>
+            
+          </div>
+          <div className="flex justify-between items-center p-1 bg-gray-50 rounded-lg">
+            <span className="text-gray-600">Jam Masuk:</span>
+            <div className="text-right">
+              {absensi?.jamMasuk ? (
+                <>
+                  <p className="font-mono font-medium">{formatTimeDisplay(absensi.jamMasuk)}</p>
+                  <StatusBadgeMapper status={absensi.statusMasuk} />
+                </>
+              ) : (
+                <span className="text-gray-400 text-sm">-</span>
+              )}
             </div>
           </div>
-        )}
+          <div>
+            <h5 className="font-medium text-gray-900 ">Status Keluar:</h5>
+            
+          </div>
 
-        {selectedGuru && detailView === 'kehadiran' && (
-          <LihatKehadiranView
-            guru={selectedGuru}
-            absensiGuru={absensiGuru}
-            pengaturanAbsen={pengaturanAbsen}
-            izinGuru={izinGuru}
-          />
-        )}
+          
 
-        {selectedGuru && detailView === 'pertemuan' && (
-          <LihatPertemuanView
-            guru={selectedGuru}
-          />
-        )}
-      </Modal>
+          <div className="flex justify-between items-center p-1 bg-gray-50 rounded-lg">
+            
+            <span className="text-gray-600">Jam Keluar:</span>
+            <div className="text-right">
+              {absensi?.jamKeluar ? (
+                <>
+                  <p className="font-mono font-medium">{formatTimeDisplay(absensi.jamKeluar)}</p>
+                  <StatusBadgeMapper status={absensi.statusKeluar} />
+                </>
+              ) : (
+                <span className="text-gray-400 text-sm">-</span>
+              )}
+            </div>
+          </div>
 
-      {selectedGuru && (
-        <Modal
-          isOpen={isRekapMengajarOpen}
-          onClose={() => onRekapMengajarOpen(false)}
-          title="Rekap Mengajar Guru"
-          size="full"
-        >
-          <RekapMengajarGuruModal
-            guru={selectedGuru}
-            jadwalPelajaran={jadwalPelajaran}
-            sesiAbsensi={sesiAbsensi}
-            tahunAjaran={tahunAjaran}
-            kelas={kelas}
-            mataPelajaran={mataPelajaran}
-          />
-        </Modal>
+          
+        </div>
       )}
-    </>
+    </Card>
   );
 };
 
-export default DetailAbsensiModal;
+export default AbsensiInfoCard;

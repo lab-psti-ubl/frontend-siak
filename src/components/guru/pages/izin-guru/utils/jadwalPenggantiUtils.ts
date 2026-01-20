@@ -1,10 +1,11 @@
-import { JadwalPelajaran, Guru, GuruPenggantiJadwal } from '../../../../../types';
+import { JadwalPelajaran, Guru, GuruPenggantiJadwal, TahfizSchedule, User } from '../../../../../types';
 
 export interface JadwalDetail {
-  jadwal: JadwalPelajaran;
+  jadwal: JadwalPelajaran | TahfizSchedule;
   tanggal: string;
   hari: string;
   jadwalKey: string;
+  isTahfiz?: boolean; // Flag to indicate if this is a tahfiz schedule
 }
 
 export const getHariFromDate = (dateString: string): string => {
@@ -57,7 +58,8 @@ export const getJadwalGuruInDateRange = (
           jadwal,
           tanggal,
           hari,
-          jadwalKey
+          jadwalKey,
+          isTahfiz: false
         });
       }
     });
@@ -191,7 +193,8 @@ export const getJadwalGuruInDateRangeWithTime = (
         jadwal,
         tanggal,
         hari,
-        jadwalKey: jadwal.id
+        jadwalKey: jadwal.id,
+        isTahfiz: false
       });
     }
   });
@@ -232,17 +235,18 @@ export const getJadwalGuruInDateRangeNotFinished = (
       const isToday = tanggal === today;
       const isFinished = isToday && currentTime >= jadwal.jamSelesai;
 
-      if (!isFinished) {
-        const jadwalKey = jadwal.id;
-        if (!jadwalDetailsMap.has(jadwalKey)) {
-          jadwalDetailsMap.set(jadwalKey, {
-            jadwal,
-            tanggal,
-            hari,
-            jadwalKey
-          });
-        }
+    if (!isFinished) {
+      const jadwalKey = jadwal.id;
+      if (!jadwalDetailsMap.has(jadwalKey)) {
+        jadwalDetailsMap.set(jadwalKey, {
+          jadwal,
+          tanggal,
+          hari,
+          jadwalKey,
+          isTahfiz: false
+        });
       }
+    }
     });
   });
 
@@ -280,10 +284,136 @@ export const getJadwalGuruInDateRangeWithTimeNotFinished = (
         jadwal,
         tanggal,
         hari,
-        jadwalKey: jadwal.id
+        jadwalKey: jadwal.id,
+        isTahfiz: false
       });
     }
   });
 
   return jadwalDetails;
+};
+
+// Functions for Tahfiz Schedule
+export const getJadwalTahfizUstadzInDateRangeNotFinished = (
+  ustadzId: string,
+  tanggalMulai: string,
+  tanggalSelesai: string,
+  jadwalTahfiz: TahfizSchedule[] = [],
+  kelasTahfiz: any[] = []
+): JadwalDetail[] => {
+  const dates = getDatesBetween(tanggalMulai, tanggalSelesai);
+  const jadwalDetailsMap = new Map<string, JadwalDetail>();
+  const now = new Date();
+  const currentTime = now.toTimeString().slice(0, 5);
+  const today = now.toISOString().split('T')[0];
+
+  // Get kelas tahfiz where ustadzId matches
+  const myKelasIds = kelasTahfiz
+    .filter(kelas => kelas.ustadzId === ustadzId)
+    .map(kelas => kelas.id);
+
+  dates.forEach(tanggal => {
+    const hari = getHariFromDate(tanggal);
+    const jadwalOnDay = jadwalTahfiz.filter(j =>
+      myKelasIds.includes(j.kelasId) &&
+      j.hari === hari
+    );
+
+    jadwalOnDay.forEach(jadwal => {
+      const isToday = tanggal === today;
+      const isFinished = isToday && currentTime >= jadwal.jamSelesai;
+
+      if (!isFinished) {
+        const jadwalKey = `tahfiz_${jadwal.id}`;
+        if (!jadwalDetailsMap.has(jadwalKey)) {
+          jadwalDetailsMap.set(jadwalKey, {
+            jadwal: jadwal as any, // Cast to match union type
+            tanggal,
+            hari,
+            jadwalKey,
+            isTahfiz: true
+          });
+        }
+      }
+    });
+  });
+
+  return Array.from(jadwalDetailsMap.values());
+};
+
+export const getJadwalTahfizUstadzInDateRangeWithTimeNotFinished = (
+  ustadzId: string,
+  tanggal: string,
+  jamMulai: string,
+  jamSelesai: string,
+  jadwalTahfiz: TahfizSchedule[] = [],
+  kelasTahfiz: any[] = []
+): JadwalDetail[] => {
+  const hari = getHariFromDate(tanggal);
+  const jadwalDetails: JadwalDetail[] = [];
+  const now = new Date();
+  const currentTime = now.toTimeString().slice(0, 5);
+  const today = now.toISOString().split('T')[0];
+
+  // Get kelas tahfiz where ustadzId matches
+  const myKelasIds = kelasTahfiz
+    .filter(kelas => kelas.ustadzId === ustadzId)
+    .map(kelas => kelas.id);
+
+  const jadwalOnDay = jadwalTahfiz.filter(j =>
+    myKelasIds.includes(j.kelasId) &&
+    j.hari === hari
+  );
+
+  jadwalOnDay.forEach(jadwal => {
+    const isToday = tanggal === today;
+    const isFinished = isToday && currentTime >= jadwal.jamSelesai;
+
+    if (isTimeOverlapping(jamMulai, jamSelesai, jadwal.jamMulai, jadwal.jamSelesai) && !isFinished) {
+      jadwalDetails.push({
+        jadwal: jadwal as any, // Cast to match union type
+        tanggal,
+        hari,
+        jadwalKey: `tahfiz_${jadwal.id}`,
+        isTahfiz: true
+      });
+    }
+  });
+
+  return jadwalDetails;
+};
+
+// Get available ustadz without time conflict for tahfiz schedule
+export const getUstadzWithoutTimeConflictTahfiz = (
+  ustadzIdToExclude: string,
+  tanggal: string,
+  jamMulai: string,
+  jamSelesai: string,
+  ustadz: User[] = [],
+  jadwalTahfiz: TahfizSchedule[] = [],
+  kelasTahfiz: any[] = []
+): User[] => {
+  const hari = getHariFromDate(tanggal);
+
+  const allUstadz = ustadz.filter(u => u.isActive !== false && u.id !== ustadzIdToExclude);
+
+  return allUstadz.filter(ustadz => {
+    // Get kelas tahfiz where this ustadz is assigned
+    const ustadzKelasIds = kelasTahfiz
+      .filter(kelas => kelas.ustadzId === ustadz.id)
+      .map(kelas => kelas.id);
+
+    // Get jadwal tahfiz for this ustadz on the specified day
+    const jadwalUstadzOnDay = jadwalTahfiz.filter(j =>
+      ustadzKelasIds.includes(j.kelasId) &&
+      j.hari === hari
+    );
+
+    // Check if there's a time conflict
+    const hasTimeConflict = jadwalUstadzOnDay.some(jadwal => {
+      return isTimeOverlapping(jamMulai, jamSelesai, jadwal.jamMulai, jadwal.jamSelesai);
+    });
+
+    return !hasTimeConflict;
+  });
 };

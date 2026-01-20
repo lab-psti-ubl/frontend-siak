@@ -30,6 +30,9 @@ interface JadwalCardProps {
   onOpenJurnalModal: (session: SesiAbsensi) => void;
   refreshAbsensiGuru: () => Promise<void>;
   getJadwalInfo: (jadwalId: string) => { kelas: string; mapel: string };
+  onDeletePhoto?: (fotoId: string, jadwalId: string) => Promise<void>; // Optional custom handler for photo deletion
+  onReplacePhoto?: (fotoId: string, jadwalId: string, imageBase64: string) => Promise<void>; // Optional custom handler for photo replacement
+  isTahfiz?: boolean; // Flag to indicate if this is Tahfiz session (uses session.jurnal instead of jurnal collection)
 }
 
 const JadwalCard: React.FC<JadwalCardProps> = ({
@@ -54,6 +57,9 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
   onOpenJurnalModal,
   refreshAbsensiGuru,
   getJadwalInfo,
+  onDeletePhoto,
+  onReplacePhoto,
+  isTahfiz = false,
 }) => {
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<FotoMengajar | null>(null);
@@ -77,7 +83,11 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
   // Refresh jurnal when modal is closed (to get latest data after save)
   useEffect(() => {
     const handleJurnalSaved = () => {
-      refreshJurnal();
+      // For Tahfiz, jurnal is stored in session, so refresh is handled by parent component
+      // Only refresh jurnal collection for regular classes
+      if (!isTahfiz) {
+        refreshJurnal();
+      }
     };
     
     // Listen for custom event when jurnal is saved
@@ -85,12 +95,58 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
     return () => {
       window.removeEventListener('jurnal-saved', handleJurnalSaved);
     };
-  }, [refreshJurnal]);
+  }, [refreshJurnal, isTahfiz]);
   
   const jurnal = useMemo(() => {
     if (!today || !jadwal.id) return undefined;
     
-    // Find jurnal document for this jadwalId and kelasId
+    // For Tahfiz: Check if jurnal is stored in session.jurnal (SesiAbsensiTahfiz)
+    // Use isTahfiz flag or check if session has 'tahun' property (SesiAbsensiTahfiz)
+    if (isTahfiz && session && (session as any).jurnal) {
+      const sessionJurnal = (session as any).jurnal;
+      // Return jurnal from session (for Tahfiz) - return if jurnal exists and has content
+      if (sessionJurnal && (sessionJurnal.judul || sessionJurnal.deskripsi)) {
+        return {
+          id: session.id,
+          jadwalId: jadwal.id,
+          kelasId: jadwal.kelasId,
+          tanggal: today,
+          judul: sessionJurnal.judul || '',
+          deskripsi: sessionJurnal.deskripsi || '',
+          waktuInput: sessionJurnal.waktuInput || new Date().toISOString(),
+          file: sessionJurnal.file,
+          tahunAjaranId: (session as any).tahun || '',
+          semester: 1, // Not used for Tahfiz
+          createdAt: (session as any).createdAt || new Date().toISOString(),
+          updatedAt: (session as any).updatedAt || new Date().toISOString(),
+        };
+      }
+      return undefined;
+    }
+    
+    // Also check for Tahfiz by session property (backward compatibility)
+    if (!isTahfiz && session && (session as any).jurnal && (session as any).tahun !== undefined) {
+      const sessionJurnal = (session as any).jurnal;
+      if (sessionJurnal && (sessionJurnal.judul || sessionJurnal.deskripsi)) {
+        return {
+          id: session.id,
+          jadwalId: jadwal.id,
+          kelasId: jadwal.kelasId,
+          tanggal: today,
+          judul: sessionJurnal.judul || '',
+          deskripsi: sessionJurnal.deskripsi || '',
+          waktuInput: sessionJurnal.waktuInput || new Date().toISOString(),
+          file: sessionJurnal.file,
+          tahunAjaranId: (session as any).tahun || '',
+          semester: 1,
+          createdAt: (session as any).createdAt || new Date().toISOString(),
+          updatedAt: (session as any).updatedAt || new Date().toISOString(),
+        };
+      }
+      return undefined;
+    }
+    
+    // For regular classes: Find jurnal document from jurnal collection
     const jurnalDoc = jurnalList.find(
       j => j.jadwalId === jadwal.id && j.kelasId === jadwal.kelasId
     );
@@ -126,7 +182,7 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
     }
     
     return undefined;
-  }, [jurnalList, jadwal.id, jadwal.kelasId, today]);
+  }, [jurnalList, jadwal.id, jadwal.kelasId, today, session, isTahfiz]);
   
   // Check if session is completed (closed + has photo + has journal)
   const isSessionCompleted = session?.status === 'ditutup' && hasPhoto && jurnal;
@@ -147,6 +203,15 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
     }
 
     try {
+      // Use custom handler if provided (e.g., for Tahfiz)
+      if (onDeletePhoto) {
+        await onDeletePhoto(selectedPhoto.id, jadwal.id);
+        setShowPhotoPreview(false);
+        setSelectedPhoto(null);
+        return;
+      }
+
+      // Default behavior: update AbsensiGuru
       const todayAbsensi = absensiGuru?.find(a => a.guruId === userId && a.tanggal === today);
       if (!todayAbsensi) {
         alert('Data absensi tidak ditemukan');
@@ -185,6 +250,16 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
     if (!selectedPhoto || !session || !userId || !today) return;
 
     try {
+      // Use custom handler if provided (e.g., for Tahfiz) and we're replacing a photo
+      if (onReplacePhoto && isReplacingPhoto) {
+        await onReplacePhoto(selectedPhoto.id, jadwal.id, imageBase64);
+        setIsCameraOpen(false);
+        setIsReplacingPhoto(false);
+        setSelectedPhoto(null);
+        return;
+      }
+
+      // Default behavior: update AbsensiGuru
       const todayAbsensi = absensiGuru?.find(a => a.guruId === userId && a.tanggal === today);
       if (!todayAbsensi) {
         alert('Data absensi tidak ditemukan');
@@ -807,66 +882,78 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
               </div>
             </div>
 
-            {jurnal.file && (
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
-                  <Download className="w-4 h-4 mr-2 text-gray-600" />
-                  File Materi
-                </h5>
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className="flex-shrink-0 h-12 w-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200">
-                        <span className="text-2xl">
-                          {jurnal.file.type.includes('pdf') ? '📄' : 
-                           jurnal.file.type.includes('word') || jurnal.file.type.includes('document') ? '📝' :
-                           jurnal.file.type.includes('powerpoint') || jurnal.file.type.includes('presentation') ? '📊' :
-                           jurnal.file.type.includes('excel') || jurnal.file.type.includes('spreadsheet') ? '📈' :
-                           jurnal.file.type.includes('image') ? '🖼️' :
-                           jurnal.file.type.includes('video') ? '🎥' : '📎'}
-                        </span>
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
+                <Download className="w-4 h-4 mr-2 text-gray-600" />
+                File Materi
+              </h5>
+              {jurnal.file && jurnal.file.data && jurnal.file.name ? (
+                <>
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <div className="flex-shrink-0 h-12 w-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200">
+                          <span className="text-2xl">
+                            {jurnal.file.type && typeof jurnal.file.type === 'string' ? (
+                              jurnal.file.type.includes('pdf') ? '📄' : 
+                              jurnal.file.type.includes('word') || jurnal.file.type.includes('document') ? '📝' :
+                              jurnal.file.type.includes('powerpoint') || jurnal.file.type.includes('presentation') ? '📊' :
+                              jurnal.file.type.includes('excel') || jurnal.file.type.includes('spreadsheet') ? '📈' :
+                              jurnal.file.type.includes('image') ? '🖼️' :
+                              jurnal.file.type.includes('video') ? '🎥' : '📎'
+                            ) : '📎'}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {jurnal.file.name}
+                          </p>
+                          {jurnal.file.size && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              {jurnal.file.size < 1024 ? jurnal.file.size + ' B' :
+                               jurnal.file.size < 1024 * 1024 ? (jurnal.file.size / 1024).toFixed(2) + ' KB' :
+                               (jurnal.file.size / (1024 * 1024)).toFixed(2) + ' MB'}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">
-                          {jurnal.file.name}
-                        </p>
-                        <p className="text-xs text-gray-600 mt-1">
-                          {jurnal.file.size < 1024 ? jurnal.file.size + ' B' :
-                           jurnal.file.size < 1024 * 1024 ? (jurnal.file.size / 1024).toFixed(2) + ' KB' :
-                           (jurnal.file.size / (1024 * 1024)).toFixed(2) + ' MB'}
-                        </p>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => {
+                          if (jurnal.file?.data) {
+                            const link = document.createElement('a');
+                            link.href = jurnal.file.data;
+                            link.download = jurnal.file.name || 'file';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }
+                        }}
+                        className="ml-3 whitespace-nowrap flex items-center justify-center"
+                      >
+                        <Download size={14} className="mr-1" />
+                        Download
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = jurnal.file!.data;
-                        link.download = jurnal.file!.name;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                      }}
-                      className="ml-3 whitespace-nowrap flex items-center justify-center"
-                    >
-                      <Download size={14} className="mr-1" />
-                      Download
-                    </Button>
                   </div>
-                </div>
 
-                {jurnal.file.type === 'application/pdf' && (
-                  <div className="mt-4 border border-gray-300 rounded-lg overflow-hidden">
-                    <iframe
-                      src={jurnal.file.data}
-                      className="w-full h-96"
-                      title="Preview PDF"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+                  {jurnal.file.type && jurnal.file.type === 'application/pdf' && jurnal.file.data && (
+                    <div className="mt-4 border border-gray-300 rounded-lg overflow-hidden">
+                      <iframe
+                        src={jurnal.file.data}
+                        className="w-full h-96"
+                        title="Preview PDF"
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-sm text-gray-500 italic">Tidak ada file materi</p>
+                </div>
+              )}
+            </div>
 
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
               <p className="text-xs text-gray-600">

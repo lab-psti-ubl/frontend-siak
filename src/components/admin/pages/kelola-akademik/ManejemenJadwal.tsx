@@ -269,9 +269,9 @@ const ManajemenJadwal: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
               <Calculator size={16} className="text-blue-600 flex-shrink-0" />
-              <span className="font-medium text-sm text-gray-900">Pengaturan SKS:</span>
+              <span className="font-medium text-sm text-gray-900">Pengaturan JP:</span>
               <Badge variant="info" size="sm">
-                {activePengaturanSKS.durasiPerSKS} menit/SKS
+                {activePengaturanSKS.durasiPerSKS} menit/JP
               </Badge>
               {activePengaturanSKS.istirahatAntarSKS > 0 && (
                 <Badge variant="warning" size="sm">
@@ -280,7 +280,7 @@ const ManajemenJadwal: React.FC = () => {
               )}
             </div>
             <div className="text-xs text-gray-600">
-              Jam selesai dihitung otomatis berdasarkan SKS
+              Jam selesai dihitung otomatis berdasarkan JP
             </div>
           </div>
         </Card>
@@ -319,9 +319,19 @@ const ManajemenJadwal: React.FC = () => {
                     <TableCell className="text-sm">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="default" size="sm">{mapel?.sks || 0} SKS</Badge>
-                          <Badge variant={mapel?.keterangan === 'umum' ? 'info' : 'warning'} size="sm">
-                            {mapel?.keterangan === 'umum' ? 'UMUM' : 'JURUSAN'}
+                          <Badge variant="default" size="sm">{mapel?.sks || 0} JP</Badge>
+                          <Badge variant={
+                            mapel?.keterangan === 'umum' 
+                              ? 'info' 
+                              : mapel?.keterangan === 'agama'
+                              ? 'success'
+                              : 'warning'
+                          } size="sm">
+                            {mapel?.keterangan === 'umum' 
+                              ? 'UMUM' 
+                              : mapel?.keterangan === 'agama'
+                              ? 'AGAMA'
+                              : 'JURUSAN'}
                           </Badge>
                         </div>
                         {activePengaturanSKS && mapel && (
@@ -439,7 +449,7 @@ const ManajemenJadwal: React.FC = () => {
                       </div>
                     </div>
                     <Badge variant="info" size="sm" className="flex-shrink-0">
-                      {mapel?.sks || 0} SKS
+                      {mapel?.sks || 0} JP
                     </Badge>
                   </div>
 
@@ -464,11 +474,21 @@ const ManajemenJadwal: React.FC = () => {
                     {/* Keterangan Mapel */}
                     <div className="flex items-center gap-2 flex-wrap pt-1">
                       <Badge
-                        variant={mapel?.keterangan === 'umum' ? 'info' : 'warning'}
+                        variant={
+                          mapel?.keterangan === 'umum' 
+                            ? 'info' 
+                            : mapel?.keterangan === 'agama'
+                            ? 'success'
+                            : 'warning'
+                        }
                         size="sm"
                         className="text-xs"
                       >
-                        {mapel?.keterangan === 'umum' ? 'UMUM' : 'JURUSAN'}
+                        {mapel?.keterangan === 'umum' 
+                          ? 'UMUM' 
+                          : mapel?.keterangan === 'agama'
+                          ? 'AGAMA'
+                          : 'JURUSAN'}
                       </Badge>
                       <Badge variant="default" size="sm" className="text-xs">
                         Semester {jadwal.semester}

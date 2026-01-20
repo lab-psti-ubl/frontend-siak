@@ -4,6 +4,7 @@ import { Upload, X, Save } from 'lucide-react';
 import Button from '../../../ui/Button';
 import { apiService } from '../../../../services/apiService';
 import { useAuth } from '../../../../context/AuthContext';
+import { useLanguage } from '../../../../context/LanguageContext';
 import { showSuccessToast, showErrorToast } from '../../../ui/ToastContainer';
 import PhotoPreviewModal from '../../../ui/PhotoPreviewModal';
 import { useGurus } from '../../../../hooks/useGurus';
@@ -16,6 +17,7 @@ interface AccountTabProps {
 
 const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
   const { user: authUser, setUser } = useAuth();
+  const { t } = useLanguage();
   const { refreshGurus } = useGurus(); // Hook untuk refresh cache guru dari MongoDB
   const [profileImage, setProfileImage] = useState<string | null>(user?.profileImage || null);
   const [isUploading, setIsUploading] = useState(false);
@@ -44,7 +46,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
     if (!file || !user) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      showErrorToast('Ukuran File Terlalu Besar', 'Ukuran file tidak boleh lebih dari 5MB');
+      showErrorToast(t('dashboardGuru.accountTab.ukuranFileTerlaluBesar'), t('dashboardGuru.accountTab.ukuranFileMax5MB'));
       return;
     }
 
@@ -67,12 +69,12 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
           await refreshGurus();
           // Update AuthContext dengan data baru
           setUser(response.guru);
-          showSuccessToast('Berhasil', 'Foto profil berhasil diubah!');
+          showSuccessToast(t('dashboardGuru.accountTab.berhasil'), t('dashboardGuru.accountTab.fotoProfilBerhasilDiubah'));
         } else {
-          showErrorToast('Gagal', response.message || 'Gagal mengubah foto profil');
+          showErrorToast(t('dashboardGuru.accountTab.gagal'), response.message || t('dashboardGuru.accountTab.gagalMengubahFotoProfil'));
         }
       } catch (error: any) {
-        showErrorToast('Error', error.message || 'Terjadi kesalahan saat mengubah foto profil');
+        showErrorToast(t('dashboardGuru.accountTab.error'), error.message || t('dashboardGuru.accountTab.terjadiKesalahanMengubahFotoProfil'));
       } finally {
         setIsUploading(false);
       }
@@ -97,12 +99,12 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
         await refreshGurus();
         // Update AuthContext dengan data baru
         setUser(response.guru);
-        showSuccessToast('Berhasil', 'Foto profil berhasil dihapus!');
+        showSuccessToast(t('dashboardGuru.accountTab.berhasil'), t('dashboardGuru.accountTab.fotoProfilBerhasilDihapus'));
       } else {
-        showErrorToast('Gagal', response.message || 'Gagal menghapus foto profil');
+        showErrorToast(t('dashboardGuru.accountTab.gagal'), response.message || t('dashboardGuru.accountTab.gagalMenghapusFotoProfil'));
       }
     } catch (error: any) {
-      showErrorToast('Error', error.message || 'Terjadi kesalahan saat menghapus foto profil');
+      showErrorToast(t('dashboardGuru.accountTab.error'), error.message || t('dashboardGuru.accountTab.terjadiKesalahanMenghapusFotoProfil'));
     }
   };
 
@@ -112,7 +114,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
 
     // Validation
     if (!formData.name.trim() || !formData.email.trim()) {
-      showErrorToast('Validasi Gagal', 'Nama dan email wajib diisi!');
+      showErrorToast(t('dashboardGuru.accountTab.validasiGagal'), t('dashboardGuru.accountTab.namaDanEmailWajibDiisi'));
       return;
     }
 
@@ -132,13 +134,13 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
         // Update AuthContext dengan data baru
         setUser(response.guru);
         setIsEditing(false);
-        showSuccessToast('Berhasil', 'Data berhasil diperbarui!');
+        showSuccessToast(t('dashboardGuru.accountTab.berhasil'), t('dashboardGuru.accountTab.dataBerhasilDiperbarui'));
       } else {
-        showErrorToast('Gagal', response.message || 'Gagal memperbarui data');
+        showErrorToast(t('dashboardGuru.accountTab.gagal'), response.message || t('dashboardGuru.accountTab.gagalMemperbaruiData'));
       }
     } catch (error: any) {
       console.error('Error saving data:', error);
-      showErrorToast('Gagal', error.message || 'Terjadi kesalahan saat menyimpan data. Silakan coba lagi.');
+      showErrorToast(t('dashboardGuru.accountTab.gagal'), error.message || t('dashboardGuru.accountTab.terjadiKesalahanMenyimpanData'));
     } finally {
       setIsSaving(false);
     }
@@ -161,8 +163,8 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
       <div className="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-xl sm:rounded-2xl p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h3 className="text-lg sm:text-xl font-bold text-white">Informasi Akun</h3>
-            <p className="text-xs sm:text-sm text-blue-100 mt-1">Kelola data pribadi Anda</p>
+            <h3 className="text-lg sm:text-xl font-bold text-white">{t('dashboardGuru.accountTab.title')}</h3>
+            <p className="text-xs sm:text-sm text-blue-100 mt-1">{t('dashboardGuru.accountTab.subtitle')}</p>
           </div>
           {!isEditing ? (
             <Button
@@ -171,7 +173,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
               onClick={() => setIsEditing(true)}
               className="flex items-center justify-center text-xs sm:text-sm"
             >
-              Edit Data
+              {t('dashboardGuru.accountTab.editData')}
             </Button>
           ) : (
             <div className="flex flex-col xs:flex-row gap-2 xs:gap-3">
@@ -182,7 +184,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
                 disabled={isSaving}
                 className="text-xs sm:text-sm bg-red-600"
               >
-                Batal
+                {t('dashboardGuru.accountTab.cancel')}
               </Button>
               <Button
                 type="submit"
@@ -190,7 +192,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
                 className="flex items-center justify-center gap-2 text-xs sm:text-sm"
               >
                 <Save size={16} />
-                {isSaving ? 'Menyimpan...' : 'Simpan'}
+                {isSaving ? t('dashboardGuru.accountTab.saving') : t('dashboardGuru.accountTab.save')}
               </Button>
             </div>
           )}
@@ -199,7 +201,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
 
       <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-200 bg-slate-50">
-          <h4 className="text-sm sm:text-base font-semibold text-slate-900 uppercase tracking-wide">Foto Profil</h4>
+          <h4 className="text-sm sm:text-base font-semibold text-slate-900 uppercase tracking-wide">{t('dashboardGuru.accountTab.photoProfil')}</h4>
         </div>
         <div className="p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-end gap-6 sm:gap-8">
@@ -222,7 +224,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
                 )}
               </button>
               {!isEditing && profileImage && (
-                <p className="text-xs text-slate-500">Klik untuk preview</p>
+                <p className="text-xs text-slate-500">{t('dashboardGuru.accountTab.klikUntukPreview')}</p>
               )}
             </div>
             <div className="flex flex-col gap-3 w-full sm:w-auto">
@@ -230,7 +232,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
                 <>
                   <label className="flex items-center justify-center sm:justify-start px-4 sm:px-5 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base font-medium rounded-lg transition-colors duration-200 cursor-pointer">
                     <Upload size={18} className="mr-2" />
-                    <span>{isUploading ? 'Mengunggah...' : 'Ubah Foto'}</span>
+                    <span>{isUploading ? t('dashboardGuru.accountTab.mengunggah') : t('dashboardGuru.accountTab.ubahFoto')}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -246,7 +248,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
                       className="flex items-center justify-center sm:justify-start px-4 sm:px-5 py-2.5 sm:py-3 bg-red-50 hover:bg-red-100 text-red-600 text-sm sm:text-base font-medium rounded-lg transition-colors duration-200 border border-red-200 hover:border-red-300"
                     >
                       <X size={18} className="mr-2" />
-                      Hapus Foto
+                      {t('dashboardGuru.accountTab.hapusFoto')}
                     </button>
                   )}
                 </>
@@ -258,13 +260,13 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
 
       <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-200 bg-slate-50">
-          <h4 className="text-sm sm:text-base font-semibold text-slate-900 uppercase tracking-wide">Data Pribadi</h4>
+          <h4 className="text-sm sm:text-base font-semibold text-slate-900 uppercase tracking-wide">{t('dashboardGuru.accountTab.dataPribadi')}</h4>
         </div>
         <div className="p-5 sm:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
-                Nama Lengkap
+                {t('dashboardGuru.accountTab.namaLengkap')}
               </label>
               <input
                 type="text"
@@ -281,7 +283,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
             </div>
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
-                Email
+                {t('dashboardGuru.accountTab.email')}
               </label>
               <input
                 type="email"
@@ -298,7 +300,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
             </div>
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
-                NIP
+                {t('dashboardGuru.accountTab.nip')}
               </label>
               <input
                 type="text"
@@ -309,7 +311,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
             </div>
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
-                Posisi/Jabatan
+                {t('dashboardGuru.accountTab.posisiJabatan')}
               </label>
               <input
                 type="text"
@@ -320,7 +322,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
             </div>
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
-                Nomor Telepon
+                {t('dashboardGuru.accountTab.nomorTelepon')}
               </label>
               <input
                 type="text"
@@ -335,10 +337,10 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
                 placeholder="08xxxxxxxxxx"
               />
             </div>
-            {user?.isWaliKelas && (
+            {(user as any)?.isWaliKelas && kelasWali && (
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
-                  Wali Kelas
+                  {t('dashboardGuru.accountTab.waliKelas')}
                 </label>
                 <input
                   type="text"

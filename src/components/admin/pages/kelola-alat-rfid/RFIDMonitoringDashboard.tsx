@@ -10,6 +10,7 @@ import TokenInputForm from './TokenInputForm';
 import { apiService } from '../../../../services/apiService';
 import { useGurus } from '../../../../hooks/useGurus';
 import { useMurid } from '../../../../hooks/useMurid';
+import { useSantri } from '../../../../hooks/useSantri';
 import { useKelas } from '../../../../hooks/useKelas';
 import { usePengaturanAbsen } from '../../../../hooks/usePengaturanAbsen';
 import { useProfilSekolah } from '../../../../hooks/useProfilSekolah';
@@ -35,6 +36,7 @@ const RFIDMonitoringDashboard: React.FC<RFIDMonitoringDashboardProps> = ({ alatI
   const navigate = useNavigate();
   const { gurus } = useGurus();
   const { murid } = useMurid();
+  const { santri } = useSantri();
   const { kelas } = useKelas();
   const { pengaturanAbsen, activePengaturanAbsen: activePengaturanAbsenFromHook } = usePengaturanAbsen();
   const { profilSekolah } = useProfilSekolah();
@@ -97,10 +99,19 @@ const RFIDMonitoringDashboard: React.FC<RFIDMonitoringDashboardProps> = ({ alatI
     }
   };
 
-  // Combine gurus and murid into users array
+  // Combine gurus, murid, and santri into users array
+  // Note: santri may include both santri from murid collection and standalone santri
   useEffect(() => {
-    setUsers([...gurus, ...murid]);
-  }, [gurus, murid]);
+    // Combine all users: gurus, murid, and santri
+    // Santri yang sudah ada di murid tidak perlu ditambahkan lagi karena sudah ada di murid
+    // Tapi kita tetap tambahkan semua santri untuk memastikan santri standalone juga terdeteksi
+    const allUsers = [...gurus, ...murid, ...santri];
+    // Remove duplicates based on id
+    const uniqueUsers = Array.from(
+      new Map(allUsers.map(user => [user.id, user])).values()
+    );
+    setUsers(uniqueUsers);
+  }, [gurus, murid, santri]);
 
   useEffect(() => {
     if (alatId) {

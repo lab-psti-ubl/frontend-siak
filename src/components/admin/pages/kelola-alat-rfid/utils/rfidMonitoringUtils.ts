@@ -74,7 +74,12 @@ export const getUserInfo = (scannedData: string, users: any[]): { user: any; rol
   const guru = users.find((u: any) => (u.rfidGuid === scannedData || u.nip === scannedData) && u.role === 'guru' && u.isActive !== false);
   if (guru) return { user: guru, role: 'guru' };
 
-  const murid = users.find((u: any) => (u.rfidGuid === scannedData || u.nisn === scannedData) && u.role === 'murid' && u.isActive !== false);
+  // Check murid and santri (santri also has role 'murid' but may have isFromMurid flag)
+  const murid = users.find((u: any) => 
+    (u.rfidGuid === scannedData || u.nisn === scannedData) && 
+    u.role === 'murid' && 
+    u.isActive !== false
+  );
   if (murid) return { user: murid, role: 'murid' };
 
   return null;

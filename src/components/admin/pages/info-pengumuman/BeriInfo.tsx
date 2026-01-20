@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Plus, Send, Trash2, Eye, Users, School, GraduationCap, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, Send, Trash2, Eye, Users, School, GraduationCap, FileText, CheckCircle, AlertCircle, Image as ImageIcon, X } from 'lucide-react';
 import Button from '../../../ui/Button';
 import Badge from '../../../ui/Badge';
 import Modal from '../../../ui/Modal';
 import { useAuth } from '../../../../context/AuthContext';
+import { useLanguage } from '../../../../context/LanguageContext';
 import { useInfoSekolah } from '../../../../hooks/useInfoSekolah';
+import { validateImageFile, fileToBase64 } from '../../../../utils/fileUploadUtils';
+import { showSuccessNotification, showErrorNotification } from '../../../../utils/notificationUtils';
 import { usePengumumanKelulusan } from '../../../../hooks/usePengumumanKelulusan';
 import { useStatusKenaikanKelas } from '../../../../hooks/useStatusKenaikanKelas';
 import { useStatusBagiRaport } from '../../../../hooks/useStatusBagiRaport';
@@ -19,14 +22,21 @@ import { useAbsensi } from '../../../../hooks/useAbsensi';
 import { useSesiAbsensi } from '../../../../hooks/useSesiAbsensi';
 import { useJurusan } from '../../../../hooks/useJurusan';
 import { usePengaturanNilaiMinimal } from '../../../../hooks/usePengaturanNilaiMinimal';
+import { usePengaturanSistem } from '../../../../hooks/usePengaturanSistem';
 import { apiService } from '../../../../services/apiService';
 import { InfoSekolah, PengumumanKelulusan, StatusKenaikanKelas, StatusBagiRaport, User, Kelas, TahunAjaran } from '../../../../types';
-import { showSuccessNotification, showErrorNotification } from '../../../../utils/notificationUtils';
 import { showDangerConfirmation } from '../../../../utils/confirmationUtils';
-import { getMaxTingkatSync, isMaxTingkatSync, getGraduationTingkatLabelSync, getGraduationKelasTextSync } from '../../../../utils/jenjangPendidikanUtils';
+import { getMaxTingkatSync, isMaxTingkatSync, getGraduationTingkatLabelSync, getGraduationKelasTextSync, getNonMaxTingkatLabelSync } from '../../../../utils/jenjangPendidikanUtils';
+import { getTeacherTerm, getStudentTerm } from '../../../../utils/terminologyUtils';
 
 const BeriInfo: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
+  const { systemType } = usePengaturanSistem();
+  
+  const isTahfiz = systemType === 'tahfiz';
+  const teacherTerm = getTeacherTerm(systemType);
+  const studentTerm = getStudentTerm(systemType);
   
   // Use hooks dengan cache untuk mengambil data dari database
   const { infoSekolah, createInfoSekolah, deleteInfoSekolah, refreshInfoSekolah } = useInfoSekolah();
@@ -52,12 +62,15 @@ const BeriInfo: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedInfo, setSelectedInfo] = useState<InfoSekolah | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     judul: '',
     konten: '',
     jenis: 'umum' as 'umum' | 'kelulusan' | 'kenaikan_kelas' | 'bagi_raport',
     target: 'semua' as 'semua' | 'guru' | 'murid' | 'kelas_12',
     kelasId: '',
+    gambar: '',
   });
 
   const maxTingkat = getMaxTingkatSync();
@@ -69,29 +82,43 @@ const BeriInfo: React.FC = () => {
     e.preventDefault();
     
     if (!formData.judul.trim() || !formData.konten.trim()) {
-      alert('Judul dan konten wajib diisi!');
+      alert(t('common.language') === 'ms' ? 'Tajuk dan kandungan mesti diisi!' : 'Judul dan konten wajib diisi!');
       return;
     }
 
     if (!activeTahunAjaran) {
-      showErrorNotification('Tahun Ajaran Tidak Aktif', 'Tidak ada tahun ajaran yang aktif. Silakan aktifkan tahun ajaran terlebih dahulu.');
+      showErrorNotification(
+        t('common.language') === 'ms' ? 'Tahun Pengajian Tidak Aktif' : 'Tahun Ajaran Tidak Aktif', 
+        t('common.language') === 'ms' ? 'Tiada tahun pengajian yang aktif. Sila aktifkan tahun pengajian terlebih dahulu.' : 'Tidak ada tahun ajaran yang aktif. Silakan aktifkan tahun ajaran terlebih dahulu.'
+      );
       return;
     }
 
-    // Validasi semester untuk jenis tertentu
-    if (formData.jenis === 'kelulusan' && activeTahunAjaran.semester !== 2) {
-      showErrorNotification('Semester Tidak Sesuai', 'Pengumuman kelulusan hanya dapat dibuat pada semester genap!');
-      return;
-    }
+    // Validasi semester untuk jenis tertentu (hanya untuk non-tahfiz)
+    if (!isTahfiz) {
+      if (formData.jenis === 'kelulusan' && activeTahunAjaran.semester !== 2) {
+        showErrorNotification(
+          t('common.language') === 'ms' ? 'Semester Tidak Sesuai' : 'Semester Tidak Sesuai', 
+          t('common.language') === 'ms' ? 'Pengumuman kelulusan hanya boleh dibuat pada semester genap!' : 'Pengumuman kelulusan hanya dapat dibuat pada semester genap!'
+        );
+        return;
+      }
 
-    if (formData.jenis === 'kenaikan_kelas' && activeTahunAjaran.semester !== 2) {
-      showErrorNotification('Semester Tidak Sesuai', 'Pengumuman kenaikan kelas hanya dapat dibuat pada semester genap!');
-      return;
-    }
+      if (formData.jenis === 'kenaikan_kelas' && activeTahunAjaran.semester !== 2) {
+        showErrorNotification(
+          t('common.language') === 'ms' ? 'Semester Tidak Sesuai' : 'Semester Tidak Sesuai', 
+          t('common.language') === 'ms' ? 'Pengumuman kenaikan kelas hanya boleh dibuat pada semester genap!' : 'Pengumuman kenaikan kelas hanya dapat dibuat pada semester genap!'
+        );
+        return;
+      }
 
-    if (formData.jenis === 'bagi_raport' && activeTahunAjaran.semester !== 1) {
-      showErrorNotification('Semester Tidak Sesuai', 'Bagi raport semester ganjil hanya dapat dibuat pada semester ganjil!');
-      return;
+      if (formData.jenis === 'bagi_raport' && activeTahunAjaran.semester !== 1) {
+        showErrorNotification(
+          t('common.language') === 'ms' ? 'Semester Tidak Sesuai' : 'Semester Tidak Sesuai', 
+          t('common.language') === 'ms' ? 'Bagi raport semester ganjil hanya boleh dibuat pada semester ganjil!' : 'Bagi raport semester ganjil hanya dapat dibuat pada semester ganjil!'
+        );
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -104,27 +131,30 @@ const BeriInfo: React.FC = () => {
         );
 
         if (existingAnnouncement) {
-          showErrorNotification('Pengumuman Sudah Ada', `Pengumuman kelulusan sudah aktif untuk tahun ajaran ${activeTahunAjaran.tahun}!`);
+          showErrorNotification(
+            t('common.language') === 'ms' ? 'Pengumuman Sudah Ada' : 'Pengumuman Sudah Ada', 
+            t('common.language') === 'ms' ? `Pengumuman kelulusan sudah aktif untuk tahun pengajian ${activeTahunAjaran.tahun}!` : `Pengumuman kelulusan sudah aktif untuk tahun ajaran ${activeTahunAjaran.tahun}!`
+          );
           setIsSubmitting(false);
           return;
         }
 
-        // Get snapshot of current final grade murid IDs
-        const muridKelas12Ids = users.filter(u => {
+        // Get snapshot of current final grade murid IDs (menggunakan max_tingkat dinamis sesuai jenjang)
+        const muridTingkatAkhirIds = users.filter(u => {
           if (u.role !== 'murid') return false;
           const murid = u as any; // Type assertion for Murid
           const muridKelas = kelas.find(k => k.id === murid.kelasId);
           return !!(muridKelas && isMaxTingkatSync(muridKelas.tingkat) && murid.isActive !== false);
         }).map(u => u.id);
 
-        console.log('Creating pengumuman kelulusan from BeriInfo with snapshot of', muridKelas12Ids.length, 'murid');
+        console.log('Creating pengumuman kelulusan from BeriInfo with snapshot of', muridTingkatAkhirIds.length, 'murid tingkat akhir');
 
         // Create pengumuman kelulusan
         const newPengumuman: Omit<PengumumanKelulusan, 'id'> = {
           tahunAjaran: activeTahunAjaran.tahun,
           tanggalPengumuman: new Date().toISOString().split('T')[0],
           isPublished: true,
-          snapshotMuridIds: muridKelas12Ids,
+          snapshotMuridIds: muridTingkatAkhirIds,
           createdBy: user?.id || '',
           createdAt: new Date().toISOString(),
           publishedAt: new Date().toISOString(),
@@ -132,9 +162,9 @@ const BeriInfo: React.FC = () => {
         
         await createPengumumanKelulusan(newPengumuman);
 
-        // Automatically publish raport for all final grade classes to make it accessible to students
-        const kelas12 = kelas.filter(k => isMaxTingkatSync(k.tingkat));
-        const kelas12Ids = kelas12.map(k => k.id);
+        // Automatically publish raport for all final grade classes (menggunakan max_tingkat dinamis sesuai jenjang)
+        const kelasTingkatAkhir = kelas.filter(k => isMaxTingkatSync(k.tingkat));
+        const kelasTingkatAkhirIds = kelasTingkatAkhir.map(k => k.id);
         
         // Check if status already exists for this tahunAjaran + semester
         const existingStatus = statusKenaikanKelas.find(s =>
@@ -144,7 +174,7 @@ const BeriInfo: React.FC = () => {
 
         if (existingStatus) {
           // Update existing status with merged kelasIds
-          const mergedKelasIds = [...new Set([...existingStatus.kelasIds, ...kelas12Ids])];
+          const mergedKelasIds = [...new Set([...existingStatus.kelasIds, ...kelasTingkatAkhirIds])];
           await updateStatusKenaikanKelas(existingStatus.id, {
             kelasIds: mergedKelasIds,
             isPublished: true,
@@ -154,7 +184,7 @@ const BeriInfo: React.FC = () => {
         } else {
           // Create new status with all kelasIds
           await createStatusKenaikanKelas({
-            kelasIds: kelas12Ids,
+            kelasIds: kelasTingkatAkhirIds,
             tahunAjaran: activeTahunAjaran.tahun,
             semester: 2,
             isPublished: true,
@@ -164,7 +194,7 @@ const BeriInfo: React.FC = () => {
           });
         }
         
-        console.log('Auto-published raport for', kelas12.length, 'final grade classes');
+        console.log('Auto-published raport for', kelasTingkatAkhir.length, 'final grade classes (tingkat akhir sesuai jenjang)');
       }
 
       if (formData.jenis === 'kenaikan_kelas') {
@@ -282,6 +312,7 @@ const BeriInfo: React.FC = () => {
         jenis: formData.jenis,
         target: formData.target,
         kelasId: undefined, // Tidak perlu kelasId karena otomatis untuk semua kelas
+        gambar: formData.gambar || undefined,
         isActive: true,
         createdBy: user?.id || '',
         createdAt: new Date().toISOString(),
@@ -293,21 +324,72 @@ const BeriInfo: React.FC = () => {
       
       // Show success message with notification info
       const graduationLabel = getGraduationTingkatLabelSync();
-      const targetInfo = formData.target === 'semua' ? 'semua pengguna' :
-                        formData.target === 'guru' ? 'guru' :
-                        formData.target === 'murid' ? 'murid' :
-                        `murid ${graduationLabel}`;
+      const targetInfo = formData.target === 'semua' ? (t('common.language') === 'ms' ? 'semua orang (semua akses)' : 'semua orang (semua akses)') :
+                        formData.target === 'guru' ? (teacherTerm === 'ustadz' ? 'ustadz' : 'guru') :
+                        formData.target === 'murid' ? (studentTerm === 'santri' ? 'santri' : 'murid') :
+                        `${studentTerm === 'santri' ? 'santri' : 'murid'} ${graduationLabel}`;
       
       showSuccessNotification(
-        'Informasi Berhasil Dikirim',
-        `Informasi telah dikirim kepada ${targetInfo}. Notifikasi akan muncul di icon bell untuk pengguna yang relevan.`
+        t('common.language') === 'ms' ? 'Maklumat Berjaya Dihantar' : 'Informasi Berhasil Dikirim',
+        t('common.language') === 'ms' 
+          ? `Maklumat telah dihantar kepada ${targetInfo}. Notifikasi akan muncul di ikon loceng untuk pengguna yang relevan.`
+          : `Informasi telah dikirim kepada ${targetInfo}. Notifikasi akan muncul di icon bell untuk pengguna yang relevan.`
       );
     } catch (error: any) {
       console.error('Error submitting info:', error);
-      showErrorNotification('Error', error.message || 'Terjadi kesalahan saat mengirim informasi');
+      showErrorNotification(
+        t('common.error'), 
+        error.message || (t('common.language') === 'ms' ? 'Ralat berlaku semasa menghantar maklumat' : 'Terjadi kesalahan saat mengirim informasi')
+      );
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      showErrorNotification(
+        t('common.language') === 'ms' ? 'Fail Tidak Sah' : 'File Tidak Valid',
+        validation.error || (t('common.language') === 'ms' ? 'Fail tidak sesuai kriteria' : 'File tidak sesuai kriteria')
+      );
+      e.target.value = '';
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const fileData = await fileToBase64(file);
+      setPreviewImage(fileData.base64);
+      setFormData({ ...formData, gambar: fileData.base64 });
+      showSuccessNotification(
+        t('common.language') === 'ms' ? 'Gambar Berjaya Dimuat Naik' : 'Gambar Berhasil Diupload',
+        t('common.language') === 'ms' 
+          ? `Gambar "${fileData.fileName}" siap untuk digunakan`
+          : `Gambar "${fileData.fileName}" siap untuk digunakan`
+      );
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      showErrorNotification(
+        t('common.language') === 'ms' ? 'Ralat Muat Naik' : 'Error Upload',
+        t('common.language') === 'ms' ? 'Gagal memuat naik gambar. Cuba lagi.' : 'Gagal mengupload gambar. Coba lagi.'
+      );
+    } finally {
+      setIsUploadingImage(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setPreviewImage(null);
+    setFormData({ ...formData, gambar: '' });
+    showSuccessNotification(
+      t('common.language') === 'ms' ? 'Gambar Dihapus' : 'Gambar Dihapus',
+      t('common.language') === 'ms' ? 'Gambar poster telah dihapus' : 'Gambar poster telah dihapus'
+    );
   };
 
   const resetForm = () => {
@@ -317,7 +399,9 @@ const BeriInfo: React.FC = () => {
       jenis: 'umum',
       target: 'semua',
       kelasId: '',
+      gambar: '',
     });
+    setPreviewImage(null);
     setIsModalOpen(false);
   };
 
@@ -331,28 +415,36 @@ const BeriInfo: React.FC = () => {
     if (!info) return;
 
     showDangerConfirmation(
-      'Hapus Informasi',
-      `Apakah Anda yakin ingin menghapus informasi "${info.judul}"?\n\nTindakan ini tidak dapat dibatalkan.`,
+      t('common.language') === 'ms' ? 'Padam Maklumat' : 'Hapus Informasi',
+      t('common.language') === 'ms' 
+        ? `Adakah anda pasti ingin memadam maklumat "${info.judul}"?\n\nTindakan ini tidak boleh dibatalkan.`
+        : `Apakah Anda yakin ingin menghapus informasi "${info.judul}"?\n\nTindakan ini tidak dapat dibatalkan.`,
       async () => {
         try {
           await deleteInfoSekolah(id);
-          showSuccessNotification('Berhasil', 'Informasi berhasil dihapus');
+          showSuccessNotification(
+            t('common.success'), 
+            t('common.language') === 'ms' ? 'Maklumat berjaya dipadam' : 'Informasi berhasil dihapus'
+          );
         } catch (error: any) {
-          showErrorNotification('Error', error.message || 'Terjadi kesalahan saat menghapus informasi');
+          showErrorNotification(
+            t('common.error'), 
+            error.message || (t('common.language') === 'ms' ? 'Ralat berlaku semasa memadam maklumat' : 'Terjadi kesalahan saat menghapus informasi')
+          );
         }
       },
       {
-        confirmText: 'Ya, Hapus Informasi',
-        cancelText: 'Batal'
+        confirmText: t('common.language') === 'ms' ? 'Ya, Padam Maklumat' : 'Ya, Hapus Informasi',
+        cancelText: t('common.cancel')
       }
     );
   };
 
   const getTargetBadge = (target: string) => {
     switch (target) {
-      case 'semua': return <Badge variant="info">Semua</Badge>;
-      case 'guru': return <Badge variant="success">Guru</Badge>;
-      case 'murid': return <Badge variant="warning">Murid</Badge>;
+      case 'semua': return <Badge variant="info">{t('common.language') === 'ms' ? 'Semua Orang' : 'Semua Orang'}</Badge>;
+      case 'guru': return <Badge variant="success">{teacherTerm === 'ustadz' ? (t('common.language') === 'ms' ? 'Ustadz' : 'Ustadz') : (t('common.language') === 'ms' ? 'Guru' : 'Guru')}</Badge>;
+      case 'murid': return <Badge variant="warning">{studentTerm === 'santri' ? (t('common.language') === 'ms' ? 'Santri' : 'Santri') : (t('common.language') === 'ms' ? 'Murid' : 'Murid')}</Badge>;
       case 'kelas_12': return <Badge variant="danger">{getGraduationKelasTextSync(true)}</Badge>;
       default: return <Badge variant="default">{target}</Badge>;
     }
@@ -360,10 +452,10 @@ const BeriInfo: React.FC = () => {
 
   const getJenisBadge = (jenis: string) => {
     switch (jenis) {
-      case 'umum': return <Badge variant="info">Umum</Badge>;
-      case 'kelulusan': return <Badge variant="success">Kelulusan</Badge>;
-      case 'kenaikan_kelas': return <Badge variant="warning">Kenaikan Kelas</Badge>;
-      case 'bagi_raport': return <Badge variant="secondary">Bagi Raport</Badge>;
+      case 'umum': return <Badge variant="info">{t('common.language') === 'ms' ? 'Umum' : 'Umum'}</Badge>;
+      case 'kelulusan': return <Badge variant="success">{t('common.language') === 'ms' ? 'Kelulusan' : 'Kelulusan'}</Badge>;
+      case 'kenaikan_kelas': return <Badge variant="warning">{t('common.language') === 'ms' ? 'Kenaikan Kelas' : 'Kenaikan Kelas'}</Badge>;
+      case 'bagi_raport': return <Badge variant="secondary">{t('common.language') === 'ms' ? 'Bagi Raport' : 'Bagi Raport'}</Badge>;
       default: return <Badge variant="default">{jenis}</Badge>;
     }
   };
@@ -390,21 +482,25 @@ const BeriInfo: React.FC = () => {
               <div className="p-2.5 sm:p-3 bg-white rounded-lg">
                 <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-700" />
               </div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Beri Info & Pengumuman</h1>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">{t('sidebar.beriInfo')} & {t('common.language') === 'ms' ? 'Pengumuman' : 'Pengumuman'}</h1>
             </div>
-            <p className="text-xs sm:text-sm text-blue-100">Kirim informasi dan pengumuman kepada guru dan murid</p>
+            <p className="text-xs sm:text-sm text-blue-100">
+              {t('common.language') === 'ms' 
+                ? `Hantar maklumat dan pengumuman kepada ${teacherTerm === 'ustadz' ? 'ustadz' : 'guru'} dan ${studentTerm === 'santri' ? 'santri' : 'murid'}`
+                : `Kirim informasi dan pengumuman kepada ${teacherTerm === 'ustadz' ? 'ustadz' : 'guru'} dan ${studentTerm === 'santri' ? 'santri' : 'murid'}`}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between items-start sm:items-center">
         <div className="text-xs sm:text-sm text-slate-600">
-          Total <span className="font-semibold text-slate-900">{infoStats.total}</span> informasi
+          {t('common.language') === 'ms' ? 'Jumlah' : 'Total'} <span className="font-semibold text-slate-900">{infoStats.total}</span> {t('common.language') === 'ms' ? 'maklumat' : 'informasi'}
         </div>
         <Button onClick={() => setIsModalOpen(true)} className="text-xs sm:text-sm w-full sm:w-auto flex items-center justify-center">
          <Plus size={16} className="sm:mr-2" />
-          <span className="hidden sm:inline">Buat Info Baru</span>
-          <span className="sm:hidden">Buat Info</span>
+          <span className="hidden sm:inline">{t('common.language') === 'ms' ? 'Buat Maklumat Baru' : 'Buat Info Baru'}</span>
+          <span className="sm:hidden">{t('common.language') === 'ms' ? 'Buat Maklumat' : 'Buat Info'}</span>
         </Button>
       </div>
 
@@ -416,7 +512,7 @@ const BeriInfo: React.FC = () => {
                 <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-blue-500 shadow-md group-hover:scale-110 transition-transform duration-200">
                   <FileText className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <p className="text-xs sm:text-sm ml-2 text-slate-600">Total Info</p>
+                <p className="text-xs sm:text-sm ml-2 text-slate-600">{t('common.language') === 'ms' ? 'Jumlah Maklumat' : 'Total Info'}</p>
               </div>
               <div>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{infoStats.total}</p>
@@ -432,7 +528,7 @@ const BeriInfo: React.FC = () => {
                 <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-emerald-500 shadow-md group-hover:scale-110 transition-transform duration-200">
                   <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <p className="text-xs sm:text-sm ml-2 text-slate-600">Info Umum</p>
+                <p className="text-xs sm:text-sm ml-2 text-slate-600">{t('common.language') === 'ms' ? 'Maklumat Umum' : 'Info Umum'}</p>
               </div>
               <div>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{infoStats.umum}</p>
@@ -441,71 +537,75 @@ const BeriInfo: React.FC = () => {
           </div>
         </div>
 
-        <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1 overflow-hidden">
-          <div className="p-4 sm:p-5 lg:p-6">
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <div className="flex items-center">
-                <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-cyan-500 shadow-md group-hover:scale-110 transition-transform duration-200">
-                  <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
+        {!isTahfiz && (
+          <>
+            <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1 overflow-hidden">
+              <div className="p-4 sm:p-5 lg:p-6">
+                <div className="flex flex-col gap-3 sm:gap-4">
+                  <div className="flex items-center">
+                    <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-cyan-500 shadow-md group-hover:scale-110 transition-transform duration-200">
+                      <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
+                    </div>
+                    <p className="text-xs sm:text-sm ml-2 text-slate-600">{t('common.language') === 'ms' ? 'Kelulusan' : 'Kelulusan'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{infoStats.kelulusan}</p>
+                  </div>
                 </div>
-                <p className="text-xs sm:text-sm ml-2 text-slate-600">Kelulusan</p>
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{infoStats.kelulusan}</p>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1 overflow-hidden">
-          <div className="p-4 sm:p-5 lg:p-6">
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <div className="flex items-center">
-                <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-orange-500 shadow-md group-hover:scale-110 transition-transform duration-200">
-                  <School className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
+            <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1 overflow-hidden">
+              <div className="p-4 sm:p-5 lg:p-6">
+                <div className="flex flex-col gap-3 sm:gap-4">
+                  <div className="flex items-center">
+                    <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-orange-500 shadow-md group-hover:scale-110 transition-transform duration-200">
+                      <School className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
+                    </div>
+                    <p className="text-xs sm:text-sm ml-2 text-slate-600">{t('common.language') === 'ms' ? 'Kenaikan Kelas' : 'Kenaikan Kelas'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{infoStats.kenaikankelas}</p>
+                  </div>
                 </div>
-                <p className="text-xs sm:text-sm ml-2 text-slate-600">Kenaikan Kelas</p>
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{infoStats.kenaikankelas}</p>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1 overflow-hidden">
-          <div className="p-4 sm:p-5 lg:p-6">
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <div className="flex items-center">
-                <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-teal-500 shadow-md group-hover:scale-110 transition-transform duration-200">
-                  <FileText className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
+            <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1 overflow-hidden">
+              <div className="p-4 sm:p-5 lg:p-6">
+                <div className="flex flex-col gap-3 sm:gap-4">
+                  <div className="flex items-center">
+                    <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-teal-500 shadow-md group-hover:scale-110 transition-transform duration-200">
+                      <FileText className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
+                    </div>
+                    <p className="text-xs sm:text-sm ml-2 text-slate-600">{t('common.language') === 'ms' ? 'Bagi Raport' : 'Bagi Raport'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{infoStats.bagiraport}</p>
+                  </div>
                 </div>
-                <p className="text-xs sm:text-sm ml-2 text-slate-600">Bagi Raport</p>
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{infoStats.bagiraport}</p>
               </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {infoSekolah.length > 0 ? (
         <>
           <div className="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-50">
-              <h3 className="text-lg font-semibold text-slate-900">Daftar Informasi</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{t('common.language') === 'ms' ? 'Senarai Maklumat' : 'Daftar Informasi'}</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">Judul</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">Jenis</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">Target</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">Dibuat</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">Aksi</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">{t('common.language') === 'ms' ? 'Tajuk' : 'Judul'}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">{t('common.language') === 'ms' ? 'Jenis' : 'Jenis'}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">{t('common.language') === 'ms' ? 'Sasaran' : 'Target'}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">{t('common.language') === 'ms' ? 'Dibuat' : 'Dibuat'}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">{t('common.language') === 'ms' ? 'Status' : 'Status'}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">{t('common.language') === 'ms' ? 'Tindakan' : 'Aksi'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -525,12 +625,12 @@ const BeriInfo: React.FC = () => {
                       <td className="px-6 py-4">{getTargetBadge(info.target)}</td>
                       <td className="px-6 py-4">
                         <div className="text-xs">
-                          <p className="text-slate-900">{new Date(info.createdAt).toLocaleDateString('id-ID')}</p>
+                          <p className="text-slate-900">{new Date(info.createdAt).toLocaleDateString(t('common.language') === 'ms' ? 'ms-MY' : 'id-ID')}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <Badge variant={info.isActive ? 'success' : 'default'}>
-                          {info.isActive ? 'Aktif' : 'Tidak Aktif'}
+                          {info.isActive ? (t('common.active') || 'Aktif') : (t('common.inactive') || 'Tidak Aktif')}
                         </Badge>
                       </td>
                       <td className="px-6 py-4">
@@ -573,22 +673,22 @@ const BeriInfo: React.FC = () => {
 
                   <div className="space-y-2 pt-2 border-t border-slate-100">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600">Jenis:</span>
+                      <span className="text-slate-600">{t('common.language') === 'ms' ? 'Jenis:' : 'Jenis:'}</span>
                       <div>{getJenisBadge(info.jenis)}</div>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600">Target:</span>
+                      <span className="text-slate-600">{t('common.language') === 'ms' ? 'Sasaran:' : 'Target:'}</span>
                       <div>{getTargetBadge(info.target)}</div>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600">Status:</span>
+                      <span className="text-slate-600">{t('common.language') === 'ms' ? 'Status:' : 'Status:'}</span>
                       <Badge variant={info.isActive ? 'success' : 'default'} className="text-xs">
-                        {info.isActive ? 'Aktif' : 'Tidak Aktif'}
+                        {info.isActive ? (t('common.active') || 'Aktif') : (t('common.inactive') || 'Tidak Aktif')}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600">Dibuat:</span>
-                      <span className="text-slate-900">{new Date(info.createdAt).toLocaleDateString('id-ID')}</span>
+                      <span className="text-slate-600">{t('common.language') === 'ms' ? 'Dibuat:' : 'Dibuat:'}</span>
+                      <span className="text-slate-900">{new Date(info.createdAt).toLocaleDateString(t('common.language') === 'ms' ? 'ms-MY' : 'id-ID')}</span>
                     </div>
                   </div>
 
@@ -600,7 +700,7 @@ const BeriInfo: React.FC = () => {
                       className="flex-1 text-xs flex items-center justify-center"
                     >
                       <Eye size={12} className="mr-1" />
-                      Lihat
+                      {t('common.language') === 'ms' ? 'Lihat' : 'Lihat'}
                     </Button>
                     <Button
                       size="sm"
@@ -609,7 +709,7 @@ const BeriInfo: React.FC = () => {
                       className="flex-1 text-xs flex items-center justify-center"
                     >
                       <Trash2 size={12} className="mr-1" />
-                      Hapus
+                      {t('common.delete')}
                     </Button>
                   </div>
                 </div>
@@ -623,12 +723,12 @@ const BeriInfo: React.FC = () => {
             <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-slate-100 mb-4">
               <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
             </div>
-            <h3 className="text-base sm:text-lg font-medium text-slate-900 mb-2">Belum Ada Informasi</h3>
-            <p className="text-xs sm:text-sm text-slate-600 mb-6">Buat informasi atau pengumuman pertama untuk memulai</p>
+            <h3 className="text-base sm:text-lg font-medium text-slate-900 mb-2">{t('common.language') === 'ms' ? 'Belum Ada Maklumat' : 'Belum Ada Informasi'}</h3>
+            <p className="text-xs sm:text-sm text-slate-600 mb-6">{t('common.language') === 'ms' ? 'Buat maklumat atau pengumuman pertama untuk bermula' : 'Buat informasi atau pengumuman pertama untuk memulai'}</p>
             <Button onClick={() => setIsModalOpen(true)} className="text-xs sm:text-sm ">
               
-              <span className="hidden sm:inline">Buat Info Pertama</span>
-              <span className="sm:hidden">Buat Info</span>
+              <span className="hidden sm:inline">{t('common.language') === 'ms' ? 'Buat Maklumat Pertama' : 'Buat Info Pertama'}</span>
+              <span className="sm:hidden">{t('common.language') === 'ms' ? 'Buat Maklumat' : 'Buat Info'}</span>
             </Button>
           </div>
         </div>
@@ -637,20 +737,20 @@ const BeriInfo: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={resetForm}
-        title="Buat Informasi Baru"
+        title={t('common.language') === 'ms' ? 'Buat Maklumat Baru' : 'Buat Informasi Baru'}
         size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-xs sm:text-sm font-semibold text-slate-900 mb-2">
-              Judul Informasi *
+              {t('common.language') === 'ms' ? 'Tajuk Maklumat' : 'Judul Informasi'} *
             </label>
             <input
               type="text"
               value={formData.judul}
               onChange={(e) => setFormData({ ...formData, judul: e.target.value })}
               className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder="Misalnya: Pengumuman Libur Semester..."
+              placeholder={t('common.language') === 'ms' ? 'Contoh: Pengumuman Cuti Semester...' : 'Misalnya: Pengumuman Libur Semester...'}
               required
               disabled={isSubmitting}
             />
@@ -658,7 +758,7 @@ const BeriInfo: React.FC = () => {
 
           <div>
             <label className="block text-xs sm:text-sm font-semibold text-slate-900 mb-2">
-              Jenis Informasi *
+              {t('common.language') === 'ms' ? 'Jenis Maklumat' : 'Jenis Informasi'} *
             </label>
             <select
               value={formData.jenis}
@@ -676,26 +776,26 @@ const BeriInfo: React.FC = () => {
               required
               disabled={isSubmitting}
             >
-              <option value="umum">Informasi Umum</option>
-              {activeTahunAjaran?.semester === 2 && (
+              <option value="umum">{t('common.language') === 'ms' ? 'Maklumat Umum' : 'Informasi Umum'}</option>
+              {!isTahfiz && activeTahunAjaran?.semester === 2 && (
                 <>
                   {/* Hide kelulusan option if pengumuman kelulusan already exists for this tahun ajaran */}
                   {!pengumumanKelulusan.find(p => 
                     p.tahunAjaran === activeTahunAjaran.tahun && p.isPublished
                   ) && (
-                    <option value="kelulusan">Pengumuman Kelulusan</option>
+                    <option value="kelulusan">{t('common.language') === 'ms' ? 'Pengumuman Kelulusan' : 'Pengumuman Kelulusan'}</option>
                   )}
                   {/* Hide kenaikan_kelas option if StatusKenaikanKelas already exists for this tahun ajaran and semester */}
                   {!statusKenaikanKelas.find(s => 
                     s.tahunAjaran === activeTahunAjaran.tahun && 
                     s.semester === activeTahunAjaran.semester
                   ) && (
-                    <option value="kenaikan_kelas">Pengumuman Kenaikan Kelas</option>
+                    <option value="kenaikan_kelas">{t('common.language') === 'ms' ? 'Pengumuman Kenaikan Kelas' : 'Pengumuman Kenaikan Kelas'}</option>
                   )}
                 </>
               )}
-              {activeTahunAjaran?.semester === 1 && (
-                <option value="bagi_raport">Bagi Raport Semester Ganjil</option>
+              {!isTahfiz && activeTahunAjaran?.semester === 1 && (
+                <option value="bagi_raport">{t('common.language') === 'ms' ? 'Bagi Raport Semester Ganjil' : 'Bagi Raport Semester Ganjil'}</option>
               )}
             </select>
           </div>
@@ -703,7 +803,7 @@ const BeriInfo: React.FC = () => {
           {formData.jenis === 'umum' && (
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-900 mb-2">
-                Target Penerima *
+                {t('common.language') === 'ms' ? 'Sasaran Penerima' : 'Target Penerima'} *
               </label>
               <select
                 value={formData.target}
@@ -712,58 +812,125 @@ const BeriInfo: React.FC = () => {
                 required
                 disabled={isSubmitting}
               >
-                <option value="semua">Semua (Guru & Murid)</option>
-                <option value="guru">Guru Saja</option>
-                <option value="murid">Murid Saja</option>
+                <option value="semua">{t('common.language') === 'ms' ? 'Semua Orang' : 'Semua Orang'}</option>
+                <option value="guru">{teacherTerm === 'ustadz' ? (t('common.language') === 'ms' ? 'Ustadz Sahaja' : 'Ustadz Saja') : (t('common.language') === 'ms' ? 'Guru Sahaja' : 'Guru Saja')}</option>
+                <option value="murid">{studentTerm === 'santri' ? (t('common.language') === 'ms' ? 'Santri Sahaja' : 'Santri Saja') : (t('common.language') === 'ms' ? 'Murid Sahaja' : 'Murid Saja')}</option>
               </select>
             </div>
           )}
 
           <div>
             <label className="block text-xs sm:text-sm font-semibold text-slate-900 mb-2">
-              Konten Informasi *
+              {t('common.language') === 'ms' ? 'Kandungan Maklumat' : 'Konten Informasi'} *
             </label>
             <textarea
               value={formData.konten}
               onChange={(e) => setFormData({ ...formData, konten: e.target.value })}
               className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               rows={5}
-              placeholder="Tulis konten informasi di sini..."
+              placeholder={t('common.language') === 'ms' ? 'Tulis kandungan maklumat di sini...' : 'Tulis konten informasi di sini...'}
               required
               disabled={isSubmitting}
             />
           </div>
 
-          {formData.jenis === 'kelulusan' && (
+          <div>
+            <label className="block text-xs sm:text-sm font-semibold text-slate-900 mb-2">
+              {t('common.language') === 'ms' ? 'Gambar Poster (Pilihan)' : 'Gambar Poster (Opsional)'}
+            </label>
+            {previewImage || formData.gambar ? (
+              <div className="space-y-2">
+                <div className="relative w-full max-w-md">
+                  <img
+                    src={previewImage || formData.gambar || ''}
+                    alt="Preview"
+                    className="w-full h-auto rounded-lg border border-slate-300 object-cover max-h-64"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                    disabled={isSubmitting || isUploadingImage}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500">
+                  {t('common.language') === 'ms' ? 'Klik X untuk menghapus gambar' : 'Klik X untuk menghapus gambar'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label
+                  htmlFor="image-upload"
+                  className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                    isUploadingImage || isSubmitting
+                      ? 'border-slate-300 bg-slate-50 cursor-not-allowed'
+                      : 'border-slate-300 bg-white hover:border-blue-400 hover:bg-blue-50'
+                  }`}
+                >
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    {isUploadingImage ? (
+                      <>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                        <p className="text-xs text-slate-500">
+                          {t('common.language') === 'ms' ? 'Memuat naik...' : 'Mengupload...'}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-8 h-8 mb-2 text-slate-400" />
+                        <p className="text-xs text-slate-500 text-center px-4">
+                          {t('common.language') === 'ms' 
+                            ? 'Klik untuk memuat naik gambar poster (JPG/PNG, maks 5MB)'
+                            : 'Klik untuk mengupload gambar poster (JPG/PNG, maks 5MB)'}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    id="image-upload"
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={isUploadingImage || isSubmitting}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+
+          {!isTahfiz && formData.jenis === 'kelulusan' && (
             <div className="p-3 sm:p-4 bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-200 rounded-lg">
-              <h4 className="font-semibold text-cyan-900 mb-2 text-xs sm:text-sm">Informasi Pengumuman Kelulusan</h4>
+              <h4 className="font-semibold text-cyan-900 mb-2 text-xs sm:text-sm">{t('common.language') === 'ms' ? 'Maklumat Pengumuman Kelulusan' : 'Informasi Pengumuman Kelulusan'}</h4>
               <ul className="text-xs sm:text-sm text-cyan-800 space-y-1.5">
-                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>Akan membuat menu "Info Kelulusan" di wali {getGraduationTingkatLabelSync()}</span></li>
-                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>Akan membuat menu "Info Kelulusan" di murid {getGraduationTingkatLabelSync()}</span></li>
-                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>Akan mengirim notifikasi ke guru wali {getGraduationTingkatLabelSync()} dan murid {getGraduationTingkatLabelSync()}</span></li>
-                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>Menampilkan data kelulusan dan statistik murid terbaik</span></li>
+                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Akan membuat menu "Info Kelulusan" di wali' : 'Akan membuat menu "Info Kelulusan" di wali'} {getGraduationTingkatLabelSync()}</span></li>
+                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Akan membuat menu "Info Kelulusan" di murid' : 'Akan membuat menu "Info Kelulusan" di murid'} {getGraduationTingkatLabelSync()}</span></li>
+                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Akan menghantar notifikasi ke guru wali' : 'Akan mengirim notifikasi ke guru wali'} {getGraduationTingkatLabelSync()} {t('common.language') === 'ms' ? 'dan murid' : 'dan murid'} {getGraduationTingkatLabelSync()}</span></li>
+                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Memaparkan data kelulusan dan statistik murid terbaik' : 'Menampilkan data kelulusan dan statistik murid terbaik'}</span></li>
               </ul>
             </div>
           )}
 
-          {formData.jenis === 'kenaikan_kelas' && (
+          {!isTahfiz && formData.jenis === 'kenaikan_kelas' && (
             <div className="p-3 sm:p-4 bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-lg">
-              <h4 className="font-semibold text-orange-900 mb-2 text-xs sm:text-sm">Informasi Kenaikan Kelas</h4>
+              <h4 className="font-semibold text-orange-900 mb-2 text-xs sm:text-sm">{t('common.language') === 'ms' ? 'Maklumat Kenaikan Kelas' : 'Informasi Kenaikan Kelas'}</h4>
               <ul className="text-xs sm:text-sm text-orange-800 space-y-1.5">
-                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>Akan mengaktifkan tombol "Sebarkan" di menu Raport Murid</span></li>
-                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>Akan mengirim notifikasi ke semua guru wali kelas</span></li>
-                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>Berlaku untuk semua kelas X, XI, dan XII</span></li>
+                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Akan mengaktifkan butang "Sebarkan" di menu Raport Murid' : 'Akan mengaktifkan tombol "Sebarkan" di menu Raport Murid'}</span></li>
+                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Akan menghantar notifikasi ke semua guru wali kelas' : 'Akan mengirim notifikasi ke semua guru wali kelas'}</span></li>
+                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? `Berlaku untuk semua kelas ${getNonMaxTingkatLabelSync()}` : `Berlaku untuk semua kelas ${getNonMaxTingkatLabelSync()}`}</span></li>
               </ul>
             </div>
           )}
 
-          {formData.jenis === 'bagi_raport' && (
+          {!isTahfiz && formData.jenis === 'bagi_raport' && (
             <div className="p-3 sm:p-4 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg">
-              <h4 className="font-semibold text-emerald-900 mb-2 text-xs sm:text-sm">Informasi Bagi Raport</h4>
+              <h4 className="font-semibold text-emerald-900 mb-2 text-xs sm:text-sm">{t('common.language') === 'ms' ? 'Maklumat Bagi Raport' : 'Informasi Bagi Raport'}</h4>
               <ul className="text-xs sm:text-sm text-emerald-800 space-y-1.5">
-                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>Akan mengaktifkan tombol "Sebarkan" untuk SEMUA wali kelas</span></li>
-                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>Akan mengirim notifikasi ke semua guru wali kelas</span></li>
-                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>Sistem otomatis membuat semester genap</span></li>
+                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Akan mengaktifkan butang "Sebarkan" untuk SEMUA wali kelas' : 'Akan mengaktifkan tombol "Sebarkan" untuk SEMUA wali kelas'}</span></li>
+                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Akan menghantar notifikasi ke semua guru wali kelas' : 'Akan mengirim notifikasi ke semua guru wali kelas'}</span></li>
+                <li className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Sistem automatik membuat semester genap' : 'Sistem otomatis membuat semester genap'}</span></li>
               </ul>
             </div>
           )}
@@ -771,11 +938,11 @@ const BeriInfo: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4 border-t border-slate-200">
             <Button type="submit" fullWidth className="text-xs sm:text-sm flex items-center justify-center" disabled={isSubmitting}>
               <Send size={16} className="sm:mr-2" />
-              <span className="hidden sm:inline">{isSubmitting ? 'Mengirim...' : 'Kirim Informasi'}</span>
-              <span className="sm:hidden">{isSubmitting ? 'Mengirim...' : 'Kirim'}</span>
+              <span className="hidden sm:inline">{isSubmitting ? (t('common.language') === 'ms' ? 'Menghantar...' : 'Mengirim...') : (t('common.language') === 'ms' ? 'Hantar Maklumat' : 'Kirim Informasi')}</span>
+              <span className="sm:hidden">{isSubmitting ? (t('common.language') === 'ms' ? 'Menghantar...' : 'Mengirim...') : (t('common.language') === 'ms' ? 'Hantar' : 'Kirim')}</span>
             </Button>
             <Button type="button" variant="secondary" fullWidth onClick={resetForm} className="text-xs sm:text-sm" disabled={isSubmitting}>
-              Batal
+              {t('common.cancel')}
             </Button>
           </div>
         </form>
@@ -787,7 +954,7 @@ const BeriInfo: React.FC = () => {
           setIsDetailModalOpen(false);
           setSelectedInfo(null);
         }}
-        title="Detail Informasi"
+        title={t('common.language') === 'ms' ? 'Butiran Maklumat' : 'Detail Informasi'}
         size="lg"
       >
         {selectedInfo && (
@@ -795,22 +962,31 @@ const BeriInfo: React.FC = () => {
             <div className="p-4 sm:p-5 bg-gradient-to-br from-slate-50 to-blue-50 rounded-lg border border-slate-200">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                 <div>
-                  <span className="text-slate-600">Jenis Informasi:</span>
+                  <span className="text-slate-600">{t('common.language') === 'ms' ? 'Jenis Maklumat:' : 'Jenis Informasi:'}</span>
                   <div className="mt-1">{getJenisBadge(selectedInfo.jenis)}</div>
                 </div>
                 <div>
-                  <span className="text-slate-600">Target Penerima:</span>
+                  <span className="text-slate-600">{t('common.language') === 'ms' ? 'Sasaran Penerima:' : 'Target Penerima:'}</span>
                   <div className="mt-1">{getTargetBadge(selectedInfo.target)}</div>
                 </div>
                 <div>
-                  <span className="text-slate-600">Tanggal Pembuatan:</span>
-                  <span className="ml-2 font-medium text-slate-900">{new Date(selectedInfo.createdAt).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                  <span className="text-slate-600">{t('common.language') === 'ms' ? 'Tarikh Pembuatan:' : 'Tanggal Pembuatan:'}</span>
+                  <span className="ml-2 font-medium text-slate-900">{new Date(selectedInfo.createdAt).toLocaleDateString(t('common.language') === 'ms' ? 'ms-MY' : 'id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 </div>
               </div>
             </div>
 
             <div>
               <h3 className="font-semibold text-slate-900 text-base sm:text-lg mb-3">{selectedInfo.judul}</h3>
+              {selectedInfo.gambar && (
+                <div className="mb-4">
+                  <img
+                    src={selectedInfo.gambar}
+                    alt={selectedInfo.judul}
+                    className="w-full h-auto rounded-lg border border-slate-200 object-cover max-h-96"
+                  />
+                </div>
+              )}
               <div className="p-4 sm:p-5 bg-white border border-slate-200 rounded-lg">
                 <p className="text-slate-700 whitespace-pre-wrap leading-relaxed text-xs sm:text-sm">
                   {selectedInfo.konten}
@@ -818,24 +994,24 @@ const BeriInfo: React.FC = () => {
               </div>
             </div>
 
-            {(selectedInfo.jenis === 'kenaikan_kelas' || selectedInfo.jenis === 'bagi_raport') && (
+            {!isTahfiz && (selectedInfo.jenis === 'kenaikan_kelas' || selectedInfo.jenis === 'bagi_raport') && (
               <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg">
                 <div className="text-xs sm:text-sm text-blue-800 space-y-2">
-                  <div className="font-semibold">Informasi untuk {selectedInfo.jenis === 'kenaikan_kelas' ? 'Kenaikan Kelas' : 'Bagi Raport'}:</div>
+                  <div className="font-semibold">{t('common.language') === 'ms' ? 'Maklumat untuk' : 'Informasi untuk'} {selectedInfo.jenis === 'kenaikan_kelas' ? (t('common.language') === 'ms' ? 'Kenaikan Kelas' : 'Kenaikan Kelas') : (t('common.language') === 'ms' ? 'Bagi Raport' : 'Bagi Raport')}:</div>
                   <div className="space-y-1.5">
-                    <div className="flex gap-2"><span className="flex-shrink-0">•</span><span>Akan mengaktifkan tombol "Sebarkan Raport" di menu Raport Murid untuk {selectedInfo.jenis === 'bagi_raport' ? 'SEMUA wali kelas' : 'semua wali kelas (10, 11, dan 12)'}</span></div>
-                    <div className="flex gap-2"><span className="flex-shrink-0">•</span><span>Wali kelas harus klik tombol "Sebarkan Raport" agar murid dapat melihat raport</span></div>
-                    <div className="flex gap-2"><span className="flex-shrink-0">•</span><span>Murid TIDAK dapat melihat raport sampai wali kelas menyebarkannya</span></div>
+                    <div className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Akan mengaktifkan butang "Sebarkan Raport" di menu Raport Murid untuk' : 'Akan mengaktifkan tombol "Sebarkan Raport" di menu Raport Murid untuk'} {selectedInfo.jenis === 'bagi_raport' ? (t('common.language') === 'ms' ? 'SEMUA wali kelas' : 'SEMUA wali kelas') : (t('common.language') === 'ms' ? `semua wali kelas ${getNonMaxTingkatLabelSync()}` : `semua wali kelas ${getNonMaxTingkatLabelSync()}`)}</span></div>
+                    <div className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Wali kelas mesti klik butang "Sebarkan Raport" agar murid dapat melihat raport' : 'Wali kelas harus klik tombol "Sebarkan Raport" agar murid dapat melihat raport'}</span></div>
+                    <div className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Murid TIDAK dapat melihat raport sehingga wali kelas menyebarkannya' : 'Murid TIDAK dapat melihat raport sampai wali kelas menyebarkannya'}</span></div>
                     {selectedInfo.jenis === 'kenaikan_kelas' && (
                       <>
-                        <div className="flex gap-2"><span className="flex-shrink-0">•</span><span><strong>Syarat naik kelas: Nilai rata-rata ≥ 70 dan kehadiran ≥ 75%</strong></span></div>
-                        <div className="flex gap-2"><span className="flex-shrink-0">•</span><span><strong>PENTING:</strong> Setelah semua wali kelas menyebarkan raport, admin dapat memproses kenaikan kelas dan kelulusan di menu Pengumuman Kelulusan</span></div>
+                        <div className="flex gap-2"><span className="flex-shrink-0">•</span><span><strong>{t('common.language') === 'ms' ? 'Syarat naik kelas: Markah purata ≥ 70 dan kehadiran ≥ 75%' : 'Syarat naik kelas: Nilai rata-rata ≥ 70 dan kehadiran ≥ 75%'}</strong></span></div>
+                        <div className="flex gap-2"><span className="flex-shrink-0">•</span><span><strong>{t('common.language') === 'ms' ? 'PENTING:' : 'PENTING:'}</strong> {t('common.language') === 'ms' ? 'Selepas semua wali kelas menyebarkan raport, admin boleh memproses kenaikan kelas dan kelulusan di menu Pengumuman Kelulusan' : 'Setelah semua wali kelas menyebarkan raport, admin dapat memproses kenaikan kelas dan kelulusan di menu Pengumuman Kelulusan'}</span></div>
                       </>
                     )}
                     {selectedInfo.jenis === 'bagi_raport' && (
                       <>
-                        <div className="flex gap-2"><span className="flex-shrink-0">•</span><span><strong>OTOMATIS:</strong> Sistem telah membuat semester genap untuk tahun ajaran yang sama</span></div>
-                        <div className="flex gap-2"><span className="flex-shrink-0">•</span><span>Admin dapat mengaktifkan semester genap setelah semester ganjil selesai</span></div>
+                        <div className="flex gap-2"><span className="flex-shrink-0">•</span><span><strong>{t('common.language') === 'ms' ? 'AUTOMATIK:' : 'OTOMATIS:'}</strong> {t('common.language') === 'ms' ? 'Sistem telah membuat semester genap untuk tahun pengajian yang sama' : 'Sistem telah membuat semester genap untuk tahun ajaran yang sama'}</span></div>
+                        <div className="flex gap-2"><span className="flex-shrink-0">•</span><span>{t('common.language') === 'ms' ? 'Admin boleh mengaktifkan semester genap selepas semester ganjil selesai' : 'Admin dapat mengaktifkan semester genap setelah semester ganjil selesai'}</span></div>
                       </>
                     )}
                   </div>

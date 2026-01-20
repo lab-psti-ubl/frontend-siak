@@ -18,9 +18,11 @@ import AttendanceInfoCard from './pages/absen-guru/AttendanceInfoCard';
 import AttendanceHistoryTable from './pages/absen-guru/AttendanceHistoryTable';
 import MyQRModal from './pages/absen-guru/MyQRModal';
 import { apiService } from '../../services/apiService';
+import { useLanguage } from '../../context/LanguageContext';
 
 const AbsenGuru: React.FC = () => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   
@@ -146,12 +148,12 @@ const AbsenGuru: React.FC = () => {
     <div className="space-y-5 lg:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">Absen Guru</h2>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">Lakukan absensi masuk dan keluar sekolah dengan QR Code</p>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{t('absenGuruPage.title')}</h2>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">{t('absenGuruPage.subtitle')}</p>
         </div>
         <div className="flex-shrink-0">
           <Badge variant="info" className="inline-block">
-            {new Date().toLocaleDateString('id-ID', {
+            {new Date().toLocaleDateString(language === 'ms' ? 'ms-MY' : 'id-ID', {
               weekday: 'short',
               year: 'numeric',
               month: 'short',

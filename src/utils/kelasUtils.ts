@@ -3,7 +3,7 @@ import { RiwayatWaliKelas } from '../types';
 import { generateRaportData } from './raport';
 import { getNilaiMinimalSettings } from './nilaiUtils';
 import { getWaliKelasSettingsSync } from './waliKelasSystemUtils';
-import { shouldShowJurusan, formatTingkatKelasSync, getMaxTingkatSync } from './jenjangPendidikanUtils';
+import { shouldShowJurusanSync, formatTingkatKelasSync, getMaxTingkatSync } from './jenjangPendidikanUtils';
 
 export interface KenaikanKelasResult {
   muridId: string;
@@ -98,8 +98,8 @@ export const processKenaikanKelasAndKelulusan = (
     const currentKelas = kelas.find(k => k.id === murid.kelasId);
     if (!currentKelas) return;
 
-    const currentJurusan = shouldShowJurusan() && currentKelas.jurusanId ? jurusan.find(j => j.id === currentKelas.jurusanId) : null;
-    if (shouldShowJurusan() && currentKelas.jurusanId && !currentJurusan) return;
+    const currentJurusan = shouldShowJurusanSync() && currentKelas.jurusanId ? jurusan.find(j => j.id === currentKelas.jurusanId) : null;
+    if (shouldShowJurusanSync() && currentKelas.jurusanId && !currentJurusan) return;
 
     // Generate raport data untuk semester genap
     const raportData = generateRaportData(
@@ -151,8 +151,8 @@ export const processKenaikanKelasAndKelulusan = (
         nisn: murid.nisn || '',
         kelasId: currentKelas.id,
         namaKelas: currentKelas.name,
-        jurusanId: shouldShowJurusan() && currentKelas.jurusanId ? currentKelas.jurusanId : undefined,
-        namaJurusan: shouldShowJurusan() && currentJurusan ? currentJurusan.name : undefined,
+        jurusanId: shouldShowJurusanSync() && currentKelas.jurusanId ? currentKelas.jurusanId : undefined,
+        namaJurusan: shouldShowJurusanSync() && currentJurusan ? currentJurusan.name : undefined,
         tahunLulus: activeTahunAjaran.tahun,
         nilaiAkhir: raportData.overallGrade,
         tingkatKehadiran: raportData.attendanceRate,
@@ -195,8 +195,8 @@ export const processKenaikanKelasAndKelulusan = (
     const currentKelas = kelas.find(k => k.id === kelasId);
     if (!currentKelas) return;
 
-    const currentJurusan = shouldShowJurusan() && currentKelas.jurusanId ? jurusan.find(j => j.id === currentKelas.jurusanId) : null;
-    if (shouldShowJurusan() && currentKelas.jurusanId && !currentJurusan) return;
+    const currentJurusan = shouldShowJurusanSync() && currentKelas.jurusanId ? jurusan.find(j => j.id === currentKelas.jurusanId) : null;
+    if (shouldShowJurusanSync() && currentKelas.jurusanId && !currentJurusan) return;
 
     console.log(`Memproses kelas ${currentKelas.name} dengan ${muridList.length} murid`);
       // Process each murid in this class
@@ -461,7 +461,7 @@ export const autoCreateKelasForNextYear = (
         createdAt: new Date().toISOString(),
       };
 
-      if (shouldShowJurusan() && kelasInfo.jurusanId) {
+      if (shouldShowJurusanSync() && kelasInfo.jurusanId) {
         newKelasData.jurusanId = kelasInfo.jurusanId;
       }
 

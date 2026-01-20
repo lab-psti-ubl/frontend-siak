@@ -26,8 +26,15 @@ import { useMataPelajaran } from '../../../../hooks/useMataPelajaran';
 import { usePengaturanAbsen } from '../../../../hooks/usePengaturanAbsen';
 import { useSesiAbsensi } from '../../../../hooks/useSesiAbsensi';
 import { useAbsensi } from '../../../../hooks/useAbsensi';
+import { useLanguage } from '../../../../context/LanguageContext';
+import { usePengaturanSistem } from '../../../../hooks/usePengaturanSistem';
+import { getTerminology } from '../../../../utils/terminologyUtils';
 
 const AbsenGuru: React.FC = () => {
+  const { t, language } = useLanguage();
+  const { systemType } = usePengaturanSistem();
+  const terminology = getTerminology(systemType);
+  
   // Use hooks with cache
   const { gurus: allGurus } = useGurus();
   const { absensiGuru, refreshAbsensiGuru, updateAbsensiGuru: updateAbsensiGuruAPI, createAbsensiGuru: createAbsensiGuruAPI } = useAbsensiGuru();
@@ -39,6 +46,9 @@ const AbsenGuru: React.FC = () => {
   const { pengaturanAbsen } = usePengaturanAbsen();
   const { sesiAbsensi } = useSesiAbsensi();
   const { absensi } = useAbsensi();
+  
+  // Set locale for date formatting based on language
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
 
   // Filter gurus
   const gurus = useMemo(() => {
@@ -193,8 +203,10 @@ const AbsenGuru: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 lg:gap-6">
         <div className="flex-1">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Data Absen Guru</h1>
-          <p className="text-xs sm:text-sm text-gray-600">Pantau kehadiran guru dalam mengajar</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">
+            {systemType === 'tahfiz' ? t('absenGuru.absensiUstadz') : t('absenGuru.title')}
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-600">{t('absenGuru.subtitle')}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 lg:gap-3 w-full lg:w-auto">
           <input
@@ -220,6 +232,7 @@ const AbsenGuru: React.FC = () => {
         selectedDate={selectedDate}
         attendanceRate={attendanceRate}
         activePengaturan={activePengaturan}
+        dateLocale={dateLocale}
       />
 
       <AttendanceStatsCards
@@ -227,6 +240,7 @@ const AbsenGuru: React.FC = () => {
         sudahAbsenMasuk={stats.sudahAbsenMasuk}
         terlambat={stats.terlambat}
         izin={stats.izin}
+        systemType={systemType}
       />
 
       <SearchAndFilterBar
@@ -236,6 +250,7 @@ const AbsenGuru: React.FC = () => {
         onStatusFilterChange={setStatusFilter}
         filteredCount={filteredGurus.length}
         totalCount={gurus.length}
+        systemType={systemType}
       />
 
       <AbsenGuruTable
@@ -252,6 +267,8 @@ const AbsenGuru: React.FC = () => {
         getMapelName={getMapelName}
         getKelasName={getKelasName}
         searchTerm={searchTerm}
+        systemType={systemType}
+        dateLocale={dateLocale}
       />
 
       <DetailAbsensiModal

@@ -23,6 +23,7 @@ interface NotificationItem {
   timestamp: string;
   isRead: boolean;
   priority: 'high' | 'medium' | 'low';
+  gambar?: string; // Gambar poster dari InfoSekolah
 }
 
 const NotificationBell: React.FC = () => {
@@ -74,7 +75,8 @@ const NotificationBell: React.FC = () => {
         icon: getIconForType(info.jenis),
         timestamp: info.publishedAt || info.createdAt,
         isRead: readNotifications.includes(`info-${info.id}`),
-        priority: getPriorityForType(info.jenis)
+        priority: getPriorityForType(info.jenis),
+        gambar: info.gambar
       });
     });
 
@@ -304,7 +306,18 @@ const NotificationBell: React.FC = () => {
     // 1. The newest notification exists
     // 2. It is unread
     // 3. It hasn't been auto-opened in this session (desktop)
+    // 4. It is not older than 7 days
     if (newestNotification && !newestNotification.isRead) {
+      // Check if notification is older than 7 days
+      const notificationDate = new Date(newestNotification.timestamp);
+      const now = new Date();
+      const diffInDays = Math.floor((now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Skip auto-open if notification is older than 7 days
+      if (diffInDays > 7) {
+        return;
+      }
+      
       // Check if this notification has already been auto-opened in this session (desktop)
       const autoOpenedNotifications = sessionStorage.getItem('autoOpenedNotificationsDesktop');
       const openedIds = autoOpenedNotifications ? JSON.parse(autoOpenedNotifications) : [];
@@ -558,6 +571,15 @@ const NotificationBell: React.FC = () => {
               </span>
             </div>
             
+            {selectedNotification.gambar && (
+              <div className="mb-4">
+                <img
+                  src={selectedNotification.gambar}
+                  alt={selectedNotification.title}
+                  className="w-full h-auto rounded-lg border border-gray-200 object-cover max-h-96"
+                />
+              </div>
+            )}
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                 {selectedNotification.fullContent || selectedNotification.message}

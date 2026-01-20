@@ -12,6 +12,7 @@ import Button from '../../../../ui/Button';
 import Badge from '../../../../ui/Badge';
 import { IzinGuru } from '../../../../../types';
 import { getStatusBadge, getJenisBadge } from '../utils/izinGuruUtils';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 interface IzinGuruTableProps {
   izinList: IzinGuru[];
@@ -26,6 +27,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
   onEdit,
   onDelete
 }) => {
+  const { t } = useLanguage();
   const isApproved = (status: string) => status === 'diterima';
 
   if (izinList.length === 0) {
@@ -37,9 +39,9 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
               <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-800" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-white">Riwayat Pengajuan</h3>
+              <h3 className="text-base sm:text-lg font-bold text-white">{t('izinGuru.riwayatPengajuan')}</h3>
               <p className="text-xs sm:text-sm text-white">
-                Daftar semua pengajuan izin Anda
+                {t('izinGuru.daftarSemuaPengajuanIzin')}
               </p>
             </div>
           </div>
@@ -50,10 +52,10 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
             <FileText className="w-8 h-8 text-slate-400" />
           </div>
           <p className="text-base sm:text-lg font-medium text-slate-600">
-            Belum ada pengajuan izin
+            {t('izinGuru.belumAdaPengajuanIzin')}
           </p>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Mulai dengan mengajukan izin melalui tombol di atas
+            {t('izinGuru.mulaiDenganMengajukanIzin')}
           </p>
         </div>
       </div>
@@ -69,9 +71,9 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
             <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-800" />
           </div>
           <div>
-            <h3 className="text-base sm:text-lg font-bold text-white">Riwayat Pengajuan</h3>
+            <h3 className="text-base sm:text-lg font-bold text-white">{t('izinGuru.riwayatPengajuan')}</h3>
             <p className="text-xs sm:text-sm text-white">
-              Daftar semua pengajuan izin Anda ({izinList.length})
+              {t('izinGuru.daftarSemuaPengajuanIzinDenganCount', { count: izinList.length })}
             </p>
           </div>
         </div>
@@ -110,7 +112,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
               ) : (
                 <div className="flex items-center gap-2">
                   <Badge variant={getJenisBadge(izin.jenis) as any}>
-                {izin.jenis === 'izin_dispen' ? 'DISPEN' : izin.jenis.toUpperCase()}
+                {izin.jenis === 'izin_dispen' ? t('izinGuru.izinDispen').toUpperCase() : t(`izinGuru.jenis.${izin.jenis}`).toUpperCase()}
               </Badge>
                   <Calendar className="w-4 h-4 text-slate-500" />
                   <span>
@@ -123,7 +125,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
 
             {/* ALASAN */}
             <div className="text-sm text-slate-600">
-              <span className="font-semibold">Alasan:</span> {izin.alasan}
+              <span className="font-semibold">{t('izinGuru.alasan')}:</span> {izin.alasan}
             </div>
 
             {/* STATUS */}
@@ -132,23 +134,23 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
             {/* TANGGAL DIBUAT */}
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <Badge variant={getStatusBadge(izin.status) as any}>
-                {izin.status === 'menunggu' && 'Menunggu'}
-                {izin.status === 'diterima' && 'Diterima'}
-                {izin.status === 'ditolak' && 'Ditolak'}
+                {izin.status === 'menunggu' && t('izinGuru.status.menunggu')}
+                {izin.status === 'diterima' && t('izinGuru.status.diterima')}
+                {izin.status === 'ditolak' && t('izinGuru.status.ditolak')}
               </Badge>
-              Diajukan: {new Date(izin.createdAt).toLocaleDateString('id-ID')}
+              {t('izinGuru.diajukan')}: {new Date(izin.createdAt).toLocaleDateString('id-ID')}
             </div>
 
             {/* ACTION BUTTONS */}
             {/* ACTION BUTTONS (MOBILE — 1 ROW) */}
 <div className="pt-2 flex items-center gap-2">
-  <Button
+              <Button
     variant="secondary"
     className="flex-1 flex items-center justify-center gap-2"
     onClick={() => onViewDetail(izin)}
   >
     
-    Detail
+    {t('common.detail')}
   </Button>
 
   {!isApproved(izin.status) && onEdit && (
@@ -158,7 +160,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
       onClick={() => onEdit(izin)}
     >
       
-      Edit
+      {t('common.edit')}
     </Button>
   )}
 
@@ -169,7 +171,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
       onClick={() => onDelete(izin)}
     >
       
-      Hapus
+      {t('common.delete')}
     </Button>
   )}
 </div>
@@ -185,12 +187,12 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableCell header>Jenis</TableCell>
-              <TableCell header>Tanggal</TableCell>
-              <TableCell header>Alasan</TableCell>
-              <TableCell header>Status</TableCell>
-              <TableCell header>Diajukan</TableCell>
-              <TableCell header>Aksi</TableCell>
+              <TableCell header>{t('izinGuru.jenis')}</TableCell>
+              <TableCell header>{t('izinGuru.tanggal')}</TableCell>
+              <TableCell header>{t('izinGuru.alasan')}</TableCell>
+              <TableCell header>{t('izinGuru.statusLabel')}</TableCell>
+              <TableCell header>{t('izinGuru.diajukan')}</TableCell>
+              <TableCell header>{t('common.aksi')}</TableCell>
             </TableRow>
           </TableHeader>
 
@@ -239,9 +241,9 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
 
                 <TableCell>
                   <Badge variant={getStatusBadge(izin.status) as any}>
-                    {izin.status === 'menunggu' && 'Menunggu'}
-                    {izin.status === 'diterima' && 'Diterima'}
-                    {izin.status === 'ditolak' && 'Ditolak'}
+                    {izin.status === 'menunggu' && t('izinGuru.status.menunggu')}
+                    {izin.status === 'diterima' && t('izinGuru.status.diterima')}
+                    {izin.status === 'ditolak' && t('izinGuru.status.ditolak')}
                   </Badge>
                 </TableCell>
 
@@ -252,18 +254,18 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
                 <TableCell>
                   <div className="flex gap-2">
                     <Button className="flex items-center justify-center" size="sm" variant="secondary" onClick={() => onViewDetail(izin)}>
-                      <ChevronRight className="w-3.5 h-3.5" /> Detail
+                      <ChevronRight className="w-3.5 h-3.5" /> {t('common.detail')}
                     </Button>
 
                     {!isApproved(izin.status) && onEdit && (
                       <Button className="flex items-center justify-center" size="sm" variant="secondary" onClick={() => onEdit(izin)}>
-                        <Edit className="w-3.5 h-3.5" /> Edit
+                        <Edit className="w-3.5 h-3.5" /> {t('common.edit')}
                       </Button>
                     )}
 
                     {!isApproved(izin.status) && onDelete && (
                       <Button className="flex items-center justify-center" size="sm" variant="danger" onClick={() => onDelete(izin)}>
-                        <Trash2 className="w-3.5 h-3.5" /> Hapus
+                        <Trash2 className="w-3.5 h-3.5" /> {t('common.delete')}
                       </Button>
                     )}
                   </div>

@@ -14,6 +14,7 @@ interface PengaturanAbsenTabProps {
     toleransiPulang: number;
     hariSekolah: number[];
     hariKerja: number[];
+    enableManualAbsen: boolean;
   };
   setFormData: (data: any) => void;
   message: { type: string; text: string };
@@ -217,6 +218,44 @@ const PengaturanAbsenTab: React.FC<PengaturanAbsenTabProps> = ({
                 {formData.hariKerja.length === 0 && (
                   <p className="text-xs text-red-600 mt-2">⚠️ Pilih minimal 1 hari kerja</p>
                 )}
+              </div>
+            </div>
+
+            {/* Manual Absen Switch */}
+            <div className="p-4 sm:p-5 bg-gradient-to-br from-purple-50 to-purple-50/50 rounded-lg border border-purple-100">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h4 className="text-base sm:text-lg font-semibold text-slate-900 mb-2">
+                    Absen Manual
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-600">
+                    Aktifkan fitur absen manual untuk memungkinkan guru dan murid melakukan absensi secara manual melalui dashboard dan menu absen kehadiran
+                  </p>
+                </div>
+                <div className="ml-4 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, enableManualAbsen: !formData.enableManualAbsen })}
+                    className={`
+                      relative inline-flex h-7 w-14 sm:h-8 sm:w-16 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
+                      ${formData.enableManualAbsen 
+                        ? 'bg-purple-600' 
+                        : 'bg-gray-300'
+                      }
+                      cursor-pointer
+                    `}
+                    role="switch"
+                    aria-checked={formData.enableManualAbsen}
+                    aria-label="Toggle absen manual"
+                  >
+                    <span
+                      className={`
+                        inline-block h-5 w-5 sm:h-6 sm:w-6 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out
+                        ${formData.enableManualAbsen ? 'translate-x-8 sm:translate-x-10' : 'translate-x-1'}
+                      `}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
 

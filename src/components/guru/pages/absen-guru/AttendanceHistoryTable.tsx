@@ -5,6 +5,7 @@ import { AbsensiGuru } from '../../../../types';
 import MonthYearPicker from './MonthYearPicker';
 import AbsenGuruDetailModal from './AbsenGuruDetailModal';
 import { AttendanceRecord } from './absenGuruUtils';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 const getKeteranganText = (attendance?: AbsensiGuru): string => {
   if (!attendance) return '-';
@@ -40,6 +41,7 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
   attendanceRecords,
   getStatusBadge,
 }) => {
+  const { t, language } = useLanguage();
   const [selectedDateDetail, setSelectedDateDetail] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
@@ -149,7 +151,7 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
 
   const weekDays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
-  const periodText = new Date(selectedYear, selectedMonth - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  const periodText = new Date(selectedYear, selectedMonth - 1).toLocaleDateString(language === 'ms' ? 'ms-MY' : 'id-ID', { month: 'long', year: 'numeric' });
 
   return (
     <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -160,14 +162,14 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
               <History className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-white">Riwayat Absensi</h3>
-              <p className="text-xs sm:text-sm text-blue-100">Data kehadiran Anda</p>
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-white">{t('absenGuruPage.riwayatAbsensi')}</h3>
+              <p className="text-xs sm:text-sm text-blue-100">{t('absenGuruPage.dataKehadiranAnda')}</p>
             </div>
           </div>
           <div className="flex flex-col xs:flex-row xs:items-end gap-2 xs:gap-3">
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-white/90 mb-1.5 uppercase tracking-wide">
-                Filter Periode
+                {t('absenGuruPage.filterPeriode')}
               </label>
               <MonthYearPicker
                 selectedMonth={selectedMonth}
@@ -187,25 +189,25 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
       <div className="p-5 sm:p-6 lg:p-8">
         <div className="mb-5 sm:mb-6">
           <Badge variant="info">
-            Periode: {periodText}
+            {t('absenGuruPage.periode')}: {periodText}
           </Badge>
         </div>
 
         {attendanceRecords.length > 0 ? (
           <div className="space-y-2 sm:space-y-3">
             <div className="hidden sm:grid grid-cols-7 gap-3 sm:gap-4 px-4 py-3 bg-slate-50 rounded-lg border border-slate-200 mb-3">
-              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">Tanggal</div>
-              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">Jam Masuk</div>
-              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">Status Masuk</div>
-              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">Jam Keluar</div>
-              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">Status Keluar</div>
-              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">Status Akhir</div>
-              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">Keterangan</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">{t('absenGuruPage.tanggal')}</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">{t('absenGuruPage.jamMasuk')}</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">{t('absenGuruPage.statusMasuk')}</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">{t('absenGuruPage.jamKeluar')}</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">{t('absenGuruPage.statusKeluar')}</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">{t('absenGuruPage.statusAkhir')}</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">{t('absenGuruPage.keterangan')}</div>
             </div>
 
             {attendanceRecords.map((record, index) => {
               const keterangan = getKeteranganText(record.attendance);
-              const tanggalFormatted = new Date(record.tanggal).toLocaleDateString('id-ID', {
+              const tanggalFormatted = new Date(record.tanggal).toLocaleDateString(language === 'ms' ? 'ms-MY' : 'id-ID', {
                 weekday: 'short',
                 year: 'numeric',
                 month: 'short',
@@ -222,24 +224,24 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
                 }
                 
                 if (status === 'Hadir') {
-                  return <Badge variant="success">Hadir</Badge>;
+                  return <Badge variant="success">{t('absenGuruPage.hadir')}</Badge>;
                 }
                 if (status === 'Izin') {
-                  return <Badge variant="warning">Izin</Badge>;
+                  return <Badge variant="warning">{t('absenGuruPage.izin')}</Badge>;
                 }
                 if (status === 'Sakit') {
-                  return <Badge variant="info">Sakit</Badge>;
+                  return <Badge variant="info">{t('absenGuruPage.sakit')}</Badge>;
                 }
                 if (status === 'Alfa') {
-                  return <Badge variant="danger">Alfa</Badge>;
+                  return <Badge variant="danger">{t('absenGuruPage.alfa')}</Badge>;
                 }
                 if (status === 'Dispen') {
-                  return <Badge variant="warning">Dispen</Badge>;
+                  return <Badge variant="warning">{t('absenGuruPage.dispen')}</Badge>;
                 }
                 if (status === 'Bolos') {
-                  return <Badge variant="danger">Bolos</Badge>;
+                  return <Badge variant="danger">{t('absenGuruPage.bolos')}</Badge>;
                 }
-                return <Badge variant="danger">Alfa</Badge>;
+                return <Badge variant="danger">{t('absenGuruPage.alfa')}</Badge>;
               };
 
               return (
@@ -263,7 +265,7 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
                     ) : !record.dateExistsInDb ? (
                       <span className="text-xs sm:text-sm text-slate-400">-</span>
                     ) : (
-                      <Badge variant="danger">Tidak Masuk</Badge>
+                      <Badge variant="danger">{t('absenGuruPage.tidakAbsen')}</Badge>
                     )}
                   </div>
                   <div className="flex items-center">
@@ -279,7 +281,7 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
                     ) : !record.dateExistsInDb ? (
                       <span className="text-xs sm:text-sm text-slate-400">-</span>
                     ) : (
-                      <Badge variant="danger">Tidak Keluar</Badge>
+                      <Badge variant="danger">{t('absenGuruPage.tidakAbsen')}</Badge>
                     )}
                   </div>
                   <div className="flex items-center">
@@ -384,7 +386,12 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
                             <div className="flex-1 flex items-center justify-center">
                               {keterangan !== null ? (
                                 <div className={`px-1.5 py-1 rounded text-[9px] font-semibold uppercase text-center ${getKeteranganColor()}`}>
-                                  {keterangan}
+                                  {keterangan === 'Hadir' ? t('absenGuruPage.hadir') :
+                                   keterangan === 'Izin' ? t('absenGuruPage.izin') :
+                                   keterangan === 'Sakit' ? t('absenGuruPage.sakit') :
+                                   keterangan === 'Alfa' ? t('absenGuruPage.alfa') :
+                                   keterangan === 'Dispen' ? t('absenGuruPage.dispen') :
+                                   keterangan === 'Bolos' ? t('absenGuruPage.bolos') : keterangan}
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-1 text-slate-400 text-[9px]">
@@ -406,8 +413,8 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Calendar className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
             </div>
-            <p className="text-sm sm:text-base font-semibold text-slate-600 mb-1">Tidak ada data absensi</p>
-            <p className="text-xs sm:text-sm text-slate-500">Coba ubah filter tanggal untuk melihat data lainnya</p>
+            <p className="text-sm sm:text-base font-semibold text-slate-600 mb-1">{t('absenGuruPage.tidakAdaDataAbsensi')}</p>
+            <p className="text-xs sm:text-sm text-slate-500">{t('absenGuruPage.ubahFilterTanggal')}</p>
           </div>
         )}
       </div>

@@ -1,12 +1,14 @@
 import React from 'react';
 import { Clock, LogIn, LogOut } from 'lucide-react';
 import { PengaturanAbsen } from '../../../../types';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 interface WorkHoursInfoProps {
   activePengaturan: PengaturanAbsen | undefined;
 }
 
 const WorkHoursInfo: React.FC<WorkHoursInfoProps> = ({ activePengaturan }) => {
+  const { t } = useLanguage();
   if (!activePengaturan) return null;
 
   return (
@@ -16,7 +18,7 @@ const WorkHoursInfo: React.FC<WorkHoursInfoProps> = ({ activePengaturan }) => {
           <div className="bg-white rounded-lg p-2 sm:p-2.5">
             <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
           </div>
-          <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white">Jam Kerja Sekolah</h3>
+          <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white">{t('absenGuruPage.jamKerjaSekolah')}</h3>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -26,12 +28,12 @@ const WorkHoursInfo: React.FC<WorkHoursInfoProps> = ({ activePengaturan }) => {
                 <LogIn className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-semibold text-blue-700 uppercase tracking-wide">Jam Masuk</p>
+                <p className="text-xs sm:text-sm font-semibold text-blue-700 uppercase tracking-wide">{t('absenGuruPage.jamMasuk')}</p>
                 <p className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-700 mt-1 sm:mt-2">
                   {activePengaturan.jamMasuk}
                 </p>
                 <p className="text-xs sm:text-sm text-blue-700 mt-1">
-                  Toleransi: {activePengaturan.toleransiMasuk} menit
+                  {t('absenGuruPage.toleransi')}: {activePengaturan.toleransiMasuk} {t('absenGuruPage.menit')}
                 </p>
               </div>
             </div>
@@ -43,12 +45,12 @@ const WorkHoursInfo: React.FC<WorkHoursInfoProps> = ({ activePengaturan }) => {
                 <LogOut className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-semibold text-cyan-600 uppercase tracking-wide">Jam Pulang</p>
+                <p className="text-xs sm:text-sm font-semibold text-cyan-600 uppercase tracking-wide">{t('absenGuruPage.jamPulang')}</p>
                 <p className="text-lg sm:text-xl lg:text-2xl font-bold text-cyan-600 mt-1 sm:mt-2">
                   {activePengaturan.jamPulang}
                 </p>
                 <p className="text-xs sm:text-sm text-cyan-600 mt-1">
-                  Toleransi: {activePengaturan.toleransiPulang} menit
+                  {t('absenGuruPage.toleransi')}: {activePengaturan.toleransiPulang} {t('absenGuruPage.menit')}
                 </p>
               </div>
             </div>

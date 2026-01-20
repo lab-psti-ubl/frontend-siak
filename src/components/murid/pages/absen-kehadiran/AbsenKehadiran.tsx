@@ -599,18 +599,20 @@ const AbsenKehadiran: React.FC = () => {
               <QrCode className="w-5 h-5 sm:w-6 sm:h-6" />
               <span className="text-sm sm:text-base">Scan QR</span>
             </button>
-            <button
-              onClick={() => setIsManualAbsenOpen(true)}
-              disabled={todayDetail.masukRawStatus === 'izin' || todayDetail.masukRawStatus === 'sakit' || todayDetail.masukRawStatus === 'alfa' || (todayDetail.hasMasuk && todayDetail.hasPulang)}
-              className={`font-semibold py-3 sm:py-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-md ${
-                todayDetail.masukRawStatus === 'izin' || todayDetail.masukRawStatus === 'sakit' || todayDetail.masukRawStatus === 'alfa' || (todayDetail.hasMasuk && todayDetail.hasPulang)
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white hover:shadow-lg'
-              }`}
-            >
-              <span className="text-lg">✓</span>
-              <span className="text-sm sm:text-base">Manual</span>
-            </button>
+            {activePengaturanAbsen?.enableManualAbsen !== false && (
+              <button
+                onClick={() => setIsManualAbsenOpen(true)}
+                disabled={todayDetail.masukRawStatus === 'izin' || todayDetail.masukRawStatus === 'sakit' || todayDetail.masukRawStatus === 'alfa' || (todayDetail.hasMasuk && todayDetail.hasPulang)}
+                className={`font-semibold py-3 sm:py-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-md ${
+                  todayDetail.masukRawStatus === 'izin' || todayDetail.masukRawStatus === 'sakit' || todayDetail.masukRawStatus === 'alfa' || (todayDetail.hasMasuk && todayDetail.hasPulang)
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white hover:shadow-lg'
+                }`}
+              >
+                <span className="text-lg">✓</span>
+                <span className="text-sm sm:text-base">Manual</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

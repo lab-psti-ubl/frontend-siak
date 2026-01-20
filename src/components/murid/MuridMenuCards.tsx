@@ -5,14 +5,13 @@ import {
   FileText,
   QrCode,
   BookOpen,
-  School,
   GraduationCap,
-  Settings,
   User,
   BarChart3,
   Award,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  BookMarked,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -21,9 +20,13 @@ import { useMurid } from '../../hooks/useMurid';
 import { useKelas } from '../../hooks/useKelas';
 import { useTahunAjaran } from '../../hooks/useTahunAjaran';
 import { usePengumumanKelulusan } from '../../hooks/usePengumumanKelulusan';
+import { useSantri } from '../../hooks/useSantri';
+import { useKelasTahfiz } from '../../hooks/useKelasTahfiz';
+import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
 import { User as UserType, Kelas, PengumumanKelulusan, TahunAjaran, Alumni } from '../../types';
 import { isMaxTingkatSync } from '../../utils/jenjangPendidikanUtils';
 import { isMuridAlumni } from '../../utils/alumniStatusUtils';
+import { getStudentTerm } from '../../utils/terminologyUtils';
 
 interface MenuCard {
   id: string;
@@ -42,9 +45,29 @@ const MuridMenuCards: React.FC = () => {
   const { activeTahunAjaran } = useTahunAjaran();
   const { pengumumanKelulusan } = usePengumumanKelulusan();
   const { alumni } = useAlumni();
+  const { santri } = useSantri();
+  const { kelasTahfiz } = useKelasTahfiz();
+  const { systemType } = usePengaturanSistem();
   const [showAllCards, setShowAllCards] = useState(false);
+  
+  const studentTerm = getStudentTerm(systemType);
+  const isTahfizSystem = systemType === 'tahfiz';
+  const isSekolahUmumTahfiz = systemType === 'sekolah_umum_tahfiz';
 
   const isAlumni = isMuridAlumni(user, alumni);
+  
+  // Check if user is a santri (either from murid or standalone)
+  const santriUser = user?.id ? santri.find(s => s.id === user.id) : null;
+  const isSantri = !!santriUser;
+  const isSantriNotFromMurid = santriUser && (santriUser as any).isFromMurid === false;
+  
+  // Get tahfiz classes for this santri
+  const myTahfizClasses = isSantri && user?.id
+    ? kelasTahfiz.filter(cls => cls.santriIds.includes(user.id))
+    : [];
+  
+  // Show tahfiz menu if user is a santri (standalone or from murid) and has tahfiz classes
+  const shouldShowTahfizMenu = isSantri && myTahfizClasses.length > 0;
 
   const shouldShowInfoKelulusan = (() => {
     if (!user) return false;
@@ -112,6 +135,176 @@ const MuridMenuCards: React.FC = () => {
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-amber-600 to-amber-700',
       route: '/dashboard/profil',
+    },
+  ];
+
+  // Menu khusus untuk santri yang bukan dari murid (sesuai sidebar)
+  const santriNotFromMuridMenuCards: MenuCard[] = (() => {
+    const baseCards: MenuCard[] = [
+      {
+        id: 'qr-code',
+        label: 'QR Code Saya',
+        icon: QrCode,
+        color: 'text-white',
+        bgColor: 'bg-gradient-to-br from-green-600 to-green-700',
+        route: '/dashboard/qr-code',
+      },
+    ];
+
+    // Tambahkan menu tahfiz jika memiliki kelas tahfiz
+    if (myTahfizClasses.length > 0) {
+      baseCards.push(
+        {
+          id: 'jadwal-tahfiz',
+          label: 'Jadwal Tahfiz',
+          icon: Calendar,
+          color: 'text-white',
+          bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
+          route: '/dashboard/jadwal-tahfiz-murid',
+        },
+        {
+          id: 'absensi-santri-tahfiz',
+          label: 'Absensi Santri',
+          icon: ClipboardList,
+          color: 'text-white',
+          bgColor: 'bg-gradient-to-br from-teal-600 to-teal-700',
+          route: '/dashboard/absensi-santri-tahfiz',
+        },
+        {
+          id: 'absen-kehadiran',
+          label: 'Absen Kehadiran',
+          icon: FileText,
+          color: 'text-white',
+          bgColor: 'bg-gradient-to-br from-blue-600 to-blue-700',
+          route: '/dashboard/absen-kehadiran',
+        },
+        {
+          id: 'progress-hapalan',
+          label: 'Progress Hapalan',
+          icon: BookMarked,
+          color: 'text-white',
+          bgColor: 'bg-gradient-to-br from-cyan-600 to-cyan-700',
+          route: '/dashboard/progress-hapalan-murid',
+        }
+      );
+    }
+
+    // Tambahkan menu umum
+    baseCards.push(
+      {
+        id: 'izin',
+        label: 'Pengajuan Izin',
+        icon: FileText,
+        color: 'text-white',
+        bgColor: 'bg-gradient-to-br from-red-600 to-red-700',
+        route: '/dashboard/surat-izin',
+      },
+      {
+        id: 'profil',
+        label: 'Profil',
+        icon: User,
+        color: 'text-white',
+        bgColor: 'bg-gradient-to-br from-amber-600 to-amber-700',
+        route: '/dashboard/profil',
+      }
+    );
+
+    return baseCards;
+  })();
+
+  // Menu khusus untuk sistem tahfiz (hanya untuk santri yang memiliki kelas tahfiz)
+  const tahfizSystemMenuCards: MenuCard[] = [
+    {
+      id: 'qr-code',
+      label: 'QR Code Saya',
+      icon: QrCode,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-green-600 to-green-700',
+      route: '/dashboard/qr-code',
+    },
+    {
+      id: 'jadwal-tahfiz',
+      label: 'Jadwal Tahfiz',
+      icon: Calendar,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
+      route: '/dashboard/jadwal-tahfiz-murid',
+    },
+    {
+      id: 'absensi-santri-tahfiz',
+      label: 'Absensi Santri',
+      icon: ClipboardList,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-teal-600 to-teal-700',
+      route: '/dashboard/absensi-santri-tahfiz',
+    },
+    {
+      id: 'absen-kehadiran',
+      label: 'Absen Kehadiran',
+      icon: FileText,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-blue-600 to-blue-700',
+      route: '/dashboard/absen-kehadiran',
+    },
+    {
+      id: 'progress-hapalan',
+      label: 'Progress Hapalan',
+      icon: BookMarked,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-cyan-600 to-cyan-700',
+      route: '/dashboard/progress-hapalan-murid',
+    },
+    {
+      id: 'izin',
+      label: 'Pengajuan Izin',
+      icon: FileText,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-red-600 to-red-700',
+      route: '/dashboard/surat-izin',
+    },
+    {
+      id: 'profil',
+      label: 'Profil',
+      icon: User,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-amber-600 to-amber-700',
+      route: '/dashboard/profil',
+    },
+  ];
+
+  // Menu Tahfiz untuk Santri (yang juga murid - untuk ditambahkan ke menu murid)
+  const tahfizMenuCards: MenuCard[] = [
+    {
+      id: 'jadwal-tahfiz',
+      label: 'Jadwal Tahfiz',
+      icon: Calendar,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
+      route: '/dashboard/jadwal-tahfiz-murid',
+    },
+    {
+      id: 'absensi-santri-tahfiz',
+      label: 'Absensi Santri',
+      icon: ClipboardList,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-teal-600 to-teal-700',
+      route: '/dashboard/absensi-santri-tahfiz',
+    },
+    {
+      id: 'absen-kehadiran',
+      label: 'Absen Kehadiran',
+      icon: FileText,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-blue-600 to-blue-700',
+      route: '/dashboard/absen-kehadiran',
+    },
+    {
+      id: 'progress-hapalan',
+      label: 'Progress Hapalan',
+      icon: BookMarked,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-cyan-600 to-cyan-700',
+      route: '/dashboard/progress-hapalan-murid',
     },
   ];
 
@@ -199,6 +392,139 @@ const MuridMenuCards: React.FC = () => {
     },
   ];
 
+  // Untuk sistem tahfiz, hanya tampilkan menu tahfiz jika user adalah santri dengan kelas tahfiz
+  if (isTahfizSystem && !isSekolahUmumTahfiz) {
+    if (shouldShowTahfizMenu) {
+      const finalMenuCards = tahfizSystemMenuCards;
+      const displayedCards = showAllCards ? finalMenuCards : finalMenuCards.slice(0, 8);
+      const hasMoreCards = finalMenuCards.length > 8;
+
+      return (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
+            <h3 className="text-lg font-bold text-slate-900">Menu Utama</h3>
+            <p className="text-sm text-slate-600 mt-0.5">Akses semua fitur dengan mudah</p>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-4 gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5">
+              {displayedCards.map(card => {
+                const Icon = card.icon;
+                return (
+                  <button
+                    key={card.id}
+                    onClick={() => navigate(card.route)}
+                    className="group flex flex-col items-center gap-2 p-3 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none"
+                  >
+                    <div className={`w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl ${card.bgColor} shadow-lg group-hover:shadow-xl transition-shadow duration-200 flex items-center justify-center`}>
+                      <Icon size={28} className=" text-white" />
+                    </div>
+                    <span className="text-xs sm:text-sm md:text-base font-semibold text-slate-900 text-center line-clamp-2">
+                      {card.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {hasMoreCards && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={() => setShowAllCards(!showAllCards)}
+                  className="flex items-center gap-2 px-6 py-3 text-slate-900 font-semibold rounded-lg hover:from-slate-300 hover:to-slate-400 transition-all duration-200 hover:shadow-md active:scale-95"
+                >
+                  {showAllCards ? (
+                    <>
+                      Tampilkan Lebih Sedikit
+                      <ChevronUp size={20} />
+                    </>
+                  ) : (
+                    <>
+                      Lihat Lainnya ({finalMenuCards.length - 8})
+                      <ChevronDown size={20} />
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    } else {
+      // Jika sistem tahfiz tapi bukan santri, tampilkan menu kosong atau minimal
+      return (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
+            <h3 className="text-lg font-bold text-slate-900">Menu Utama</h3>
+            <p className="text-sm text-slate-600 mt-0.5">Akses semua fitur dengan mudah</p>
+          </div>
+          <div className="p-6">
+            <p className="text-center text-slate-500">Tidak ada menu yang tersedia</p>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Jika santri yang bukan dari murid, gunakan menu khusus santri saja
+  if (isSantriNotFromMurid) {
+    const finalMenuCards = santriNotFromMuridMenuCards;
+    const displayedCards = showAllCards ? finalMenuCards : finalMenuCards.slice(0, 8);
+    const hasMoreCards = finalMenuCards.length > 8;
+
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
+          <h3 className="text-lg font-bold text-slate-900">Menu Utama</h3>
+          <p className="text-sm text-slate-600 mt-0.5">Akses semua fitur dengan mudah</p>
+        </div>
+
+        <div className="p-6">
+          <div className="grid grid-cols-4 gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5">
+            {displayedCards.map(card => {
+              const Icon = card.icon;
+              return (
+                <button
+                  key={card.id}
+                  onClick={() => navigate(card.route)}
+                  className="group flex flex-col items-center gap-2 p-3 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none"
+                >
+                  <div className={`w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl ${card.bgColor} shadow-lg group-hover:shadow-xl transition-shadow duration-200 flex items-center justify-center`}>
+                    <Icon size={28} className=" text-white" />
+                  </div>
+                  <span className="text-xs sm:text-sm md:text-base font-semibold text-slate-900 text-center line-clamp-2">
+                    {card.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {hasMoreCards && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => setShowAllCards(!showAllCards)}
+                className="flex items-center gap-2 px-6 py-3 text-slate-900 font-semibold rounded-lg hover:from-slate-300 hover:to-slate-400 transition-all duration-200 hover:shadow-md active:scale-95"
+              >
+                {showAllCards ? (
+                  <>
+                    Tampilkan Lebih Sedikit
+                    <ChevronUp size={20} />
+                  </>
+                ) : (
+                  <>
+                    Lihat Lainnya ({finalMenuCards.length - 8})
+                    <ChevronDown size={20} />
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const menuCards = isAlumni
     ? alumniMenuCards
     : (shouldShowInfoKelulusan
@@ -215,8 +541,18 @@ const MuridMenuCards: React.FC = () => {
         ]
       : baseMenuCards);
 
-  const displayedCards = showAllCards ? menuCards : menuCards.slice(0, 8);
-  const hasMoreCards = menuCards.length > 8;
+  // Add tahfiz menu cards if user is a santri (yang juga murid)
+  // Untuk sistem sekolah_umum_tahfiz, tambahkan menu tahfiz jika user adalah santri dengan kelas tahfiz
+  const finalMenuCards = isSekolahUmumTahfiz
+    ? (shouldShowTahfizMenu && !isSantriNotFromMurid
+        ? [...tahfizMenuCards, ...menuCards]
+        : menuCards)
+    : (shouldShowTahfizMenu && !isSantriNotFromMurid
+        ? [...tahfizMenuCards, ...menuCards]
+        : menuCards);
+
+  const displayedCards = showAllCards ? finalMenuCards : finalMenuCards.slice(0, 8);
+  const hasMoreCards = finalMenuCards.length > 8;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -265,7 +601,7 @@ const MuridMenuCards: React.FC = () => {
                 </>
               ) : (
                 <>
-                  Lihat Lainnya ({menuCards.length - 8})
+                  Lihat Lainnya ({finalMenuCards.length - 8})
                   <ChevronDown size={20} />
                 </>
               )}

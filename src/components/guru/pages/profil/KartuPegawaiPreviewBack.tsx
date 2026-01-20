@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User as UserType } from '../../../../types';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 interface KartuPegawaiPreviewBackProps {
   user: UserType | null;
@@ -8,6 +9,7 @@ interface KartuPegawaiPreviewBackProps {
 }
 
 const KartuPegawaiPreviewBack: React.FC<KartuPegawaiPreviewBackProps> = ({ user, backgroundImage, orientation = 'potrait' }) => {
+  const { t } = useLanguage();
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
@@ -28,7 +30,7 @@ const KartuPegawaiPreviewBack: React.FC<KartuPegawaiPreviewBackProps> = ({ user,
   }, [orientation]);
 
   if (!user) {
-    return <div className="text-center text-gray-500">Data tidak tersedia</div>;
+    return <div className="text-center text-gray-500">{t('dashboardGuru.kartuPegawaiTab.preview.dataTidakTersedia')}</div>;
   }
 
   const getResponsiveValues = () => {
@@ -58,7 +60,7 @@ const KartuPegawaiPreviewBack: React.FC<KartuPegawaiPreviewBackProps> = ({ user,
   // Show rules and regulations on the back
   return (
     <div className="text-center">
-      <h4 className="font-semibold text-gray-900 mb-4">Sisi Belakang</h4>
+      <h4 className="font-semibold text-gray-900 mb-4">{t('dashboardGuru.kartuPegawaiTab.preview.sisiBelakang')}</h4>
       <div className="flex justify-center overflow-x-auto pb-2">
         <div
           className="rounded-xl text-white relative overflow-hidden shadow-xl flex flex-col flex-shrink-0"
@@ -87,7 +89,7 @@ const KartuPegawaiPreviewBack: React.FC<KartuPegawaiPreviewBackProps> = ({ user,
               <h3 className={`font-bold ${values.titleSize as string} mb-2`} style={{
                 fontSize: values.textSize === 'text-xs' ? '16px' : values.textSize === 'text-[9px]' ? '12px' : '10px',
               }}>
-                TATA TERTIB & KETENTUAN PENGGUNAAN KARTU
+                {t('dashboardGuru.kartuPegawaiTab.preview.tataTertibKetentuan')}
               </h3>
             </div>
 
@@ -97,22 +99,22 @@ const KartuPegawaiPreviewBack: React.FC<KartuPegawaiPreviewBackProps> = ({ user,
             }}>
               <div>
                 <span className="font-medium">1. </span>
-                <span>Kartu ini adalah milik resmi sekolah dan hanya berlaku untuk pegawai aktif.</span>
+                <span>{t('dashboardGuru.kartuPegawaiTab.preview.rule1')}</span>
               </div>
 
               <div>
                 <span className="font-medium">2. </span>
-                <span>Pegawai wajib membawa kartu ini setiap hari selama berada di lingkungan sekolah</span>
+                <span>{t('dashboardGuru.kartuPegawaiTab.preview.rule2')}</span>
               </div>
 
               <div>
                 <span className="font-medium">3. </span>
-                <span>Kartu ini terintegrasi dengan sistem manajemen sekolah (iSchola)</span>
+                <span>{t('dashboardGuru.kartuPegawaiTab.preview.rule3')}</span>
               </div>
 
               <div>
                 <span className="font-medium">4. </span>
-                <span>Apabila kartu ini hilang atau rusak, pegawai wajib segera melapor ke bagian Tata Usaha (TU)</span>
+                <span>{t('dashboardGuru.kartuPegawaiTab.preview.rule4')}</span>
               </div>
             </div>
           </div>

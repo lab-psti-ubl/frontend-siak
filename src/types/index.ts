@@ -63,7 +63,7 @@ export interface MataPelajaran {
   name: string;
   code: string;
   sks: number;
-  keterangan: 'umum' | 'jurusan';
+  keterangan: 'umum' | 'jurusan' | 'agama';
   jurusanId?: string; // Only for 'jurusan' type
   semester: 'ganjil' | 'genap' | 'keduanya';
   tingkatKelas: number[]; // Array of class levels [10, 11, 12]
@@ -79,6 +79,25 @@ export interface JadwalPelajaran {
   jamSelesai: string;
   semester: number;
   tahunAjaran: string;
+}
+
+export type HariTahfiz =
+  | 'senin'
+  | 'selasa'
+  | 'rabu'
+  | 'kamis'
+  | 'jumat'
+  | 'sabtu'
+  | 'minggu';
+
+export interface TahfizSchedule {
+  id: string;
+  kelasId: string;
+  hari: HariTahfiz;
+  jamMulai: string;
+  jamSelesai: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AbsensiPelajaran {
@@ -106,6 +125,18 @@ export interface SesiAbsensi {
   semester: number;
 }
 
+export interface SesiAbsensiTahfiz {
+  id: string;
+  jadwalId: string;
+  tanggal: string;
+  jamBuka: string;
+  jamTutup?: string;
+  status: 'dibuka' | 'ditutup';
+  createdBy: string;
+  dataAbsensi?: AbsensiPelajaran[]; // Array of absensi pelajaran murid
+  tahun: string; // Only year, no semester
+}
+
 export interface JurnalMengajar {
   judul: string;
   deskripsi: string;
@@ -116,6 +147,50 @@ export interface JurnalMengajar {
     data: string;
     size: number;
   };
+}
+
+export interface FotoMengajarTahfiz {
+  id: string;
+  fotoBase64: string;
+  waktuFoto: string;
+  keterangan?: string;
+}
+
+export interface PertemuanTahfiz {
+  tanggal: string;
+  judul: string;
+  deskripsi: string;
+  waktuInput: string;
+  file?: {
+    name: string;
+    type: string;
+    data: string;
+    size: number;
+  };
+  fotoMengajar?: FotoMengajarTahfiz; // One photo per pertemuan
+}
+
+export interface JurnalTahfiz {
+  id: string;
+  jadwalId: string;
+  kelasId: string;
+  // Old structure fields (for backward compatibility)
+  tanggal?: string;
+  judul?: string;
+  deskripsi?: string;
+  waktuInput?: string;
+  file?: {
+    name: string;
+    type: string;
+    data: string;
+    size: number;
+  };
+  fotoMengajar?: FotoMengajarTahfiz;
+  // New structure field
+  pertemuan?: PertemuanTahfiz[];
+  tahun: string; // Only year, no semester
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Absensi {
@@ -225,6 +300,7 @@ export interface PengaturanAbsen {
   hariSekolah?: number[]; // Array hari sekolah untuk murid (0=Minggu, 1=Senin, ..., 6=Sabtu)
   hariKerja?: number[]; // Array hari kerja untuk guru (0=Minggu, 1=Senin, ..., 6=Sabtu)
   isActive: boolean;
+  enableManualAbsen?: boolean; // Enable/disable manual attendance
   createdAt: string;
 }
 
@@ -344,6 +420,7 @@ export interface InfoSekolah {
   jenis: 'umum' | 'kelulusan' | 'kenaikan_kelas' | 'bagi_raport';
   target: 'semua' | 'guru' | 'murid' | 'kelas_12';
   kelasId?: string; // untuk kenaikan kelas spesifik
+  gambar?: string; // Base64 image atau URL gambar poster
   isActive: boolean;
   createdBy: string;
   createdAt: string;
@@ -453,6 +530,8 @@ export interface ProfilSekolah {
   deskripsi?: string;
   misiSekolah?: string;
   visiSekolah?: string;
+  latitude?: number;
+  longitude?: number;
   createdAt: string;
   updatedAt?: string;
 }

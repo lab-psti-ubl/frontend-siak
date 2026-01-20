@@ -260,8 +260,9 @@ const TambahJadwalForm: React.FC<TambahJadwalFormProps> = ({
       const tingkatMatch = m.tingkatKelas?.includes(kelasItem.tingkat) || false;
       if (!tingkatMatch) return false;
       
-      // Filter berdasarkan keterangan (umum atau jurusan)
+      // Filter berdasarkan keterangan (umum, agama, atau jurusan)
       return m.keterangan === 'umum' || 
+             m.keterangan === 'agama' ||
              (m.keterangan === 'jurusan' && m.jurusanId === kelasItem.jurusanId);
     });
   };
@@ -373,6 +374,15 @@ const TambahJadwalForm: React.FC<TambahJadwalFormProps> = ({
               {availableMataPelajaran.filter(m => m.keterangan === 'umum').length > 0 && (
                 <optgroup label={`Mata Pelajaran Umum - Semester ${activeTahunAjaran?.semester === 1 ? 'Ganjil' : 'Genap'} - Tingkat ${currentKelas?.tingkat}`}>
                   {availableMataPelajaran.filter(m => m.keterangan === 'umum').map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.code}) - {m.sks} SKS {activePengaturanSKS ? `(${formatDurasi(calculateTotalDurasi(m.sks, activePengaturanSKS))})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {availableMataPelajaran.filter(m => m.keterangan === 'agama').length > 0 && (
+                <optgroup label={`Mata Pelajaran Agama - Semester ${activeTahunAjaran?.semester === 1 ? 'Ganjil' : 'Genap'} - Tingkat ${currentKelas?.tingkat}`}>
+                  {availableMataPelajaran.filter(m => m.keterangan === 'agama').map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name} ({m.code}) - {m.sks} SKS {activePengaturanSKS ? `(${formatDurasi(calculateTotalDurasi(m.sks, activePengaturanSKS))})` : ''}
                     </option>
