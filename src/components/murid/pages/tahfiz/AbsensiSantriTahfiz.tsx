@@ -67,12 +67,22 @@ const AbsensiSantriTahfiz: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
   const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
 
-  // Check if logged-in user is a santri
-  const isSantriUser = user?.id ? santri.some(s => s.id === user.id) : false;
+  // Map user to santri record (supports santri created from murid or standalone santri)
+  const santriRecord = user?.id
+    ? santri.find(s => s.id === user.id || (s as any).muridId === user.id)
+    : undefined;
+  const isSantriUser = !!santriRecord;
+  const attendanceUserId = santriRecord?.id || user?.id;
 
   // Find classes where the logged-in user is a santri
-  const myClasses = isSantriUser && user?.id
-    ? kelasTahfiz.filter(cls => cls.santriIds.includes(user.id))
+  const myClasses = isSantriUser && attendanceUserId
+    ? kelasTahfiz.filter(cls => {
+        const possibleIds = [
+          attendanceUserId,
+          (santriRecord as any)?.muridId as string | undefined
+        ].filter(Boolean) as string[];
+        return possibleIds.some(id => cls.santriIds.includes(id));
+      })
     : [];
 
   // Get schedules for classes where the user is a santri
@@ -94,7 +104,7 @@ const AbsensiSantriTahfiz: React.FC = () => {
   };
 
   const getAttendanceStatusWrapper = (sesiId: string) => {
-    return getAttendanceStatusTahfiz(sesiId, user?.id, sesiAbsensiTahfiz);
+    return getAttendanceStatusTahfiz(sesiId, attendanceUserId, sesiAbsensiTahfiz);
   };
 
   const handleQRScanResult = async (qrData: string) => {
@@ -105,6 +115,8 @@ const AbsensiSantriTahfiz: React.FC = () => {
       sesiAbsensiTahfiz,
       jadwalTahfiz,
       kelasTahfiz,
+      santriList: santri,
+      attendanceUserId,
       refreshSesiAbsensiTahfiz,
       setRefreshKey,
       lastProcessedScan,

@@ -144,6 +144,27 @@ const AbsenSiswa: React.FC = () => {
       return;
     }
 
+    // Handle santri yang tidak memiliki kelasId (isFromMurid: false)
+    const isSantriWithoutKelas = (student as any).isFromMurid === false && !student.kelasId;
+    const kelasId = student.kelasId || 'santri'; // Use 'santri' as default for santri without kelasId
+    
+    // Get student's class (skip for santri without kelasId)
+    const studentKelas = student.kelasId ? kelas.find(k => k.id === student.kelasId) : null;
+    if (!studentKelas && !isSantriWithoutKelas) {
+      const result: ScanResult = {
+        user: student,
+        role: 'murid',
+        timestamp: currentTime24,
+        statusMessage: 'Kelas siswa tidak ditemukan di sistem!',
+        isError: true,
+        errorType: 'not_registered'
+      };
+      setScanResult(result);
+      setShowResultModal(true);
+      showErrorNotification('Kelas Tidak Ditemukan', 'Kelas siswa tidak ditemukan di sistem!');
+      return;
+    }
+
     // Get today's attendance for the student
     let todayAbsensiData: Absensi[] = [];
     try {
@@ -252,27 +273,6 @@ const AbsenSiswa: React.FC = () => {
         );
         return;
       }
-    }
-
-    // Handle santri yang tidak memiliki kelasId (isFromMurid: false)
-    const isSantriWithoutKelas = (student as any).isFromMurid === false && !student.kelasId;
-    const kelasId = student.kelasId || 'santri'; // Use 'santri' as default for santri without kelasId
-    
-    // Get student's class (skip for santri without kelasId)
-    const studentKelas = student.kelasId ? kelas.find(k => k.id === student.kelasId) : null;
-    if (!studentKelas && !isSantriWithoutKelas) {
-      const result: ScanResult = {
-        user: student,
-        role: 'murid',
-        timestamp: currentTime24,
-        statusMessage: 'Kelas siswa tidak ditemukan di sistem!',
-        isError: true,
-        errorType: 'not_registered'
-      };
-      setScanResult(result);
-      setShowResultModal(true);
-      showErrorNotification('Kelas Tidak Ditemukan', 'Kelas siswa tidak ditemukan di sistem!');
-      return;
     }
 
     // Prepare attendance data

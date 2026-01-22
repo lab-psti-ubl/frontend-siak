@@ -1,41 +1,40 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "https://api-schola.garnusa.com/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api-schola.garnusa.com/api';
 
 class ApiService {
   /**
    * Get token from localStorage
    */
   private getToken(): string | null {
-    return localStorage.getItem("authToken");
+    return localStorage.getItem('authToken');
   }
 
   /**
    * Set token to localStorage
    */
   setToken(token: string): void {
-    localStorage.setItem("authToken", token);
+    localStorage.setItem('authToken', token);
   }
 
   /**
    * Remove token from localStorage
    */
   removeToken(): void {
-    localStorage.removeItem("authToken");
+    localStorage.removeItem('authToken');
   }
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {},
+    options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-
+    
     // Get token from localStorage
     const token = this.getToken();
-
+    
     const config: RequestInit = {
       headers: {
-        "Content-Type": "application/json",
-        ...(token && {Authorization: `Bearer ${token}`}),
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
       ...options,
@@ -49,18 +48,18 @@ class ApiService {
       if (response.status === 401 && token) {
         this.removeToken();
         // Redirect to login if not already on login page
-        if (!window.location.pathname.includes("/login")) {
-          window.location.href = "/login";
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
         }
       }
 
       if (!response.ok) {
-        throw new Error(data.message || "Request failed");
+        throw new Error(data.message || 'Request failed');
       }
 
       return data;
     } catch (error) {
-      console.error("API request error:", error);
+      console.error('API request error:', error);
       throw error;
     }
   }
@@ -70,13 +69,13 @@ class ApiService {
    */
   private async publicRequest<T>(
     endpoint: string,
-    options: RequestInit = {},
+    options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-
+    
     const config: RequestInit = {
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         ...options.headers,
       },
       ...options,
@@ -88,26 +87,23 @@ class ApiService {
 
       if (!response.ok) {
         // Return error data instead of throwing for login endpoint
-        if (endpoint === "/auth/login") {
+        if (endpoint === '/auth/login') {
           return {
             success: false,
-            message: data.message || "Email atau password salah",
+            message: data.message || 'Email atau password salah'
           } as T;
         }
-        throw new Error(data.message || "Request failed");
+        throw new Error(data.message || 'Request failed');
       }
 
       return data;
     } catch (error) {
-      console.error("API request error:", error);
+      console.error('API request error:', error);
       // For login endpoint, return error result instead of throwing
-      if (endpoint === "/auth/login") {
+      if (endpoint === '/auth/login') {
         return {
           success: false,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Terjadi kesalahan saat login",
+          message: error instanceof Error ? error.message : 'Terjadi kesalahan saat login'
         } as T;
       }
       throw error;
@@ -123,9 +119,9 @@ class ApiService {
         token?: string;
         requiresActivation?: boolean;
         message?: string;
-      }>("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({email, password}),
+      }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
       });
 
       // Store token if login successful
@@ -138,16 +134,16 @@ class ApiService {
       // Return error result instead of throwing
       return {
         success: false,
-        message: error.message || "Email atau password salah",
+        message: error.message || 'Email atau password salah'
       };
     }
   }
 
   async getCurrentUser(userId?: string, email?: string) {
     const params = new URLSearchParams();
-    if (userId) params.append("userId", userId);
-    if (email) params.append("email", email);
-
+    if (userId) params.append('userId', userId);
+    if (email) params.append('email', email);
+    
     return this.request<{
       success: boolean;
       user?: any;
@@ -161,7 +157,7 @@ class ApiService {
       success: boolean;
       activation?: any;
       message?: string;
-    }>("/activation");
+    }>('/activation');
   }
 
   async checkSystemActive() {
@@ -169,7 +165,7 @@ class ApiService {
       success: boolean;
       isSystemActive?: boolean;
       message?: string;
-    }>("/activation/check");
+    }>('/activation/check');
   }
 
   async activateSystem(password: string, adminId?: string) {
@@ -177,9 +173,9 @@ class ApiService {
       success: boolean;
       message?: string;
       activation?: any;
-    }>("/activation/activate", {
-      method: "POST",
-      body: JSON.stringify({password, adminId}),
+    }>('/activation/activate', {
+      method: 'POST',
+      body: JSON.stringify({ password, adminId }),
     });
   }
 
@@ -188,8 +184,8 @@ class ApiService {
       success: boolean;
       activation?: any;
       message?: string;
-    }>("/activation/initialize", {
-      method: "POST",
+    }>('/activation/initialize', {
+      method: 'POST',
     });
   }
 
@@ -197,12 +193,12 @@ class ApiService {
   async getActiveJenjang() {
     return this.request<{
       success: boolean;
-      activeJenjang?: "SD" | "SMP" | "SMA/SMK" | null;
+      activeJenjang?: 'SD' | 'SMP' | 'SMA/SMK' | null;
       jenjangList?: any[];
       tingkatAwal?: number;
       tingkatAkhir?: number;
       message?: string;
-    }>("/jenjang/active");
+    }>('/jenjang/active');
   }
 
   async getAllJenjang() {
@@ -210,17 +206,17 @@ class ApiService {
       success: boolean;
       jenjangList?: any[];
       message?: string;
-    }>("/jenjang");
+    }>('/jenjang');
   }
 
-  async setJenjang(jenjang: "SD" | "SMP" | "SMA/SMK") {
+  async setJenjang(jenjang: 'SD' | 'SMP' | 'SMA/SMK') {
     return this.request<{
       success: boolean;
       message?: string;
       jenjangList?: any[];
-    }>("/jenjang", {
-      method: "POST",
-      body: JSON.stringify({jenjang}),
+    }>('/jenjang', {
+      method: 'POST',
+      body: JSON.stringify({ jenjang }),
     });
   }
 
@@ -231,7 +227,7 @@ class ApiService {
       gurus?: any[];
       count?: number;
       message?: string;
-    }>("/guru");
+    }>('/guru');
   }
 
   async getGuruById(id: string) {
@@ -247,8 +243,8 @@ class ApiService {
       success: boolean;
       message?: string;
       guru?: any;
-    }>("/guru", {
-      method: "POST",
+    }>('/guru', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -259,7 +255,7 @@ class ApiService {
       message?: string;
       guru?: any;
     }>(`/guru/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -269,7 +265,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/guru/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -280,7 +276,7 @@ class ApiService {
       ustadz?: any[];
       count?: number;
       message?: string;
-    }>("/ustadz");
+    }>('/ustadz');
   }
 
   async getAvailableGurus() {
@@ -288,7 +284,7 @@ class ApiService {
       success: boolean;
       gurus?: any[];
       message?: string;
-    }>("/ustadz/available-gurus");
+    }>('/ustadz/available-gurus');
   }
 
   async addUstadz(data: {
@@ -307,8 +303,8 @@ class ApiService {
       success: boolean;
       message?: string;
       ustadz?: any;
-    }>("/ustadz", {
-      method: "POST",
+    }>('/ustadz', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -318,8 +314,8 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/ustadz/${guruId}/status`, {
-      method: "PUT",
-      body: JSON.stringify({isActive}),
+      method: 'PUT',
+      body: JSON.stringify({ isActive }),
     });
   }
 
@@ -328,7 +324,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/ustadz/${guruId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -339,7 +335,7 @@ class ApiService {
       santri?: any[];
       count?: number;
       message?: string;
-    }>("/santri");
+    }>('/santri');
   }
 
   async getAvailableMurid() {
@@ -347,7 +343,7 @@ class ApiService {
       success: boolean;
       murid?: any[];
       message?: string;
-    }>("/santri/available-murid");
+    }>('/santri/available-murid');
   }
 
   async addSantri(data: {
@@ -365,8 +361,8 @@ class ApiService {
       success: boolean;
       message?: string;
       santri?: any;
-    }>("/santri", {
-      method: "POST",
+    }>('/santri', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -377,8 +373,8 @@ class ApiService {
       message?: string;
       santri?: any[];
       count?: number;
-    }>("/santri/add-all-murid", {
-      method: "POST",
+    }>('/santri/add-all-murid', {
+      method: 'POST',
     });
   }
 
@@ -387,8 +383,8 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/santri/${santriId}/status`, {
-      method: "PUT",
-      body: JSON.stringify({isActive}),
+      method: 'PUT',
+      body: JSON.stringify({ isActive }),
     });
   }
 
@@ -397,7 +393,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/santri/${santriId}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -407,32 +403,32 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/santri/${santriId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // Progress Hafalan endpoints
   async getAllProgressHafalan(tahun?: string, santriId?: string) {
     const params = new URLSearchParams();
-    if (tahun) params.append("tahun", tahun);
-    if (santriId) params.append("santriId", santriId);
+    if (tahun) params.append('tahun', tahun);
+    if (santriId) params.append('santriId', santriId);
     const query = params.toString();
     return this.request<{
       success: boolean;
       data?: any[];
       message?: string;
-    }>(`/progress-hafalan${query ? `?${query}` : ""}`);
+    }>(`/progress-hafalan${query ? `?${query}` : ''}`);
   }
 
   async getProgressHafalanBySantri(santriId: string, tahun?: string) {
     const params = new URLSearchParams();
-    if (tahun) params.append("tahun", tahun);
+    if (tahun) params.append('tahun', tahun);
     const query = params.toString();
     return this.request<{
       success: boolean;
       data?: any[];
       message?: string;
-    }>(`/progress-hafalan/santri/${santriId}${query ? `?${query}` : ""}`);
+    }>(`/progress-hafalan/santri/${santriId}${query ? `?${query}` : ''}`);
   }
 
   async addProgressHafalan(data: {
@@ -448,29 +444,26 @@ class ApiService {
       success: boolean;
       message?: string;
       data?: any;
-    }>("/progress-hafalan", {
-      method: "POST",
+    }>('/progress-hafalan', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateProgressHafalan(
-    id: string,
-    data: {
-      juz?: number;
-      surat?: string;
-      ayatDari?: number;
-      ayatSampai?: number;
-      tanggal?: string;
-      keterangan?: string;
-    },
-  ) {
+  async updateProgressHafalan(id: string, data: {
+    juz?: number;
+    surat?: string;
+    ayatDari?: number;
+    ayatSampai?: number;
+    tanggal?: string;
+    keterangan?: string;
+  }) {
     return this.request<{
       success: boolean;
       message?: string;
       data?: any;
     }>(`/progress-hafalan/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -480,31 +473,28 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/progress-hafalan/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
-  async saveHasilTes(
-    id: string,
-    data: {
-      hasilTes: "Mumtaz" | "Jayid Jiddan" | "Jayid" | "Maqbul";
-      lafadzKesalahan?: string[];
-      catatanPerbaikan?: string;
-      poinPerbaikan?: {
-        kelancaranHafalan: string;
-        ketepatanAyat: string;
-        tajwid: string;
-        fashahah: string;
-      };
-      tanggalTes?: string;
-    },
-  ) {
+  async saveHasilTes(id: string, data: {
+    hasilTes: 'Mumtaz' | 'Jayid Jiddan' | 'Jayid' | 'Maqbul';
+    lafadzKesalahan?: string[];
+    catatanPerbaikan?: string;
+    poinPerbaikan?: {
+      kelancaranHafalan: string;
+      ketepatanAyat: string;
+      tajwid: string;
+      fashahah: string;
+    };
+    tanggalTes?: string;
+  }) {
     return this.request<{
       success: boolean;
       message?: string;
       data?: any;
     }>(`/progress-hafalan/${id}/hasil-tes`, {
-      method: "POST",
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -516,7 +506,7 @@ class ApiService {
       kelasTahfiz?: any[];
       count?: number;
       message?: string;
-    }>("/kelas-tahfiz");
+    }>('/kelas-tahfiz');
   }
 
   async getKelasTahfizById(id: string) {
@@ -538,27 +528,24 @@ class ApiService {
       success: boolean;
       message?: string;
       kelasTahfiz?: any;
-    }>("/kelas-tahfiz", {
-      method: "POST",
+    }>('/kelas-tahfiz', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateKelasTahfiz(
-    id: string,
-    data: {
-      namaKelas?: string;
-      ruangan?: string;
-      ustadzId?: string;
-      santriIds?: string[];
-    },
-  ) {
+  async updateKelasTahfiz(id: string, data: {
+    namaKelas?: string;
+    ruangan?: string;
+    ustadzId?: string;
+    santriIds?: string[];
+  }) {
     return this.request<{
       success: boolean;
       message?: string;
       kelasTahfiz?: any;
     }>(`/kelas-tahfiz/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -568,7 +555,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/kelas-tahfiz/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -579,7 +566,7 @@ class ApiService {
       jadwalTahfiz?: any[];
       count?: number;
       message?: string;
-    }>("/jadwal-tahfiz");
+    }>('/jadwal-tahfiz');
   }
 
   async getJadwalTahfizById(id: string) {
@@ -592,7 +579,14 @@ class ApiService {
 
   async createJadwalTahfiz(data: {
     kelasId: string;
-    hari: "senin" | "selasa" | "rabu" | "kamis" | "jumat" | "sabtu" | "minggu";
+    hari:
+      | 'senin'
+      | 'selasa'
+      | 'rabu'
+      | 'kamis'
+      | 'jumat'
+      | 'sabtu'
+      | 'minggu';
     jamMulai: string;
     jamSelesai: string;
   }) {
@@ -600,8 +594,8 @@ class ApiService {
       success: boolean;
       message?: string;
       jadwalTahfiz?: any;
-    }>("/jadwal-tahfiz", {
-      method: "POST",
+    }>('/jadwal-tahfiz', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -611,23 +605,23 @@ class ApiService {
     data: {
       kelasId?: string;
       hari?:
-        | "senin"
-        | "selasa"
-        | "rabu"
-        | "kamis"
-        | "jumat"
-        | "sabtu"
-        | "minggu";
+        | 'senin'
+        | 'selasa'
+        | 'rabu'
+        | 'kamis'
+        | 'jumat'
+        | 'sabtu'
+        | 'minggu';
       jamMulai?: string;
       jamSelesai?: string;
-    },
+    }
   ) {
     return this.request<{
       success: boolean;
       message?: string;
       jadwalTahfiz?: any;
     }>(`/jadwal-tahfiz/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -637,7 +631,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/jadwal-tahfiz/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -652,8 +646,8 @@ class ApiService {
       success: boolean;
       message?: string;
       guru?: any;
-    }>("/guru/profil/update", {
-      method: "PUT",
+    }>('/guru/profil/update', {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -665,8 +659,8 @@ class ApiService {
     return this.request<{
       success: boolean;
       message?: string;
-    }>("/guru/profil/change-password", {
-      method: "PUT",
+    }>('/guru/profil/change-password', {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -678,7 +672,7 @@ class ApiService {
       jurusan?: any[];
       count?: number;
       message?: string;
-    }>("/jurusan");
+    }>('/jurusan');
   }
 
   async getJurusanById(id: string) {
@@ -692,7 +686,7 @@ class ApiService {
   async getJurusanStats(id: string) {
     return this.request<{
       success: boolean;
-      stats?: {kelasCount: number; muridCount: number};
+      stats?: { kelasCount: number; muridCount: number };
       message?: string;
     }>(`/jurusan/${id}/stats`);
   }
@@ -702,8 +696,8 @@ class ApiService {
       success: boolean;
       message?: string;
       jurusan?: any;
-    }>("/jurusan", {
-      method: "POST",
+    }>('/jurusan', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -714,7 +708,7 @@ class ApiService {
       message?: string;
       jurusan?: any;
     }>(`/jurusan/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -724,24 +718,23 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/jurusan/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // Kelas endpoints
-  async getAllKelas(params?: {jurusanId?: string; tingkat?: number}) {
+  async getAllKelas(params?: { jurusanId?: string; tingkat?: number }) {
     const queryParams = new URLSearchParams();
-    if (params?.jurusanId) queryParams.append("jurusanId", params.jurusanId);
-    if (params?.tingkat)
-      queryParams.append("tingkat", params.tingkat.toString());
-
+    if (params?.jurusanId) queryParams.append('jurusanId', params.jurusanId);
+    if (params?.tingkat) queryParams.append('tingkat', params.tingkat.toString());
+    
     const query = queryParams.toString();
     return this.request<{
       success: boolean;
       kelas?: any[];
       count?: number;
       message?: string;
-    }>(`/kelas${query ? `?${query}` : ""}`);
+    }>(`/kelas${query ? `?${query}` : ''}`);
   }
 
   async getKelasById(id: string) {
@@ -755,7 +748,7 @@ class ApiService {
   async getKelasStats(id: string) {
     return this.request<{
       success: boolean;
-      stats?: {muridCount: number};
+      stats?: { muridCount: number };
       message?: string;
     }>(`/kelas/${id}/stats`);
   }
@@ -765,8 +758,8 @@ class ApiService {
       success: boolean;
       message?: string;
       kelas?: any;
-    }>("/kelas", {
-      method: "POST",
+    }>('/kelas', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -777,7 +770,7 @@ class ApiService {
       message?: string;
       kelas?: any;
     }>(`/kelas/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -787,28 +780,24 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/kelas/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // Murid endpoints
-  async getAllMurid(params?: {
-    kelasId?: string;
-    search?: string;
-    status?: "active" | "inactive";
-  }) {
+  async getAllMurid(params?: { kelasId?: string; search?: string; status?: 'active' | 'inactive' }) {
     const queryParams = new URLSearchParams();
-    if (params?.kelasId) queryParams.append("kelasId", params.kelasId);
-    if (params?.search) queryParams.append("search", params.search);
-    if (params?.status) queryParams.append("status", params.status);
-
+    if (params?.kelasId) queryParams.append('kelasId', params.kelasId);
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.status) queryParams.append('status', params.status);
+    
     const query = queryParams.toString();
     return this.request<{
       success: boolean;
       murid?: any[];
       count?: number;
       message?: string;
-    }>(`/murid${query ? `?${query}` : ""}`);
+    }>(`/murid${query ? `?${query}` : ''}`);
   }
 
   async getMuridById(id: string) {
@@ -824,8 +813,8 @@ class ApiService {
       success: boolean;
       message?: string;
       murid?: any;
-    }>("/murid", {
-      method: "POST",
+    }>('/murid', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -836,7 +825,7 @@ class ApiService {
       message?: string;
       murid?: any;
     }>(`/murid/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -847,7 +836,7 @@ class ApiService {
       message?: string;
       isActive?: boolean;
     }>(`/murid/${id}/toggle-status`, {
-      method: "PATCH",
+      method: 'PATCH',
     });
   }
 
@@ -856,7 +845,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/murid/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -867,7 +856,7 @@ class ApiService {
       tahunAjaran?: any[];
       count?: number;
       message?: string;
-    }>("/tahun-ajaran");
+    }>('/tahun-ajaran');
   }
 
   async getTahunAjaranById(id: string) {
@@ -883,7 +872,7 @@ class ApiService {
       success: boolean;
       tahunAjaran?: any | null;
       message?: string;
-    }>("/tahun-ajaran/active");
+    }>('/tahun-ajaran/active');
   }
 
   async createTahunAjaran(data: any) {
@@ -891,8 +880,8 @@ class ApiService {
       success: boolean;
       message?: string;
       tahunAjaran?: any;
-    }>("/tahun-ajaran", {
-      method: "POST",
+    }>('/tahun-ajaran', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -903,7 +892,7 @@ class ApiService {
       message?: string;
       tahunAjaran?: any;
     }>(`/tahun-ajaran/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -914,7 +903,7 @@ class ApiService {
       message?: string;
       tahunAjaran?: any;
     }>(`/tahun-ajaran/${id}/activate`, {
-      method: "PATCH",
+      method: 'PATCH',
     });
   }
 
@@ -923,7 +912,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/tahun-ajaran/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -934,7 +923,7 @@ class ApiService {
       mataPelajaran?: any[];
       count?: number;
       message?: string;
-    }>("/mata-pelajaran");
+    }>('/mata-pelajaran');
   }
 
   async getMataPelajaranById(id: string) {
@@ -950,8 +939,8 @@ class ApiService {
       success: boolean;
       message?: string;
       mataPelajaran?: any;
-    }>("/mata-pelajaran", {
-      method: "POST",
+    }>('/mata-pelajaran', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -962,7 +951,7 @@ class ApiService {
       message?: string;
       mataPelajaran?: any;
     }>(`/mata-pelajaran/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -972,30 +961,24 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/mata-pelajaran/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // Guru Mapel endpoints
-  async getAllGuruMapel(params?: {
-    guruId?: string;
-    mataPelajaranId?: string;
-    isActive?: boolean;
-  }) {
+  async getAllGuruMapel(params?: { guruId?: string; mataPelajaranId?: string; isActive?: boolean }) {
     const queryParams = new URLSearchParams();
-    if (params?.guruId) queryParams.append("guruId", params.guruId);
-    if (params?.mataPelajaranId)
-      queryParams.append("mataPelajaranId", params.mataPelajaranId);
-    if (params?.isActive !== undefined)
-      queryParams.append("isActive", params.isActive.toString());
-
+    if (params?.guruId) queryParams.append('guruId', params.guruId);
+    if (params?.mataPelajaranId) queryParams.append('mataPelajaranId', params.mataPelajaranId);
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
+    
     const query = queryParams.toString();
     return this.request<{
       success: boolean;
       guruMapel?: any[];
       count?: number;
       message?: string;
-    }>(`/guru-mapel${query ? `?${query}` : ""}`);
+    }>(`/guru-mapel${query ? `?${query}` : ''}`);
   }
 
   async getGuruMapelByGuruId(guruId: string) {
@@ -1020,8 +1003,8 @@ class ApiService {
       success: boolean;
       message?: string;
       guruMapel?: any;
-    }>("/guru-mapel", {
-      method: "POST",
+    }>('/guru-mapel', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1033,8 +1016,8 @@ class ApiService {
       guruMapel?: any[];
       count?: number;
     }>(`/guru-mapel/guru/${guruId}/assignments`, {
-      method: "PUT",
-      body: JSON.stringify({mataPelajaranIds}),
+      method: 'PUT',
+      body: JSON.stringify({ mataPelajaranIds }),
     });
   }
 
@@ -1044,7 +1027,7 @@ class ApiService {
       message?: string;
       guruMapel?: any;
     }>(`/guru-mapel/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1054,34 +1037,26 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/guru-mapel/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // Jadwal Pelajaran endpoints
-  async getAllJadwalPelajaran(params?: {
-    kelasId?: string;
-    guruId?: string;
-    tahunAjaran?: string;
-    semester?: number;
-    hari?: string;
-  }) {
+  async getAllJadwalPelajaran(params?: { kelasId?: string; guruId?: string; tahunAjaran?: string; semester?: number; hari?: string }) {
     const queryParams = new URLSearchParams();
-    if (params?.kelasId) queryParams.append("kelasId", params.kelasId);
-    if (params?.guruId) queryParams.append("guruId", params.guruId);
-    if (params?.tahunAjaran)
-      queryParams.append("tahunAjaran", params.tahunAjaran);
-    if (params?.semester)
-      queryParams.append("semester", params.semester.toString());
-    if (params?.hari) queryParams.append("hari", params.hari);
-
+    if (params?.kelasId) queryParams.append('kelasId', params.kelasId);
+    if (params?.guruId) queryParams.append('guruId', params.guruId);
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    if (params?.semester) queryParams.append('semester', params.semester.toString());
+    if (params?.hari) queryParams.append('hari', params.hari);
+    
     const query = queryParams.toString();
     return this.request<{
       success: boolean;
       jadwalPelajaran?: any[];
       count?: number;
       message?: string;
-    }>(`/jadwal-pelajaran${query ? `?${query}` : ""}`);
+    }>(`/jadwal-pelajaran${query ? `?${query}` : ''}`);
   }
 
   async getJadwalPelajaranById(id: string) {
@@ -1098,8 +1073,8 @@ class ApiService {
       hasConflict?: boolean;
       conflicts?: any[];
       message?: string;
-    }>("/jadwal-pelajaran/check-conflict", {
-      method: "POST",
+    }>('/jadwal-pelajaran/check-conflict', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1109,8 +1084,8 @@ class ApiService {
       success: boolean;
       message?: string;
       jadwalPelajaran?: any;
-    }>("/jadwal-pelajaran", {
-      method: "POST",
+    }>('/jadwal-pelajaran', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1121,7 +1096,7 @@ class ApiService {
       message?: string;
       jadwalPelajaran?: any;
     }>(`/jadwal-pelajaran/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1131,7 +1106,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/jadwal-pelajaran/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1141,7 +1116,7 @@ class ApiService {
       success: boolean;
       pengaturanAbsen?: any[];
       message?: string;
-    }>("/pengaturan-absen");
+    }>('/pengaturan-absen');
   }
 
   async getActivePengaturanAbsen() {
@@ -1149,7 +1124,7 @@ class ApiService {
       success: boolean;
       pengaturanAbsen?: any;
       message?: string;
-    }>("/pengaturan-absen/active");
+    }>('/pengaturan-absen/active');
   }
 
   async createPengaturanAbsen(data: any) {
@@ -1157,8 +1132,8 @@ class ApiService {
       success: boolean;
       message?: string;
       pengaturanAbsen?: any;
-    }>("/pengaturan-absen", {
-      method: "POST",
+    }>('/pengaturan-absen', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1169,7 +1144,7 @@ class ApiService {
       message?: string;
       pengaturanAbsen?: any;
     }>(`/pengaturan-absen/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1179,7 +1154,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/pengaturan-absen/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1189,7 +1164,7 @@ class ApiService {
       success: boolean;
       pengaturanSKS?: any[];
       message?: string;
-    }>("/pengaturan-sks");
+    }>('/pengaturan-sks');
   }
 
   async getActivePengaturanSKS() {
@@ -1197,7 +1172,7 @@ class ApiService {
       success: boolean;
       pengaturanSKS?: any;
       message?: string;
-    }>("/pengaturan-sks/active");
+    }>('/pengaturan-sks/active');
   }
 
   async createPengaturanSKS(data: any) {
@@ -1205,8 +1180,8 @@ class ApiService {
       success: boolean;
       message?: string;
       pengaturanSKS?: any;
-    }>("/pengaturan-sks", {
-      method: "POST",
+    }>('/pengaturan-sks', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1217,7 +1192,7 @@ class ApiService {
       message?: string;
       pengaturanSKS?: any;
     }>(`/pengaturan-sks/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1227,7 +1202,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/pengaturan-sks/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1237,7 +1212,7 @@ class ApiService {
       success: boolean;
       pengaturanIstirahat?: any[];
       message?: string;
-    }>("/pengaturan-istirahat");
+    }>('/pengaturan-istirahat');
   }
 
   async getActivePengaturanIstirahat() {
@@ -1245,7 +1220,7 @@ class ApiService {
       success: boolean;
       pengaturanIstirahat?: any;
       message?: string;
-    }>("/pengaturan-istirahat/active");
+    }>('/pengaturan-istirahat/active');
   }
 
   async createPengaturanIstirahat(data: any) {
@@ -1253,8 +1228,8 @@ class ApiService {
       success: boolean;
       message?: string;
       pengaturanIstirahat?: any;
-    }>("/pengaturan-istirahat", {
-      method: "POST",
+    }>('/pengaturan-istirahat', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1265,7 +1240,7 @@ class ApiService {
       message?: string;
       pengaturanIstirahat?: any;
     }>(`/pengaturan-istirahat/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1275,7 +1250,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/pengaturan-istirahat/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1285,7 +1260,7 @@ class ApiService {
       success: boolean;
       profilSekolah?: any;
       message?: string;
-    }>("/profil-sekolah");
+    }>('/profil-sekolah');
   }
 
   async getProfilSekolahPublic() {
@@ -1293,7 +1268,7 @@ class ApiService {
       success: boolean;
       profilSekolah?: any;
       message?: string;
-    }>("/profil-sekolah/public");
+    }>('/profil-sekolah/public');
   }
 
   async saveProfilSekolah(data: any) {
@@ -1301,8 +1276,8 @@ class ApiService {
       success: boolean;
       message?: string;
       profilSekolah?: any;
-    }>("/profil-sekolah", {
-      method: "POST",
+    }>('/profil-sekolah', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1313,7 +1288,7 @@ class ApiService {
       success: boolean;
       backgroundKTA?: any;
       message?: string;
-    }>("/background-kta");
+    }>('/background-kta');
   }
 
   async saveBackgroundKTA(data: any) {
@@ -1321,8 +1296,8 @@ class ApiService {
       success: boolean;
       message?: string;
       backgroundKTA?: any;
-    }>("/background-kta", {
-      method: "POST",
+    }>('/background-kta', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1333,7 +1308,7 @@ class ApiService {
       success: boolean;
       dataKepsek?: any[];
       message?: string;
-    }>("/data-kepsek");
+    }>('/data-kepsek');
   }
 
   async getDataKepsekById(id: string) {
@@ -1349,8 +1324,8 @@ class ApiService {
       success: boolean;
       message?: string;
       dataKepsek?: any;
-    }>("/data-kepsek", {
-      method: "POST",
+    }>('/data-kepsek', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1361,7 +1336,7 @@ class ApiService {
       message?: string;
       dataKepsek?: any;
     }>(`/data-kepsek/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1371,7 +1346,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/data-kepsek/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1381,7 +1356,7 @@ class ApiService {
       success: boolean;
       komponenNilai?: any[];
       message?: string;
-    }>("/pengaturan-komponen-nilai");
+    }>('/pengaturan-komponen-nilai');
   }
 
   async getKomponenNilaiById(id: string) {
@@ -1397,8 +1372,8 @@ class ApiService {
       success: boolean;
       message?: string;
       komponenNilai?: any;
-    }>("/pengaturan-komponen-nilai", {
-      method: "POST",
+    }>('/pengaturan-komponen-nilai', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1409,7 +1384,7 @@ class ApiService {
       message?: string;
       komponenNilai?: any;
     }>(`/pengaturan-komponen-nilai/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1419,7 +1394,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/pengaturan-komponen-nilai/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1428,9 +1403,9 @@ class ApiService {
       success: boolean;
       message?: string;
       komponenNilai?: any[];
-    }>("/pengaturan-komponen-nilai/all", {
-      method: "PUT",
-      body: JSON.stringify({komponenNilai}),
+    }>('/pengaturan-komponen-nilai/all', {
+      method: 'PUT',
+      body: JSON.stringify({ komponenNilai }),
     });
   }
 
@@ -1440,7 +1415,7 @@ class ApiService {
       success: boolean;
       grades?: any[];
       message?: string;
-    }>("/pengaturan-grade");
+    }>('/pengaturan-grade');
   }
 
   async getGradeById(id: string) {
@@ -1456,8 +1431,8 @@ class ApiService {
       success: boolean;
       message?: string;
       grade?: any;
-    }>("/pengaturan-grade", {
-      method: "POST",
+    }>('/pengaturan-grade', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1468,7 +1443,7 @@ class ApiService {
       message?: string;
       grade?: any;
     }>(`/pengaturan-grade/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1478,7 +1453,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/pengaturan-grade/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1487,9 +1462,9 @@ class ApiService {
       success: boolean;
       message?: string;
       grades?: any[];
-    }>("/pengaturan-grade/all", {
-      method: "PUT",
-      body: JSON.stringify({grades}),
+    }>('/pengaturan-grade/all', {
+      method: 'PUT',
+      body: JSON.stringify({ grades }),
     });
   }
 
@@ -1499,19 +1474,16 @@ class ApiService {
       success: boolean;
       pengaturanNilaiMinimal?: any;
       message?: string;
-    }>("/pengaturan-nilai-minimal");
+    }>('/pengaturan-nilai-minimal');
   }
 
-  async savePengaturanNilaiMinimal(data: {
-    nilaiAkhirMinimal: number;
-    tingkatKehadiranMinimal: number;
-  }) {
+  async savePengaturanNilaiMinimal(data: { nilaiAkhirMinimal: number; tingkatKehadiranMinimal: number }) {
     return this.request<{
       success: boolean;
       message?: string;
       pengaturanNilaiMinimal?: any;
-    }>("/pengaturan-nilai-minimal", {
-      method: "POST",
+    }>('/pengaturan-nilai-minimal', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1522,25 +1494,21 @@ class ApiService {
       success: boolean;
       sesiAbsensi?: any[];
       message?: string;
-    }>("/sesi-absensi");
+    }>('/sesi-absensi');
   }
 
-  async getSesiAbsensiByTanggal(
-    tanggal?: string,
-    jadwalId?: string,
-    createdBy?: string,
-  ) {
+  async getSesiAbsensiByTanggal(tanggal?: string, jadwalId?: string, createdBy?: string) {
     const queryParams = new URLSearchParams();
-    if (tanggal) queryParams.append("tanggal", tanggal);
-    if (jadwalId) queryParams.append("jadwalId", jadwalId);
-    if (createdBy) queryParams.append("createdBy", createdBy);
-
+    if (tanggal) queryParams.append('tanggal', tanggal);
+    if (jadwalId) queryParams.append('jadwalId', jadwalId);
+    if (createdBy) queryParams.append('createdBy', createdBy);
+    
     const query = queryParams.toString();
     return this.request<{
       success: boolean;
       sesiAbsensi?: any[];
       message?: string;
-    }>(`/sesi-absensi/by-tanggal${query ? `?${query}` : ""}`);
+    }>(`/sesi-absensi/by-tanggal${query ? `?${query}` : ''}`);
   }
 
   async getSesiAbsensiById(id: string) {
@@ -1556,8 +1524,8 @@ class ApiService {
       success: boolean;
       message?: string;
       sesiAbsensi?: any;
-    }>("/sesi-absensi", {
-      method: "POST",
+    }>('/sesi-absensi', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1568,7 +1536,7 @@ class ApiService {
       message?: string;
       sesiAbsensi?: any;
     }>(`/sesi-absensi/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1578,7 +1546,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/sesi-absensi/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1588,25 +1556,21 @@ class ApiService {
       success: boolean;
       sesiAbsensiTahfiz?: any[];
       message?: string;
-    }>("/sesi-absensi-tahfiz");
+    }>('/sesi-absensi-tahfiz');
   }
 
-  async getSesiAbsensiTahfizByTanggal(
-    tanggal?: string,
-    jadwalId?: string,
-    createdBy?: string,
-  ) {
+  async getSesiAbsensiTahfizByTanggal(tanggal?: string, jadwalId?: string, createdBy?: string) {
     const queryParams = new URLSearchParams();
-    if (tanggal) queryParams.append("tanggal", tanggal);
-    if (jadwalId) queryParams.append("jadwalId", jadwalId);
-    if (createdBy) queryParams.append("createdBy", createdBy);
-
+    if (tanggal) queryParams.append('tanggal', tanggal);
+    if (jadwalId) queryParams.append('jadwalId', jadwalId);
+    if (createdBy) queryParams.append('createdBy', createdBy);
+    
     const query = queryParams.toString();
     return this.request<{
       success: boolean;
       sesiAbsensiTahfiz?: any[];
       message?: string;
-    }>(`/sesi-absensi-tahfiz/by-tanggal${query ? `?${query}` : ""}`);
+    }>(`/sesi-absensi-tahfiz/by-tanggal${query ? `?${query}` : ''}`);
   }
 
   async getSesiAbsensiTahfizById(id: string) {
@@ -1622,8 +1586,8 @@ class ApiService {
       success: boolean;
       message?: string;
       sesiAbsensiTahfiz?: any;
-    }>("/sesi-absensi-tahfiz", {
-      method: "POST",
+    }>('/sesi-absensi-tahfiz', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1634,7 +1598,7 @@ class ApiService {
       message?: string;
       sesiAbsensiTahfiz?: any;
     }>(`/sesi-absensi-tahfiz/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1644,7 +1608,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/sesi-absensi-tahfiz/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1656,7 +1620,7 @@ class ApiService {
       absensi?: any;
       sesiAbsensiTahfiz?: any;
     }>(`/sesi-absensi-tahfiz/${sesiId}/absensi`, {
-      method: "POST",
+      method: 'POST',
       body: JSON.stringify(absensiData),
     });
   }
@@ -1668,8 +1632,8 @@ class ApiService {
       absensi?: any[];
       sesiAbsensiTahfiz?: any;
     }>(`/sesi-absensi-tahfiz/${sesiId}/absensi/bulk`, {
-      method: "POST",
-      body: JSON.stringify({absensiList}),
+      method: 'POST',
+      body: JSON.stringify({ absensiList }),
     });
   }
 
@@ -1679,7 +1643,7 @@ class ApiService {
       message?: string;
       sesiAbsensiTahfiz?: any;
     }>(`/sesi-absensi-tahfiz/${sesiId}/absensi/${absensiId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1691,7 +1655,7 @@ class ApiService {
       absensi?: any;
       sesiAbsensi?: any;
     }>(`/sesi-absensi/${sesiId}/absensi`, {
-      method: "POST",
+      method: 'POST',
       body: JSON.stringify(absensiData),
     });
   }
@@ -1703,8 +1667,8 @@ class ApiService {
       absensi?: any[];
       sesiAbsensi?: any;
     }>(`/sesi-absensi/${sesiId}/absensi/bulk`, {
-      method: "POST",
-      body: JSON.stringify({absensiList}),
+      method: 'POST',
+      body: JSON.stringify({ absensiList }),
     });
   }
 
@@ -1714,7 +1678,7 @@ class ApiService {
       message?: string;
       sesiAbsensi?: any;
     }>(`/sesi-absensi/${sesiId}/absensi/${absensiId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1724,7 +1688,7 @@ class ApiService {
       success: boolean;
       jurnal?: any[];
       message?: string;
-    }>("/jurnal");
+    }>('/jurnal');
   }
 
   async getJurnalById(id: string) {
@@ -1743,16 +1707,12 @@ class ApiService {
     }>(`/jurnal/by-jadwal/${jadwalId}`);
   }
 
-  async getJurnalByTanggal(
-    tanggal?: string,
-    jadwalId?: string,
-    kelasId?: string,
-  ) {
+  async getJurnalByTanggal(tanggal?: string, jadwalId?: string, kelasId?: string) {
     const params = new URLSearchParams();
-    if (tanggal) params.append("tanggal", tanggal);
-    if (jadwalId) params.append("jadwalId", jadwalId);
-    if (kelasId) params.append("kelasId", kelasId);
-
+    if (tanggal) params.append('tanggal', tanggal);
+    if (jadwalId) params.append('jadwalId', jadwalId);
+    if (kelasId) params.append('kelasId', kelasId);
+    
     return this.request<{
       success: boolean;
       jurnal?: any[];
@@ -1760,16 +1720,12 @@ class ApiService {
     }>(`/jurnal/by-tanggal?${params.toString()}`);
   }
 
-  async getJurnalByJadwalIdAndTanggal(
-    jadwalId: string,
-    tanggal: string,
-    kelasId?: string,
-  ) {
+  async getJurnalByJadwalIdAndTanggal(jadwalId: string, tanggal: string, kelasId?: string) {
     const params = new URLSearchParams();
-    params.append("jadwalId", jadwalId);
-    params.append("tanggal", tanggal);
-    if (kelasId) params.append("kelasId", kelasId);
-
+    params.append('jadwalId', jadwalId);
+    params.append('tanggal', tanggal);
+    if (kelasId) params.append('kelasId', kelasId);
+    
     return this.request<{
       success: boolean;
       jurnal?: any;
@@ -1782,8 +1738,8 @@ class ApiService {
       success: boolean;
       message?: string;
       jurnal?: any;
-    }>("/jurnal", {
-      method: "POST",
+    }>('/jurnal', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1794,7 +1750,7 @@ class ApiService {
       message?: string;
       jurnal?: any;
     }>(`/jurnal/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1804,7 +1760,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/jurnal/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1814,7 +1770,7 @@ class ApiService {
       success: boolean;
       jurnalTahfiz?: any[];
       message?: string;
-    }>("/jurnal-tahfiz");
+    }>('/jurnal-tahfiz');
   }
 
   async getJurnalTahfizById(id: string) {
@@ -1833,16 +1789,12 @@ class ApiService {
     }>(`/jurnal-tahfiz/by-jadwal/${jadwalId}`);
   }
 
-  async getJurnalTahfizByTanggal(
-    tanggal?: string,
-    jadwalId?: string,
-    kelasId?: string,
-  ) {
+  async getJurnalTahfizByTanggal(tanggal?: string, jadwalId?: string, kelasId?: string) {
     const params = new URLSearchParams();
-    if (tanggal) params.append("tanggal", tanggal);
-    if (jadwalId) params.append("jadwalId", jadwalId);
-    if (kelasId) params.append("kelasId", kelasId);
-
+    if (tanggal) params.append('tanggal', tanggal);
+    if (jadwalId) params.append('jadwalId', jadwalId);
+    if (kelasId) params.append('kelasId', kelasId);
+    
     return this.request<{
       success: boolean;
       jurnalTahfiz?: any[];
@@ -1850,16 +1802,12 @@ class ApiService {
     }>(`/jurnal-tahfiz/by-tanggal?${params.toString()}`);
   }
 
-  async getJurnalTahfizByJadwalIdAndTanggal(
-    jadwalId: string,
-    tanggal: string,
-    kelasId?: string,
-  ) {
+  async getJurnalTahfizByJadwalIdAndTanggal(jadwalId: string, tanggal: string, kelasId?: string) {
     const params = new URLSearchParams();
-    params.append("jadwalId", jadwalId);
-    params.append("tanggal", tanggal);
-    if (kelasId) params.append("kelasId", kelasId);
-
+    params.append('jadwalId', jadwalId);
+    params.append('tanggal', tanggal);
+    if (kelasId) params.append('kelasId', kelasId);
+    
     return this.request<{
       success: boolean;
       jurnalTahfiz?: any;
@@ -1872,8 +1820,8 @@ class ApiService {
       success: boolean;
       message?: string;
       jurnalTahfiz?: any;
-    }>("/jurnal-tahfiz", {
-      method: "POST",
+    }>('/jurnal-tahfiz', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1884,7 +1832,7 @@ class ApiService {
       message?: string;
       jurnalTahfiz?: any;
     }>(`/jurnal-tahfiz/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1894,7 +1842,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/jurnal-tahfiz/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1904,8 +1852,8 @@ class ApiService {
       message?: string;
       jurnalTahfiz?: any;
     }>(`/jurnal-tahfiz/pertemuan/${id}`, {
-      method: "DELETE",
-      body: JSON.stringify({tanggal}),
+      method: 'DELETE',
+      body: JSON.stringify({ tanggal }),
     });
   }
 
@@ -1915,7 +1863,7 @@ class ApiService {
       success: boolean;
       izinGuru?: any[];
       message?: string;
-    }>("/izin-guru");
+    }>('/izin-guru');
   }
 
   async getIzinGuruByStatus(status: string) {
@@ -1948,8 +1896,8 @@ class ApiService {
       success: boolean;
       message?: string;
       izinGuru?: any;
-    }>("/izin-guru", {
-      method: "POST",
+    }>('/izin-guru', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -1960,7 +1908,7 @@ class ApiService {
       message?: string;
       izinGuru?: any;
     }>(`/izin-guru/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1970,7 +1918,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/izin-guru/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -1980,7 +1928,7 @@ class ApiService {
       success: boolean;
       suratIzin?: any[];
       message?: string;
-    }>("/surat-izin");
+    }>('/surat-izin');
   }
 
   async getSuratIzinByStatus(status: string) {
@@ -2017,14 +1965,10 @@ class ApiService {
   }
 
   // Public raport verification endpoint (no auth required)
-  async getRaportVerification(
-    nisn: string,
-    tahunAjaran?: string,
-    semester?: number,
-  ) {
+  async getRaportVerification(nisn: string, tahunAjaran?: string, semester?: number) {
     const params = new URLSearchParams();
-    if (tahunAjaran) params.append("tahunAjaran", tahunAjaran);
-    if (semester) params.append("semester", semester.toString());
+    if (tahunAjaran) params.append('tahunAjaran', tahunAjaran);
+    if (semester) params.append('semester', semester.toString());
     const queryString = params.toString();
     return this.publicRequest<{
       success: boolean;
@@ -2033,7 +1977,7 @@ class ApiService {
       tahunAjaran?: string;
       data?: any;
       message?: string;
-    }>(`/raport/verification/${nisn}${queryString ? `?${queryString}` : ""}`);
+    }>(`/raport/verification/${nisn}${queryString ? `?${queryString}` : ''}`);
   }
 
   async createSuratIzin(data: any) {
@@ -2041,8 +1985,8 @@ class ApiService {
       success: boolean;
       message?: string;
       suratIzin?: any;
-    }>("/surat-izin", {
-      method: "POST",
+    }>('/surat-izin', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2053,26 +1997,18 @@ class ApiService {
       message?: string;
       suratIzin?: any;
     }>(`/surat-izin/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
-  async verifySuratIzin(
-    id: string,
-    data: {
-      status: "diterima" | "ditolak";
-      keterangan?: string;
-      verifiedBy?: string;
-      kelasWali?: string;
-    },
-  ) {
+  async verifySuratIzin(id: string, data: { status: 'diterima' | 'ditolak'; keterangan?: string; verifiedBy?: string; kelasWali?: string }) {
     return this.request<{
       success: boolean;
       message?: string;
       suratIzin?: any;
     }>(`/surat-izin/${id}/verify`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2082,7 +2018,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/surat-izin/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -2092,7 +2028,7 @@ class ApiService {
       success: boolean;
       absensiGuru?: any[];
       message?: string;
-    }>("/absensi-guru");
+    }>('/absensi-guru');
   }
 
   async getAbsensiGuruByTanggal(tanggal: string) {
@@ -2124,8 +2060,8 @@ class ApiService {
       success: boolean;
       message?: string;
       absensiGuru?: any;
-    }>("/absensi-guru", {
-      method: "POST",
+    }>('/absensi-guru', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2136,7 +2072,7 @@ class ApiService {
       message?: string;
       absensiGuru?: any;
     }>(`/absensi-guru/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2146,7 +2082,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/absensi-guru/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -2181,19 +2117,15 @@ class ApiService {
     semester?: number;
   }) {
     const queryParams = new URLSearchParams();
-    if (params?.muridId) queryParams.append("muridId", params.muridId);
-    if (params?.kelasId) queryParams.append("kelasId", params.kelasId);
-    if (params?.tanggal) queryParams.append("tanggal", params.tanggal);
-    if (params?.bulan) queryParams.append("bulan", params.bulan.toString());
-    if (params?.tahun) queryParams.append("tahun", params.tahun.toString());
-    if (params?.tahunAjaranId)
-      queryParams.append("tahunAjaranId", params.tahunAjaranId);
-    if (params?.semester !== undefined)
-      queryParams.append("semester", params.semester.toString());
-
-    const url = queryParams.toString()
-      ? `/absensi?${queryParams.toString()}`
-      : "/absensi";
+    if (params?.muridId) queryParams.append('muridId', params.muridId);
+    if (params?.kelasId) queryParams.append('kelasId', params.kelasId);
+    if (params?.tanggal) queryParams.append('tanggal', params.tanggal);
+    if (params?.bulan) queryParams.append('bulan', params.bulan.toString());
+    if (params?.tahun) queryParams.append('tahun', params.tahun.toString());
+    if (params?.tahunAjaranId) queryParams.append('tahunAjaranId', params.tahunAjaranId);
+    if (params?.semester !== undefined) queryParams.append('semester', params.semester.toString());
+    
+    const url = queryParams.toString() ? `/absensi?${queryParams.toString()}` : '/absensi';
     return this.request<{
       success: boolean;
       absensi?: any[];
@@ -2239,8 +2171,8 @@ class ApiService {
       success: boolean;
       message?: string;
       absensi?: any;
-    }>("/absensi", {
-      method: "POST",
+    }>('/absensi', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2251,7 +2183,7 @@ class ApiService {
       message?: string;
       absensi?: any;
     }>(`/absensi/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2261,7 +2193,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/absensi/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -2269,19 +2201,17 @@ class ApiService {
   async getSessionMetadata(params: {
     tanggal: string;
     kelasId: string;
-    sessionType: "masuk" | "pulang";
+    sessionType: 'masuk' | 'pulang';
     tahunAjaranId?: string;
     semester?: number;
   }) {
     const queryParams = new URLSearchParams();
-    queryParams.append("tanggal", params.tanggal);
-    queryParams.append("kelasId", params.kelasId);
-    queryParams.append("sessionType", params.sessionType);
-    if (params.tahunAjaranId)
-      queryParams.append("tahunAjaranId", params.tahunAjaranId);
-    if (params.semester !== undefined)
-      queryParams.append("semester", params.semester.toString());
-
+    queryParams.append('tanggal', params.tanggal);
+    queryParams.append('kelasId', params.kelasId);
+    queryParams.append('sessionType', params.sessionType);
+    if (params.tahunAjaranId) queryParams.append('tahunAjaranId', params.tahunAjaranId);
+    if (params.semester !== undefined) queryParams.append('semester', params.semester.toString());
+    
     return this.request<{
       success: boolean;
       session?: any;
@@ -2292,10 +2222,10 @@ class ApiService {
   async updateSessionMetadata(data: {
     tanggal: string;
     kelasId: string;
-    sessionType: "masuk" | "pulang";
+    sessionType: 'masuk' | 'pulang';
     jamBuka?: string;
     jamTutup?: string;
-    status: "dibuka" | "ditutup";
+    status: 'dibuka' | 'ditutup';
     createdBy: string;
     tahunAjaranId?: string;
     semester?: number;
@@ -2304,8 +2234,8 @@ class ApiService {
       success: boolean;
       message?: string;
       session?: any;
-    }>("/absensi/session/metadata", {
-      method: "PUT",
+    }>('/absensi/session/metadata', {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2316,9 +2246,9 @@ class ApiService {
       message?: string;
       absensi?: any[];
       errors?: any[];
-    }>("/absensi/bulk", {
-      method: "POST",
-      body: JSON.stringify({absensiList}),
+    }>('/absensi/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ absensiList }),
     });
   }
 
@@ -2331,17 +2261,13 @@ class ApiService {
     status?: string;
   }) {
     const queryParams = new URLSearchParams();
-    if (params?.muridId) queryParams.append("muridId", params.muridId);
-    if (params?.kelasId) queryParams.append("kelasId", params.kelasId);
-    if (params?.tahunAjaran)
-      queryParams.append("tahunAjaran", params.tahunAjaran);
-    if (params?.semester !== undefined)
-      queryParams.append("semester", params.semester.toString());
-    if (params?.status) queryParams.append("status", params.status);
-
-    const url = queryParams.toString()
-      ? `/riwayat-kelas-murid?${queryParams.toString()}`
-      : "/riwayat-kelas-murid";
+    if (params?.muridId) queryParams.append('muridId', params.muridId);
+    if (params?.kelasId) queryParams.append('kelasId', params.kelasId);
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    if (params?.semester !== undefined) queryParams.append('semester', params.semester.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    
+    const url = queryParams.toString() ? `/riwayat-kelas-murid?${queryParams.toString()}` : '/riwayat-kelas-murid';
     return this.request<{
       success: boolean;
       riwayatKelasMurid?: any[];
@@ -2358,17 +2284,13 @@ class ApiService {
     }>(`/riwayat-kelas-murid/${id}`);
   }
 
-  async getRiwayatKelasMuridByMuridId(
-    muridId: string,
-    tahunAjaran?: string,
-    semester?: number,
-  ) {
+  async getRiwayatKelasMuridByMuridId(muridId: string, tahunAjaran?: string, semester?: number) {
     let url = `/riwayat-kelas-murid/by-murid/${muridId}`;
     const params = new URLSearchParams();
-    if (tahunAjaran) params.append("tahunAjaran", tahunAjaran);
-    if (semester !== undefined) params.append("semester", semester.toString());
+    if (tahunAjaran) params.append('tahunAjaran', tahunAjaran);
+    if (semester !== undefined) params.append('semester', semester.toString());
     if (params.toString()) url += `?${params.toString()}`;
-
+    
     return this.request<{
       success: boolean;
       riwayatKelasMurid?: any[];
@@ -2382,8 +2304,8 @@ class ApiService {
       success: boolean;
       message?: string;
       riwayatKelasMurid?: any;
-    }>("/riwayat-kelas-murid", {
-      method: "POST",
+    }>('/riwayat-kelas-murid', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2394,9 +2316,9 @@ class ApiService {
       message?: string;
       riwayatKelasMurid?: any[];
       errors?: any[];
-    }>("/riwayat-kelas-murid/bulk", {
-      method: "POST",
-      body: JSON.stringify({riwayatList}),
+    }>('/riwayat-kelas-murid/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ riwayatList }),
     });
   }
 
@@ -2406,7 +2328,7 @@ class ApiService {
       message?: string;
       riwayatKelasMurid?: any;
     }>(`/riwayat-kelas-murid/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2416,7 +2338,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/riwayat-kelas-murid/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -2426,7 +2348,7 @@ class ApiService {
       success: boolean;
       alatRfid?: any[];
       message?: string;
-    }>("/alat-rfid");
+    }>('/alat-rfid');
   }
 
   async getAlatRFIDById(id: string) {
@@ -2450,8 +2372,8 @@ class ApiService {
       success: boolean;
       message?: string;
       alatRfid?: any;
-    }>("/alat-rfid", {
-      method: "POST",
+    }>('/alat-rfid', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2462,7 +2384,7 @@ class ApiService {
       message?: string;
       alatRfid?: any;
     }>(`/alat-rfid/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2473,7 +2395,7 @@ class ApiService {
       message?: string;
       alatRfid?: any;
     }>(`/alat-rfid/${id}/toggle-status`, {
-      method: "PATCH",
+      method: 'PATCH',
     });
   }
 
@@ -2482,7 +2404,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/alat-rfid/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -2499,7 +2421,7 @@ class ApiService {
         updatedAt: string;
       };
       message?: string;
-    }>("/pengaturan-sistem");
+    }>('/pengaturan-sistem');
   }
 
   async getEnableEarlyDeparture() {
@@ -2507,7 +2429,7 @@ class ApiService {
       success: boolean;
       enableEarlyDeparture: boolean;
       message?: string;
-    }>("/pengaturan-sistem/enable-early-departure");
+    }>('/pengaturan-sistem/enable-early-departure');
   }
 
   async getLanguage() {
@@ -2515,7 +2437,7 @@ class ApiService {
       success: boolean;
       language: string;
       message?: string;
-    }>("/pengaturan-sistem/language");
+    }>('/pengaturan-sistem/language');
   }
 
   async getSystemType() {
@@ -2523,16 +2445,10 @@ class ApiService {
       success: boolean;
       systemType: string;
       message?: string;
-    }>("/pengaturan-sistem/system-type");
+    }>('/pengaturan-sistem/system-type');
   }
 
-  async updatePengaturanSistem(data: {
-    enableEarlyDeparture?: boolean;
-    language?: string;
-    systemType?: string;
-    activationPassword?: string;
-    isInitialSetup?: boolean;
-  }) {
+  async updatePengaturanSistem(data: { enableEarlyDeparture?: boolean; language?: string; systemType?: string; activationPassword?: string; isInitialSetup?: boolean }) {
     return this.request<{
       success: boolean;
       message?: string;
@@ -2544,8 +2460,8 @@ class ApiService {
         createdAt: string;
         updatedAt: string;
       };
-    }>("/pengaturan-sistem", {
-      method: "PUT",
+    }>('/pengaturan-sistem', {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2556,38 +2472,34 @@ class ApiService {
       success: boolean;
       settings?: any;
       message?: string;
-    }>("/wali-kelas-settings");
+    }>('/wali-kelas-settings');
   }
 
-  async saveWaliKelasSettings(data: {system: "otomatis" | "tetap" | "hapus"}) {
+  async saveWaliKelasSettings(data: { system: 'otomatis' | 'tetap' | 'hapus' }) {
     return this.request<{
       success: boolean;
       message?: string;
       settings?: any;
-    }>("/wali-kelas-settings", {
-      method: "POST",
+    }>('/wali-kelas-settings', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   // Alumni endpoints
-  async getAllAlumni(params?: {
-    tahunLulus?: string;
-    kelasId?: string;
-    search?: string;
-  }) {
+  async getAllAlumni(params?: { tahunLulus?: string; kelasId?: string; search?: string }) {
     const queryParams = new URLSearchParams();
-    if (params?.tahunLulus) queryParams.append("tahunLulus", params.tahunLulus);
-    if (params?.kelasId) queryParams.append("kelasId", params.kelasId);
-    if (params?.search) queryParams.append("search", params.search);
-
+    if (params?.tahunLulus) queryParams.append('tahunLulus', params.tahunLulus);
+    if (params?.kelasId) queryParams.append('kelasId', params.kelasId);
+    if (params?.search) queryParams.append('search', params.search);
+    
     const queryString = queryParams.toString();
     return this.request<{
       success: boolean;
       alumni?: any[];
       count?: number;
       message?: string;
-    }>(`/alumni${queryString ? `?${queryString}` : ""}`);
+    }>(`/alumni${queryString ? `?${queryString}` : ''}`);
   }
 
   async getAlumniById(id: string) {
@@ -2611,8 +2523,8 @@ class ApiService {
       success: boolean;
       message?: string;
       alumni?: any;
-    }>("/alumni", {
-      method: "POST",
+    }>('/alumni', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2623,7 +2535,7 @@ class ApiService {
       message?: string;
       alumni?: any;
     }>(`/alumni/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2633,36 +2545,26 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/alumni/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // Nilai endpoints
-  async getAllNilai(params?: {
-    guruId?: string;
-    kelasId?: string;
-    mataPelajaranId?: string;
-    muridId?: string;
-    semester?: number;
-    tahunAjaran?: string;
-  }) {
+  async getAllNilai(params?: { guruId?: string; kelasId?: string; mataPelajaranId?: string; muridId?: string; semester?: number; tahunAjaran?: string }) {
     const queryParams = new URLSearchParams();
-    if (params?.guruId) queryParams.append("guruId", params.guruId);
-    if (params?.kelasId) queryParams.append("kelasId", params.kelasId);
-    if (params?.mataPelajaranId)
-      queryParams.append("mataPelajaranId", params.mataPelajaranId);
-    if (params?.muridId) queryParams.append("muridId", params.muridId);
-    if (params?.semester)
-      queryParams.append("semester", params.semester.toString());
-    if (params?.tahunAjaran)
-      queryParams.append("tahunAjaran", params.tahunAjaran);
-
+    if (params?.guruId) queryParams.append('guruId', params.guruId);
+    if (params?.kelasId) queryParams.append('kelasId', params.kelasId);
+    if (params?.mataPelajaranId) queryParams.append('mataPelajaranId', params.mataPelajaranId);
+    if (params?.muridId) queryParams.append('muridId', params.muridId);
+    if (params?.semester) queryParams.append('semester', params.semester.toString());
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    
     const queryString = queryParams.toString();
     return this.request<{
       success: boolean;
       nilai?: any[];
       message?: string;
-    }>(`/nilai${queryString ? `?${queryString}` : ""}`);
+    }>(`/nilai${queryString ? `?${queryString}` : ''}`);
   }
 
   async getNilaiById(id: string) {
@@ -2678,8 +2580,8 @@ class ApiService {
       success: boolean;
       message?: string;
       nilai?: any;
-    }>("/nilai", {
-      method: "POST",
+    }>('/nilai', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2690,7 +2592,7 @@ class ApiService {
       message?: string;
       nilai?: any;
     }>(`/nilai/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2700,7 +2602,7 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/nilai/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -2710,8 +2612,8 @@ class ApiService {
       message?: string;
       nilai?: any;
       isNew?: boolean;
-    }>("/nilai/upsert", {
-      method: "POST",
+    }>('/nilai/upsert', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2721,9 +2623,9 @@ class ApiService {
       success: boolean;
       message?: string;
       nilai?: any[];
-    }>("/nilai/bulk-upsert", {
-      method: "POST",
-      body: JSON.stringify({nilaiList}),
+    }>('/nilai/bulk-upsert', {
+      method: 'POST',
+      body: JSON.stringify({ nilaiList }),
     });
   }
 
@@ -2733,7 +2635,7 @@ class ApiService {
       success: boolean;
       data?: any[];
       message?: string;
-    }>("/status-kenaikan-kelas");
+    }>('/status-kenaikan-kelas');
   }
 
   async updateStatusKenaikanKelas(id: string, data: any) {
@@ -2742,7 +2644,7 @@ class ApiService {
       data?: any;
       message?: string;
     }>(`/status-kenaikan-kelas/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2752,8 +2654,8 @@ class ApiService {
       success: boolean;
       data?: any;
       message?: string;
-    }>("/status-kenaikan-kelas", {
-      method: "POST",
+    }>('/status-kenaikan-kelas', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2764,7 +2666,7 @@ class ApiService {
       success: boolean;
       data?: any[];
       message?: string;
-    }>("/status-bagi-raport");
+    }>('/status-bagi-raport');
   }
 
   async updateStatusBagiRaport(id: string, data: any) {
@@ -2773,7 +2675,7 @@ class ApiService {
       data?: any;
       message?: string;
     }>(`/status-bagi-raport/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2783,8 +2685,8 @@ class ApiService {
       success: boolean;
       data?: any;
       message?: string;
-    }>("/status-bagi-raport", {
-      method: "POST",
+    }>('/status-bagi-raport', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2795,7 +2697,7 @@ class ApiService {
       success: boolean;
       data?: any[];
       message?: string;
-    }>("/riwayat-wali-kelas");
+    }>('/riwayat-wali-kelas');
   }
 
   async getRiwayatWaliKelasByGuruId(guruId: string) {
@@ -2811,8 +2713,8 @@ class ApiService {
       success: boolean;
       data?: any;
       message?: string;
-    }>("/riwayat-wali-kelas", {
-      method: "POST",
+    }>('/riwayat-wali-kelas', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2823,7 +2725,7 @@ class ApiService {
       success: boolean;
       data?: any[];
       message?: string;
-    }>("/info-sekolah");
+    }>('/info-sekolah');
   }
 
   async getInfoSekolahById(id: string) {
@@ -2839,8 +2741,8 @@ class ApiService {
       success: boolean;
       data?: any;
       message?: string;
-    }>("/info-sekolah", {
-      method: "POST",
+    }>('/info-sekolah', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2851,7 +2753,7 @@ class ApiService {
       data?: any;
       message?: string;
     }>(`/info-sekolah/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2861,21 +2763,16 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/info-sekolah/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
-  async getInfoSekolahByFilter(params: {
-    jenis?: string;
-    target?: string;
-    isActive?: boolean;
-  }) {
+  async getInfoSekolahByFilter(params: { jenis?: string; target?: string; isActive?: boolean }) {
     const queryParams = new URLSearchParams();
-    if (params.jenis) queryParams.append("jenis", params.jenis);
-    if (params.target) queryParams.append("target", params.target);
-    if (params.isActive !== undefined)
-      queryParams.append("isActive", params.isActive.toString());
-
+    if (params.jenis) queryParams.append('jenis', params.jenis);
+    if (params.target) queryParams.append('target', params.target);
+    if (params.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
+    
     return this.request<{
       success: boolean;
       data?: any[];
@@ -2889,7 +2786,7 @@ class ApiService {
       success: boolean;
       data?: any[];
       message?: string;
-    }>("/pengumuman-kelulusan");
+    }>('/pengumuman-kelulusan');
   }
 
   async getPengumumanKelulusanById(id: string) {
@@ -2905,8 +2802,8 @@ class ApiService {
       success: boolean;
       data?: any;
       message?: string;
-    }>("/pengumuman-kelulusan", {
-      method: "POST",
+    }>('/pengumuman-kelulusan', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2917,7 +2814,7 @@ class ApiService {
       data?: any;
       message?: string;
     }>(`/pengumuman-kelulusan/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2927,23 +2824,16 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/pengumuman-kelulusan/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
-  async getPengumumanKelulusanByFilter(params: {
-    tahunAjaran?: string;
-    isPublished?: boolean;
-    isProcessed?: boolean;
-  }) {
+  async getPengumumanKelulusanByFilter(params: { tahunAjaran?: string; isPublished?: boolean; isProcessed?: boolean }) {
     const queryParams = new URLSearchParams();
-    if (params.tahunAjaran)
-      queryParams.append("tahunAjaran", params.tahunAjaran);
-    if (params.isPublished !== undefined)
-      queryParams.append("isPublished", params.isPublished.toString());
-    if (params.isProcessed !== undefined)
-      queryParams.append("isProcessed", params.isProcessed.toString());
-
+    if (params.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    if (params.isPublished !== undefined) queryParams.append('isPublished', params.isPublished.toString());
+    if (params.isProcessed !== undefined) queryParams.append('isProcessed', params.isProcessed.toString());
+    
     return this.request<{
       success: boolean;
       data?: any[];
@@ -2953,8 +2843,8 @@ class ApiService {
 
   async getActivePengumumanKelulusan(tahunAjaran?: string) {
     const queryParams = new URLSearchParams();
-    if (tahunAjaran) queryParams.append("tahunAjaran", tahunAjaran);
-
+    if (tahunAjaran) queryParams.append('tahunAjaran', tahunAjaran);
+    
     return this.request<{
       success: boolean;
       data?: any | null;
@@ -2982,9 +2872,9 @@ class ApiService {
         readNotificationIds: string[];
       };
       message?: string;
-    }>("/read-notifications/upsert", {
-      method: "POST",
-      body: JSON.stringify({userId, readNotificationIds}),
+    }>('/read-notifications/upsert', {
+      method: 'POST',
+      body: JSON.stringify({ userId, readNotificationIds }),
     });
   }
 
@@ -2996,16 +2886,13 @@ class ApiService {
         readNotificationIds: string[];
       };
       message?: string;
-    }>("/read-notifications/mark-as-read", {
-      method: "POST",
-      body: JSON.stringify({userId, notificationId}),
+    }>('/read-notifications/mark-as-read', {
+      method: 'POST',
+      body: JSON.stringify({ userId, notificationId }),
     });
   }
 
-  async markMultipleNotificationsAsRead(
-    userId: string,
-    notificationIds: string[],
-  ) {
+  async markMultipleNotificationsAsRead(userId: string, notificationIds: string[]) {
     return this.request<{
       success: boolean;
       data?: {
@@ -3013,84 +2900,65 @@ class ApiService {
         readNotificationIds: string[];
       };
       message?: string;
-    }>("/read-notifications/mark-multiple-as-read", {
-      method: "POST",
-      body: JSON.stringify({userId, notificationIds}),
+    }>('/read-notifications/mark-multiple-as-read', {
+      method: 'POST',
+      body: JSON.stringify({ userId, notificationIds }),
     });
   }
 
   // Has Given Kenaikan Kelas Info endpoints
   async getHasGivenKenaikanKelasInfo(tahunAjaran: string, semester: number) {
     const queryParams = new URLSearchParams();
-    queryParams.append("tahunAjaran", tahunAjaran);
-    queryParams.append("semester", semester.toString());
-
+    queryParams.append('tahunAjaran', tahunAjaran);
+    queryParams.append('semester', semester.toString());
+    
     return this.request<{
       success: boolean;
-      data?: {
-        hasGiven: boolean;
-        id?: string;
-        tahunAjaran?: string;
-        semester?: number;
-      };
+      data?: { hasGiven: boolean; id?: string; tahunAjaran?: string; semester?: number };
       message?: string;
     }>(`/has-given-kenaikan-kelas-info?${queryParams.toString()}`);
   }
 
-  async setHasGivenKenaikanKelasInfo(
-    tahunAjaran: string,
-    semester: number,
-    hasGiven: boolean = true,
-  ) {
+  async setHasGivenKenaikanKelasInfo(tahunAjaran: string, semester: number, hasGiven: boolean = true) {
     return this.request<{
       success: boolean;
       data?: any;
       message?: string;
-    }>("/has-given-kenaikan-kelas-info", {
-      method: "POST",
-      body: JSON.stringify({tahunAjaran, semester, hasGiven}),
+    }>('/has-given-kenaikan-kelas-info', {
+      method: 'POST',
+      body: JSON.stringify({ tahunAjaran, semester, hasGiven }),
     });
   }
 
   async deleteHasGivenKenaikanKelasInfo(tahunAjaran: string, semester: number) {
     const queryParams = new URLSearchParams();
-    queryParams.append("tahunAjaran", tahunAjaran);
-    queryParams.append("semester", semester.toString());
-
+    queryParams.append('tahunAjaran', tahunAjaran);
+    queryParams.append('semester', semester.toString());
+    
     return this.request<{
       success: boolean;
       message?: string;
     }>(`/has-given-kenaikan-kelas-info?${queryParams.toString()}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // Capaian Pembelajaran endpoints
-  async getAllCapaianPembelajaran(params?: {
-    guruId?: string;
-    tingkat?: number;
-    mataPelajaranId?: string;
-    tahunAjaran?: string;
-    semester?: number;
-  }) {
+  async getAllCapaianPembelajaran(params?: { guruId?: string; tingkat?: number; mataPelajaranId?: string; tahunAjaran?: string; semester?: number }) {
     const queryParams = new URLSearchParams();
-    if (params?.guruId) queryParams.append("guruId", params.guruId);
-    if (params?.tingkat)
-      queryParams.append("tingkat", params.tingkat.toString());
-    if (params?.mataPelajaranId)
-      queryParams.append("mataPelajaranId", params.mataPelajaranId);
-    if (params?.tahunAjaran)
-      queryParams.append("tahunAjaran", params.tahunAjaran);
-    if (params?.semester)
-      queryParams.append("semester", params.semester.toString());
-
+    if (params?.guruId) queryParams.append('guruId', params.guruId);
+    if (params?.tingkat) queryParams.append('tingkat', params.tingkat.toString());
+    if (params?.mataPelajaranId) queryParams.append('mataPelajaranId', params.mataPelajaranId);
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    if (params?.semester) queryParams.append('semester', params.semester.toString());
+    
     const queryString = queryParams.toString();
     return this.request<{
       success: boolean;
       capaianPembelajaran?: any[];
       count?: number;
       message?: string;
-    }>(`/capaian-pembelajaran${queryString ? `?${queryString}` : ""}`);
+    }>(`/capaian-pembelajaran${queryString ? `?${queryString}` : ''}`);
   }
 
   async getCapaianPembelajaranById(id: string) {
@@ -3101,34 +2969,24 @@ class ApiService {
     }>(`/capaian-pembelajaran/${id}`);
   }
 
-  async createCapaianPembelajaran(data: {
-    guruId: string;
-    tingkat: number;
-    mataPelajaranId: string;
-    capaianPembelajaran: string;
-    tahunAjaran: string;
-    semester: number;
-  }) {
+  async createCapaianPembelajaran(data: { guruId: string; tingkat: number; mataPelajaranId: string; capaianPembelajaran: string; tahunAjaran: string; semester: number }) {
     return this.request<{
       success: boolean;
       capaianPembelajaran?: any;
       message?: string;
-    }>("/capaian-pembelajaran", {
-      method: "POST",
+    }>('/capaian-pembelajaran', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateCapaianPembelajaran(
-    id: string,
-    data: {capaianPembelajaran: string},
-  ) {
+  async updateCapaianPembelajaran(id: string, data: { capaianPembelajaran: string }) {
     return this.request<{
       success: boolean;
       capaianPembelajaran?: any;
       message?: string;
     }>(`/capaian-pembelajaran/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -3138,21 +2996,17 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/capaian-pembelajaran/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // Capaian Pembelajaran Kelas endpoints (new structure)
-  async getCapaianPembelajaranKelas(params: {
-    guruId: string;
-    tahunAjaran: string;
-    semester: number;
-  }) {
+  async getCapaianPembelajaranKelas(params: { guruId: string; tahunAjaran: string; semester: number }) {
     const queryParams = new URLSearchParams();
-    queryParams.append("guruId", params.guruId);
-    queryParams.append("tahunAjaran", params.tahunAjaran);
-    queryParams.append("semester", params.semester.toString());
-
+    queryParams.append('guruId', params.guruId);
+    queryParams.append('tahunAjaran', params.tahunAjaran);
+    queryParams.append('semester', params.semester.toString());
+    
     return this.request<{
       success: boolean;
       capaianPembelajaran?: any;
@@ -3176,8 +3030,8 @@ class ApiService {
       success: boolean;
       capaianPembelajaran?: any;
       message?: string;
-    }>("/capaian-pembelajaran/guru", {
-      method: "POST",
+    }>('/capaian-pembelajaran/guru', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -3194,8 +3048,8 @@ class ApiService {
       success: boolean;
       capaianPembelajaran?: any;
       message?: string;
-    }>("/capaian-pembelajaran/item", {
-      method: "POST",
+    }>('/capaian-pembelajaran/item', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -3211,25 +3065,24 @@ class ApiService {
       success: boolean;
       capaianPembelajaran?: any;
       message?: string;
-    }>("/capaian-pembelajaran/item", {
-      method: "DELETE",
+    }>('/capaian-pembelajaran/item', {
+      method: 'DELETE',
       body: JSON.stringify(data),
     });
   }
 
   // Ekstrakulikuler endpoints
-  async getAllEkstrakulikuler(params?: {isActive?: boolean}) {
+  async getAllEkstrakulikuler(params?: { isActive?: boolean }) {
     const queryParams = new URLSearchParams();
-    if (params?.isActive !== undefined)
-      queryParams.append("isActive", params.isActive.toString());
-
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
+    
     const queryString = queryParams.toString();
     return this.request<{
       success: boolean;
       ekstrakulikuler?: any[];
       count?: number;
       message?: string;
-    }>(`/ekstrakulikuler${queryString ? `?${queryString}` : ""}`);
+    }>(`/ekstrakulikuler${queryString ? `?${queryString}` : ''}`);
   }
 
   async getEkstrakulikulerById(id: string) {
@@ -3240,36 +3093,24 @@ class ApiService {
     }>(`/ekstrakulikuler/${id}`);
   }
 
-  async createEkstrakulikuler(data: {
-    nama: string;
-    deskripsi?: string;
-    pembinaId: string;
-  }) {
+  async createEkstrakulikuler(data: { nama: string; deskripsi?: string; pembinaId: string }) {
     return this.request<{
       success: boolean;
       ekstrakulikuler?: any;
       message?: string;
-    }>("/ekstrakulikuler", {
-      method: "POST",
+    }>('/ekstrakulikuler', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateEkstrakulikuler(
-    id: string,
-    data: {
-      nama?: string;
-      deskripsi?: string;
-      pembinaId?: string;
-      isActive?: boolean;
-    },
-  ) {
+  async updateEkstrakulikuler(id: string, data: { nama?: string; deskripsi?: string; pembinaId?: string; isActive?: boolean }) {
     return this.request<{
       success: boolean;
       ekstrakulikuler?: any;
       message?: string;
     }>(`/ekstrakulikuler/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -3279,59 +3120,49 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/ekstrakulikuler/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // Nilai Ekstrakulikuler endpoints
-  async getAllNilaiEkstrakulikuler(params?: {
-    muridId?: string;
-    kelasId?: string;
-    semester?: number;
+  async getAllNilaiEkstrakulikuler(params?: { 
+    muridId?: string; 
+    kelasId?: string; 
+    semester?: number; 
     tahunAjaran?: string;
     ekstrakulikulerId?: string;
   }) {
     const queryParams = new URLSearchParams();
-    if (params?.muridId) queryParams.append("muridId", params.muridId);
-    if (params?.kelasId) queryParams.append("kelasId", params.kelasId);
-    if (params?.semester !== undefined)
-      queryParams.append("semester", params.semester.toString());
-    if (params?.tahunAjaran)
-      queryParams.append("tahunAjaran", params.tahunAjaran);
-    if (params?.ekstrakulikulerId)
-      queryParams.append("ekstrakulikulerId", params.ekstrakulikulerId);
-
+    if (params?.muridId) queryParams.append('muridId', params.muridId);
+    if (params?.kelasId) queryParams.append('kelasId', params.kelasId);
+    if (params?.semester !== undefined) queryParams.append('semester', params.semester.toString());
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    if (params?.ekstrakulikulerId) queryParams.append('ekstrakulikulerId', params.ekstrakulikulerId);
+    
     const queryString = queryParams.toString();
     return this.request<{
       success: boolean;
       nilaiEkstrakulikuler?: any[];
       count?: number;
       message?: string;
-    }>(`/nilai-ekstrakulikuler${queryString ? `?${queryString}` : ""}`);
+    }>(`/nilai-ekstrakulikuler${queryString ? `?${queryString}` : ''}`);
   }
 
-  async getNilaiEkstrakulikulerByMuridId(
-    muridId: string,
-    params?: {
-      semester?: number;
-      tahunAjaran?: string;
-    },
-  ) {
+  async getNilaiEkstrakulikulerByMuridId(muridId: string, params?: { 
+    semester?: number; 
+    tahunAjaran?: string;
+  }) {
     const queryParams = new URLSearchParams();
-    if (params?.semester !== undefined)
-      queryParams.append("semester", params.semester.toString());
-    if (params?.tahunAjaran)
-      queryParams.append("tahunAjaran", params.tahunAjaran);
-
+    if (params?.semester !== undefined) queryParams.append('semester', params.semester.toString());
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    
     const queryString = queryParams.toString();
     return this.request<{
       success: boolean;
       nilaiEkstrakulikuler?: any[];
       count?: number;
       message?: string;
-    }>(
-      `/nilai-ekstrakulikuler/murid/${muridId}${queryString ? `?${queryString}` : ""}`,
-    );
+    }>(`/nilai-ekstrakulikuler/murid/${muridId}${queryString ? `?${queryString}` : ''}`);
   }
 
   async getNilaiEkstrakulikulerById(id: string) {
@@ -3342,36 +3173,33 @@ class ApiService {
     }>(`/nilai-ekstrakulikuler/${id}`);
   }
 
-  async createNilaiEkstrakulikuler(data: {
-    muridId: string;
-    ekstrakulikulerId: string;
-    nilai: number;
-    semester: number;
+  async createNilaiEkstrakulikuler(data: { 
+    muridId: string; 
+    ekstrakulikulerId: string; 
+    nilai: number; 
+    semester: number; 
     tahunAjaran: string;
   }) {
     return this.request<{
       success: boolean;
       nilaiEkstrakulikuler?: any;
       message?: string;
-    }>("/nilai-ekstrakulikuler", {
-      method: "POST",
+    }>('/nilai-ekstrakulikuler', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateNilaiEkstrakulikuler(
-    id: string,
-    data: {
-      nilai?: number;
-      ekstrakulikulerId?: string;
-    },
-  ) {
+  async updateNilaiEkstrakulikuler(id: string, data: { 
+    nilai?: number; 
+    ekstrakulikulerId?: string;
+  }) {
     return this.request<{
       success: boolean;
       nilaiEkstrakulikuler?: any;
       message?: string;
     }>(`/nilai-ekstrakulikuler/${id}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -3381,21 +3209,17 @@ class ApiService {
       success: boolean;
       message?: string;
     }>(`/nilai-ekstrakulikuler/${id}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // Nilai Ekstrakulikuler Kelas endpoints (new structure)
-  async getNilaiEkstrakulikulerKelas(params: {
-    kelasId: string;
-    tahunAjaran: string;
-    semester: number;
-  }) {
+  async getNilaiEkstrakulikulerKelas(params: { kelasId: string; tahunAjaran: string; semester: number }) {
     const queryParams = new URLSearchParams();
-    queryParams.append("kelasId", params.kelasId);
-    queryParams.append("tahunAjaran", params.tahunAjaran);
-    queryParams.append("semester", params.semester.toString());
-
+    queryParams.append('kelasId', params.kelasId);
+    queryParams.append('tahunAjaran', params.tahunAjaran);
+    queryParams.append('semester', params.semester.toString());
+    
     return this.request<{
       success: boolean;
       nilaiEkstrakulikuler?: any;
@@ -3422,8 +3246,8 @@ class ApiService {
       success: boolean;
       nilaiEkstrakulikuler?: any;
       message?: string;
-    }>("/nilai-ekstrakulikuler/kelas", {
-      method: "POST",
+    }>('/nilai-ekstrakulikuler/kelas', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -3440,8 +3264,8 @@ class ApiService {
       success: boolean;
       nilaiEkstrakulikuler?: any;
       message?: string;
-    }>("/nilai-ekstrakulikuler/murid", {
-      method: "POST",
+    }>('/nilai-ekstrakulikuler/murid', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -3457,23 +3281,19 @@ class ApiService {
       success: boolean;
       nilaiEkstrakulikuler?: any;
       message?: string;
-    }>("/nilai-ekstrakulikuler/murid", {
-      method: "DELETE",
+    }>('/nilai-ekstrakulikuler/murid', {
+      method: 'DELETE',
       body: JSON.stringify(data),
     });
   }
 
   // Kokulikuler endpoints
-  async getKokulikuler(params: {
-    kelasId: string;
-    tahunAjaran: string;
-    semester: number;
-  }) {
+  async getKokulikuler(params: { kelasId: string; tahunAjaran: string; semester: number }) {
     const queryParams = new URLSearchParams();
-    queryParams.append("kelasId", params.kelasId);
-    queryParams.append("tahunAjaran", params.tahunAjaran);
-    queryParams.append("semester", params.semester.toString());
-
+    queryParams.append('kelasId', params.kelasId);
+    queryParams.append('tahunAjaran', params.tahunAjaran);
+    queryParams.append('semester', params.semester.toString());
+    
     return this.request<{
       success: boolean;
       kokulikuler?: any;
@@ -3486,14 +3306,14 @@ class ApiService {
     waliKelasId: string;
     tahunAjaran: string;
     semester: number;
-    muridData: Array<{muridId: string; kokulikuler: string}>;
+    muridData: Array<{ muridId: string; kokulikuler: string }>;
   }) {
     return this.request<{
       success: boolean;
       kokulikuler?: any;
       message?: string;
-    }>("/kokulikuler", {
-      method: "POST",
+    }>('/kokulikuler', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -3510,8 +3330,8 @@ class ApiService {
       success: boolean;
       kokulikuler?: any;
       message?: string;
-    }>("/kokulikuler/murid", {
-      method: "PUT",
+    }>('/kokulikuler/murid', {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -3525,8 +3345,8 @@ class ApiService {
       success: boolean;
       eraport?: any;
       message?: string;
-    }>("/e-raport/generate", {
-      method: "POST",
+    }>('/e-raport/generate', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -3537,10 +3357,10 @@ class ApiService {
     semester: number;
   }) {
     const queryParams = new URLSearchParams();
-    queryParams.append("kelasId", params.kelasId);
-    queryParams.append("tahunAjaran", params.tahunAjaran);
-    queryParams.append("semester", params.semester.toString());
-
+    queryParams.append('kelasId', params.kelasId);
+    queryParams.append('tahunAjaran', params.tahunAjaran);
+    queryParams.append('semester', params.semester.toString());
+    
     return this.request<{
       success: boolean;
       eraport?: any;
@@ -3555,11 +3375,11 @@ class ApiService {
     muridId: string;
   }) {
     const queryParams = new URLSearchParams();
-    queryParams.append("kelasId", params.kelasId);
-    queryParams.append("tahunAjaran", params.tahunAjaran);
-    queryParams.append("semester", params.semester.toString());
-    queryParams.append("muridId", params.muridId);
-
+    queryParams.append('kelasId', params.kelasId);
+    queryParams.append('tahunAjaran', params.tahunAjaran);
+    queryParams.append('semester', params.semester.toString());
+    queryParams.append('muridId', params.muridId);
+    
     return this.request<{
       success: boolean;
       eraport?: any;
@@ -3572,11 +3392,12 @@ class ApiService {
     return this.request<{
       success: boolean;
       message?: string;
-    }>("/reset-database", {
-      method: "POST",
-      body: JSON.stringify({activationPassword}),
+    }>('/reset-database', {
+      method: 'POST',
+      body: JSON.stringify({ activationPassword }),
     });
   }
 }
 
 export const apiService = new ApiService();
+

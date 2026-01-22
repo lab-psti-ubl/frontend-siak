@@ -369,22 +369,31 @@ export const useAbsensiTahfizHandlers = (
     }
 
     const santriUser = santri.find(u => u.id === parsed.muridId) ||
+      santri.find(u => (u as any).muridId === parsed.muridId) ||
       santri.find(u => parsed.nisn && (u as any).nisn === parsed.nisn);
     if (!santriUser) {
       showNotification('error', t('tahfiz.absensiTahfiz.santriTidakDitemukan'), t('tahfiz.absensiTahfiz.santriTidakDitemukanDalamSistem'));
       return;
     }
 
+    const possibleSantriIds: string[] = [];
+    if (santriUser.id) possibleSantriIds.push(santriUser.id);
+    const muridIdFromSantri = (santriUser as any)?.muridId as string | undefined;
+    if (muridIdFromSantri) possibleSantriIds.push(muridIdFromSantri);
+
     const jadwal = jadwalTahfiz.find(j => j.id === selectedSesi.jadwalId);
     const kelas = kelasTahfiz.find(k => k.id === jadwal?.kelasId);
     const santriKelasIds = kelas?.santriIds || [];
     
-    if (!jadwal || !santriKelasIds.includes(santriUser.id)) {
+    const isMemberOfClass = possibleSantriIds.some(id => santriKelasIds.includes(id));
+
+    if (!jadwal || !isMemberOfClass) {
       showNotification('error', t('tahfiz.absensiTahfiz.kelasTidakSesuai'), t('tahfiz.absensiTahfiz.santriBukanDariKelasIni'));
       return;
     }
 
-    const existingAbsensi = selectedSesi.dataAbsensi?.find(a => a.muridId === santriUser.id);
+    const attendanceId = santriUser.id || muridIdFromSantri || parsed.muridId;
+    const existingAbsensi = selectedSesi.dataAbsensi?.find(a => a.muridId === attendanceId);
 
     if (existingAbsensi) {
       showNotification('warning', t('tahfiz.absensiTahfiz.sudahAbsen'), t('tahfiz.absensiTahfiz.santriSudahMelakukanAbsensi', { santriName: santriUser.name }));
@@ -394,7 +403,7 @@ export const useAbsensiTahfizHandlers = (
     try {
       const absensiData: Partial<AbsensiPelajaran> = {
         id: `absensi-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        muridId: santriUser.id,
+        muridId: attendanceId,
         status: 'hadir',
         waktu: getLocalTimeISOString(),
         keterangan: 'Absen via QR Code',

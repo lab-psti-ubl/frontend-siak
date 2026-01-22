@@ -23,6 +23,7 @@ interface QRScanHandlerParams {
   lastProcessedScan: {data: string, time: number} | null;
   setLastProcessedScan: (scan: {data: string, time: number} | null) => void;
   SCAN_DEBOUNCE_TIME: number;
+  kelasIdOverride?: string;
 }
 
 export const handleAdminQRScanIntegrated = async ({
@@ -39,10 +40,12 @@ export const handleAdminQRScanIntegrated = async ({
   setRefreshKey,
   lastProcessedScan,
   setLastProcessedScan,
-  SCAN_DEBOUNCE_TIME
+  SCAN_DEBOUNCE_TIME,
+  kelasIdOverride
 }: QRScanHandlerParams): Promise<ScanResult | null> => {
   const currentTime = Date.now();
   const currentTime24 = new Date().toLocaleTimeString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit' });
+  const effectiveKelasId = kelasIdOverride || user?.kelasId;
 
   if (lastProcessedScan &&
       lastProcessedScan.data === qrData &&
@@ -60,6 +63,19 @@ export const handleAdminQRScanIntegrated = async ({
       errorType: 'not_registered'
     };
     showErrorNotification('Error', 'User tidak valid!');
+    return result;
+  }
+
+  if (!effectiveKelasId) {
+    const result: ScanResult = {
+      user,
+      role: 'murid',
+      timestamp: currentTime24,
+      statusMessage: 'Kelas Anda belum ditetapkan, hubungi admin.',
+      isError: true,
+      errorType: 'not_registered'
+    };
+    showErrorNotification('Kelas Tidak Ditemukan', 'Kelas Anda belum ditetapkan. Hubungi admin untuk mengatur kelas.');
     return result;
   }
 
@@ -88,7 +104,7 @@ export const handleAdminQRScanIntegrated = async ({
       return result;
     }
 
-    const muridKelas = kelas.find(k => k.id === user.kelasId);
+    const muridKelas = kelas.find(k => k.id === effectiveKelasId);
     if (!muridKelas) {
       const result: ScanResult = {
         user: user,
@@ -245,10 +261,10 @@ export const handleAdminQRScanIntegrated = async ({
 
   // Use new structure: one document per day
   const newAbsensi: Partial<Absensi> = {
-    id: `${today}-${user.kelasId}-${user.id}`, // No tipeAbsen in ID
+    id: `${today}-${effectiveKelasId}-${user.id}`, // No tipeAbsen in ID
     muridId: user.id,
     tanggal: today,
-    kelasId: user.kelasId,
+    kelasId: effectiveKelasId,
     method: 'admin-qr',
     tahunAjaranId: activeTA.id,
     semester: activeTA.semester,

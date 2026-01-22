@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useLocation } from 'react-router-dom';
 import { useOnboardingTour, OnboardingStep } from '../hooks/useOnboardingTour';
 import OnboardingTourModal from '../components/admin/OnboardingTourModal';
+import { usePengaturanSistem } from '../hooks/usePengaturanSistem';
 
 interface OnboardingTourContextType {
   refreshTour: () => void;
@@ -28,10 +29,15 @@ export const OnboardingTourProvider: React.FC<OnboardingTourProviderProps> = ({
   enabled = true 
 }) => {
   const { currentStep, isLoading, refreshData } = useOnboardingTour();
+  const { systemType } = usePengaturanSistem();
   const [showModal, setShowModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const location = useLocation();
   const [navigatedFromModal, setNavigatedFromModal] = useState(false);
+  
+  // Disable onboarding for tahfiz system
+  const isTahfizSystem = systemType === 'tahfiz';
+  const isOnboardingEnabled = enabled && !isTahfizSystem;
 
   // Check if user navigated from modal (stored in sessionStorage)
   useEffect(() => {
@@ -88,7 +94,7 @@ export const OnboardingTourProvider: React.FC<OnboardingTourProviderProps> = ({
     const isFormRoute = formRoutes.some(route => location.pathname.includes(route));
     
     // Don't show modal if:
-    // 1. Not enabled
+    // 1. Not enabled (or system is tahfiz)
     // 2. No current step
     // 3. Still loading
     // 4. User just navigated from modal (within 2 seconds)
@@ -97,7 +103,7 @@ export const OnboardingTourProvider: React.FC<OnboardingTourProviderProps> = ({
     // 7. Current route is a form route (like tambah-murid)
     //    Note: We skip showing modal on the current route, not the target route
     const shouldShow = 
-      enabled && 
+      isOnboardingEnabled && 
       currentStep && 
       !isLoading && 
       !navigatedFromModal &&
@@ -114,7 +120,7 @@ export const OnboardingTourProvider: React.FC<OnboardingTourProviderProps> = ({
     } else {
       setShowModal(false);
     }
-  }, [currentStep, isLoading, enabled, refreshKey, navigatedFromModal, location.pathname]);
+  }, [currentStep, isLoading, isOnboardingEnabled, refreshKey, navigatedFromModal, location.pathname, systemType]);
 
   const handleClose = () => {
     setShowModal(false);
@@ -123,7 +129,7 @@ export const OnboardingTourProvider: React.FC<OnboardingTourProviderProps> = ({
   return (
     <OnboardingTourContext.Provider value={{ refreshTour, currentStep }}>
       {children}
-      {enabled && showModal && currentStep && (
+      {isOnboardingEnabled && showModal && currentStep && (
         <OnboardingTourModal
           step={currentStep}
           onClose={handleClose}

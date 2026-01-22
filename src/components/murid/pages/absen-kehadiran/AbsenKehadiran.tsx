@@ -9,6 +9,8 @@ import { useSesiAbsensi } from '../../../../hooks/useSesiAbsensi';
 import { useJadwalPelajaran } from '../../../../hooks/useJadwalPelajaran';
 import { useMataPelajaran } from '../../../../hooks/useMataPelajaran';
 import { useKelas } from '../../../../hooks/useKelas';
+import { useKelasTahfiz } from '../../../../hooks/useKelasTahfiz';
+import { useSantri } from '../../../../hooks/useSantri';
 import { useTahunAjaran } from '../../../../hooks/useTahunAjaran';
 import { useGurus } from '../../../../hooks/useGurus';
 import { usePengaturanAbsen } from '../../../../hooks/usePengaturanAbsen';
@@ -36,6 +38,8 @@ const AbsenKehadiran: React.FC = () => {
   const { jadwalPelajaran } = useJadwalPelajaran();
   const { mataPelajaran } = useMataPelajaran();
   const { kelas } = useKelas();
+  const { kelasTahfiz } = useKelasTahfiz();
+  const { santri } = useSantri();
   const { tahunAjaran } = useTahunAjaran();
   const { gurus } = useGurus();
   const { pengaturanAbsen, activePengaturanAbsen } = usePengaturanAbsen();
@@ -91,7 +95,25 @@ const AbsenKehadiran: React.FC = () => {
     return currentDate.getFullYear();
   });
 
-  const muridKelas = kelas.find(k => k.id === user?.kelasId);
+  const santriRecord = user?.id
+    ? santri.find(s => s.id === user.id || (s as any).muridId === user.id)
+    : null;
+  const isSantriNotFromMurid = santriRecord && (santriRecord as any).isFromMurid === false;
+  const myTahfizClasses = santriRecord
+    ? kelasTahfiz.filter(cls => {
+        const possibleIds = [
+          santriRecord.id,
+          (santriRecord as any)?.muridId as string | undefined
+        ].filter(Boolean) as string[];
+        return possibleIds.some(id => cls.santriIds.includes(id));
+      })
+    : [];
+  const tahfizKelasId = myTahfizClasses[0]?.id;
+  const effectiveKelasIdForAttendance = (isSantriNotFromMurid && tahfizKelasId) || user?.kelasId || tahfizKelasId || '';
+  const muridKelas = kelas.find(k => k.id === effectiveKelasIdForAttendance);
+  const displayKelasName = isSantriNotFromMurid && myTahfizClasses.length > 0
+    ? myTahfizClasses.map(c => c.namaKelas).join(', ')
+    : muridKelas?.name || 'Kelas tidak ditemukan';
 
   const getTodayStatusDetail = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -276,6 +298,7 @@ const AbsenKehadiran: React.FC = () => {
       lastProcessedScan,
       setLastProcessedScan,
       SCAN_DEBOUNCE_TIME,
+      kelasIdOverride: effectiveKelasIdForAttendance,
     });
 
     if (result) {
@@ -331,7 +354,11 @@ const AbsenKehadiran: React.FC = () => {
 
   const handleManualAbsen = async (tipeAbsen: 'masuk' | 'pulang', keterangan?: string) => {
     const today = new Date().toISOString().split('T')[0];
-    const idKey = `${today}-${user?.kelasId}-${user?.id}`; // No tipeAbsen in ID
+    if (!effectiveKelasIdForAttendance) {
+      showErrorNotification('Kelas Tidak Ditemukan', 'Kelas Anda belum ditetapkan. Hubungi admin.');
+      return;
+    }
+    const idKey = `${today}-${effectiveKelasIdForAttendance}-${user?.id}`; // No tipeAbsen in ID
     const nowIso = getLocalTimeISOString();
 
     // Check if trying to absen masuk but current time has passed jam pulang
@@ -390,7 +417,7 @@ const AbsenKehadiran: React.FC = () => {
       id: idKey,
       muridId: user?.id || '',
       tanggal: today,
-      kelasId: user?.kelasId || '',
+      kelasId: effectiveKelasIdForAttendance || '',
       method: 'manual',
       statusAbsen: 'tepat_waktu',
       keterangan: keterangan,
@@ -685,7 +712,7 @@ const AbsenKehadiran: React.FC = () => {
                 <div>
                   <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Kelas Saat Ini</p>
                   <h4 className="text-base sm:text-lg font-bold text-blue-900">
-                    {muridKelas?.name || 'Kelas tidak ditemukan'}
+                    {displayKelasName}
                   </h4>
                 </div>
               </div>

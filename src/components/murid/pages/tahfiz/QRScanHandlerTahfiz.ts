@@ -12,6 +12,8 @@ interface QRScanHandlerTahfizParams {
   sesiAbsensiTahfiz: SesiAbsensiTahfiz[];
   jadwalTahfiz: TahfizSchedule[];
   kelasTahfiz: KelasTahfiz[];
+  santriList?: User[];
+  attendanceUserId?: string;
   refreshSesiAbsensiTahfiz: () => Promise<void>;
   setRefreshKey: React.Dispatch<React.SetStateAction<number>>;
   lastProcessedScan: {data: string, time: number} | null;
@@ -39,6 +41,8 @@ export const handleQRScanResultTahfiz = async ({
   sesiAbsensiTahfiz,
   jadwalTahfiz,
   kelasTahfiz,
+  santriList,
+  attendanceUserId,
   refreshSesiAbsensiTahfiz,
   setRefreshKey,
   lastProcessedScan,
@@ -46,6 +50,19 @@ export const handleQRScanResultTahfiz = async ({
   SCAN_DEBOUNCE_TIME
 }: QRScanHandlerTahfizParams): Promise<boolean> => {
   const currentTime = Date.now();
+  const resolvedUserId = attendanceUserId || user?.id;
+  const santriRecord = resolvedUserId && santriList
+    ? santriList.find(s => s.id === resolvedUserId || (s as any).muridId === resolvedUserId)
+    : undefined;
+  const possibleSantriIds: string[] = [];
+  if (resolvedUserId) possibleSantriIds.push(resolvedUserId);
+  if (santriRecord?.id && !possibleSantriIds.includes(santriRecord.id)) {
+    possibleSantriIds.push(santriRecord.id);
+  }
+  const muridIdFromSantri = (santriRecord as any)?.muridId as string | undefined;
+  if (muridIdFromSantri && !possibleSantriIds.includes(muridIdFromSantri)) {
+    possibleSantriIds.push(muridIdFromSantri);
+  }
 
   // Check if scan already processed
   if (processedScansTahfiz.has(qrData)) {
@@ -133,14 +150,19 @@ export const handleQRScanResultTahfiz = async ({
     }
 
     const kelas = kelasTahfiz.find(k => k.id === jadwal.kelasId);
-    if (!kelas || !kelas.santriIds.includes(user.id)) {
+    const isMemberOfClass = kelas
+      ? possibleSantriIds.some(id => kelas.santriIds.includes(id))
+      : false;
+
+    if (!kelas || !isMemberOfClass) {
       isProcessingTahfiz = false;
       showErrorNotification('Kelas Tidak Sesuai', 'Anda bukan santri dari kelas ini!');
       return false;
     }
 
     try {
-      const existingAbsensiPelajaran = sesi.dataAbsensi?.find(a => a.muridId === user.id);
+      const attendanceId = santriRecord?.id || resolvedUserId || user.id;
+      const existingAbsensiPelajaran = sesi.dataAbsensi?.find(a => a.muridId === attendanceId);
 
       if (existingAbsensiPelajaran) {
         isProcessingTahfiz = false;
@@ -150,7 +172,7 @@ export const handleQRScanResultTahfiz = async ({
 
       const absensiPelajaranData = {
         id: `absensi-tahfiz-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        muridId: user.id,
+        muridId: attendanceId,
         status: 'hadir',
         waktu: getLocalTimeISOString(),
         keterangan: 'Absen via QR Code',

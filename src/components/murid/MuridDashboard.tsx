@@ -48,7 +48,7 @@ const MuridDashboard: React.FC = () => {
       : undefined
   );
   const { sesiAbsensi } = useSesiAbsensi();
-  const { absensi, refreshAbsensi, createAbsensi } = useAbsensi({ muridId: murid?.id });
+  const { absensi, refreshAbsensi, createAbsensi } = useAbsensi({ muridId: user?.id });
   const { suratIzin } = useSuratIzin();
   const { kelas } = useKelas();
   const { mataPelajaran } = useMataPelajaran();
@@ -606,6 +606,326 @@ const MuridDashboard: React.FC = () => {
 
   // Dashboard khusus untuk santri tahfiz (bukan dari murid)
   if (isSantriNotFromMurid) {
+    // Get tahfiz class ID for attendance (use first class)
+    const tahfizKelasId = myTahfizClasses[0]?.id;
+    const effectiveKelasIdForAttendance = tahfizKelasId || '';
+    
+    // Get today's kehadiran absensi for santri tahfiz (using existing absensi hook)
+    const todayKehadiranAbsensiSantri = absensi.find(a =>
+      a.muridId === user?.id &&
+      a.tanggal === today
+    );
+
+    // Get today's status detail for santri tahfiz
+    const getTodayStatusDetailSantri = () => {
+      const todayAbsensi = absensi.find(a =>
+        a.muridId === user?.id && a.tanggal === today
+      );
+
+      let masuk: Absensi | undefined;
+      let pulang: Absensi | undefined;
+
+      if (todayAbsensi) {
+        if (todayAbsensi.jamMasuk || todayAbsensi.statusMasuk) {
+          masuk = {
+            ...todayAbsensi,
+            tipeAbsen: 'masuk',
+            waktu: todayAbsensi.jamMasuk || todayAbsensi.waktu || '',
+            status: todayAbsensi.statusMasuk === 'izin' ? 'izin' :
+                    todayAbsensi.statusMasuk === 'sakit' ? 'sakit' :
+                    todayAbsensi.statusMasuk === 'alfa' ? 'alfa' :
+                    todayAbsensi.statusMasuk === 'terlambat' ? 'terlambat' : 'hadir',
+          };
+        }
+
+        if (todayAbsensi.jamKeluar || todayAbsensi.statusKeluar) {
+          pulang = {
+            ...todayAbsensi,
+            tipeAbsen: 'pulang',
+            waktu: todayAbsensi.jamKeluar || todayAbsensi.waktu || '',
+            status: todayAbsensi.statusKeluar === 'izin' ? 'izin' :
+                    todayAbsensi.statusKeluar === 'sakit' ? 'sakit' :
+                    todayAbsensi.statusKeluar === 'alfa' ? 'alfa' :
+                    todayAbsensi.statusKeluar === 'pulang_awal' ? 'pulang_cepat' : 'hadir',
+          };
+        }
+      }
+
+      // Backward compatibility: check old structure
+      if (!masuk && !pulang) {
+        const todayAbsensiOld = absensi.filter(a =>
+          a.muridId === user?.id &&
+          a.tipeAbsen !== undefined &&
+          (a.waktu?.startsWith(today) || a.tanggal === today)
+        );
+
+        masuk = todayAbsensiOld.find(a => a.tipeAbsen === 'masuk');
+        pulang = todayAbsensiOld.find(a => a.tipeAbsen === 'pulang');
+      }
+
+      let displayStatusMasuk: string | null = null;
+      let displayStatusPulang: string | null = null;
+
+      if (masuk) {
+        if (masuk.status === 'izin' || masuk.status === 'sakit' || masuk.status === 'alfa') {
+          displayStatusMasuk = masuk.status.charAt(0).toUpperCase() + masuk.status.slice(1);
+        } else {
+          if (masuk.waktu) {
+            const statusMasuk = getAbsenMasukStatus(
+              new Date(masuk.waktu).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
+              activePengaturanAbsen || undefined
+            );
+            displayStatusMasuk = statusMasuk === 'hadir' ? 'Tepat Waktu' : 'Terlambat';
+          }
+        }
+      }
+
+      if (pulang) {
+        if (pulang.status === 'izin' || pulang.status === 'sakit' || pulang.status === 'alfa') {
+          displayStatusPulang = pulang.status === 'alfa' ? 'Tidak Absen' : pulang.status.charAt(0).toUpperCase() + pulang.status.slice(1);
+        } else {
+          if (pulang.waktu) {
+            const statusPulang = getAbsenPulangStatus(
+              new Date(pulang.waktu).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
+              activePengaturanAbsen || undefined
+            );
+            displayStatusPulang = statusPulang === 'hadir' ? 'Tepat Waktu' : 'Pulang Cepat';
+          }
+        }
+      }
+
+      return {
+        displayStatusMasuk,
+        displayStatusPulang,
+        masukRawStatus: masuk?.status,
+        pulangRawStatus: pulang?.status,
+        hasMasuk: !!masuk,
+        hasPulang: !!pulang,
+        masuk,
+        pulang
+      };
+    };
+
+    const todayDetailSantri = getTodayStatusDetailSantri();
+    
+    // Get today's stats for santri tahfiz
+    const todayStatsSantri = getTodayKehadiranStatsIntegrated(absensi, user?.id || '');
+
+    // Handle Absen Masuk for santri tahfiz
+    const handleAbsenMasukSantri = async () => {
+      if (!user || !activeTahunAjaran || !effectiveKelasIdForAttendance) {
+        showErrorNotification('Error', 'Data tidak lengkap');
+        return;
+      }
+
+      if (todayDetailSantri.hasMasuk) {
+        showErrorNotification('Sudah Absen', 'Anda sudah melakukan absen masuk hari ini');
+        return;
+      }
+
+      const pengaturanAbsenArray = activePengaturanAbsen ? [activePengaturanAbsen] : [];
+      if (!isAttendanceDayAllowed(today, 'murid', pengaturanAbsenArray)) {
+        const dayName = getDayNameInIndonesian(today);
+        showErrorNotification(
+          'Absensi Tidak Diizinkan',
+          `Absensi tidak diizinkan pada hari ${dayName}. Silakan absen pada hari sekolah yang telah ditentukan.`
+        );
+        return;
+      }
+
+      if (activePengaturanAbsen) {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const [jamPulangHour, jamPulangMinute] = activePengaturanAbsen.jamPulang.split(':').map(Number);
+        
+        const currentTimeMinutes = currentHour * 60 + currentMinute;
+        const jamPulangMinutes = jamPulangHour * 60 + jamPulangMinute;
+        
+        if (currentTimeMinutes > jamPulangMinutes) {
+          showErrorNotification(
+            'Tidak Dapat Absen Masuk', 
+            `Waktu absen masuk sudah melewati jam pulang (${activePengaturanAbsen.jamPulang}). Anda tidak dapat melakukan absen masuk.`
+          );
+          return;
+        }
+      }
+
+      setIsSubmittingMasuk(true);
+      try {
+        const nowIso = getLocalTimeISOString();
+        const idKey = `${today}-${effectiveKelasIdForAttendance}-${user.id}`;
+
+        const newAbsensi: Partial<Absensi> = {
+          id: idKey,
+          muridId: user.id,
+          tanggal: today,
+          kelasId: effectiveKelasIdForAttendance,
+          method: 'manual',
+          statusAbsen: 'tepat_waktu',
+          tahunAjaranId: activeTahunAjaran.id,
+          semester: activeTahunAjaran.semester,
+          jamMasuk: nowIso,
+          statusMasuk: 'tepat_waktu',
+          tipeAbsen: 'masuk',
+          status: 'hadir',
+          waktu: nowIso,
+        };
+
+        await createAbsensi(newAbsensi);
+        await refreshAbsensi();
+        showSuccessNotification('Absen Masuk Berhasil', `Waktu: ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`);
+      } catch (error) {
+        console.error('Error creating absen masuk:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Gagal menyimpan absen masuk';
+        showErrorNotification('Error', errorMessage);
+      } finally {
+        setIsSubmittingMasuk(false);
+      }
+    };
+
+    // Handle Absen Pulang for santri tahfiz
+    const handleAbsenPulangSantri = async () => {
+      if (!user || !activeTahunAjaran || !effectiveKelasIdForAttendance) {
+        showErrorNotification('Error', 'Data tidak lengkap');
+        return;
+      }
+
+      if (todayDetailSantri.hasPulang) {
+        showErrorNotification('Sudah Absen', 'Anda sudah melakukan absen pulang hari ini');
+        return;
+      }
+
+      if (!todayDetailSantri.hasMasuk) {
+        showErrorNotification('Belum Absen Masuk', 'Silakan lakukan absen masuk terlebih dahulu');
+        return;
+      }
+
+      const pengaturanAbsenArray = activePengaturanAbsen ? [activePengaturanAbsen] : [];
+      if (!isAttendanceDayAllowed(today, 'murid', pengaturanAbsenArray)) {
+        const dayName = getDayNameInIndonesian(today);
+        showErrorNotification(
+          'Absensi Tidak Diizinkan',
+          `Absensi tidak diizinkan pada hari ${dayName}. Silakan absen pada hari sekolah yang telah ditentukan.`
+        );
+        return;
+      }
+
+      if (!enableEarlyDeparture && activePengaturanAbsen) {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const [jamPulangHour, jamPulangMinute] = activePengaturanAbsen.jamPulang.split(':').map(Number);
+        
+        const currentTimeMinutes = currentHour * 60 + currentMinute;
+        const jamPulangMinutes = jamPulangHour * 60 + jamPulangMinute;
+        const batasPulang15Menit = jamPulangMinutes - 15;
+
+        if (currentTimeMinutes < batasPulang15Menit) {
+          const batasWaktuJam = Math.floor(batasPulang15Menit / 60);
+          const batasWaktuMenit = batasPulang15Menit % 60;
+          const batasWaktuString = `${String(batasWaktuJam).padStart(2, '0')}:${String(batasWaktuMenit).padStart(2, '0')}`;
+          
+          showErrorNotification(
+            'Absen Pulang Tidak Diizinkan',
+            `Absen pulang hanya dapat dilakukan mulai 15 menit sebelum jam pulang (${batasWaktuString}). Jam pulang: ${activePengaturanAbsen.jamPulang}`
+          );
+          return;
+        }
+      }
+
+      setIsSubmittingPulang(true);
+      try {
+        const nowIso = getLocalTimeISOString();
+        const idKey = `${today}-${effectiveKelasIdForAttendance}-${user.id}`;
+
+        const todayAbsensi = absensi.find(a =>
+          a.muridId === user.id && a.tanggal === today
+        );
+
+        const newAbsensi: Partial<Absensi> = {
+          id: idKey,
+          muridId: user.id,
+          tanggal: today,
+          kelasId: effectiveKelasIdForAttendance,
+          method: 'manual',
+          statusAbsen: 'tepat_waktu',
+          tahunAjaranId: activeTahunAjaran.id,
+          semester: activeTahunAjaran.semester,
+          jamKeluar: nowIso,
+          statusKeluar: 'tepat_waktu',
+          ...(todayAbsensi?.jamMasuk && { jamMasuk: todayAbsensi.jamMasuk }),
+          ...(todayAbsensi?.statusMasuk && { statusMasuk: todayAbsensi.statusMasuk }),
+          tipeAbsen: 'pulang',
+          status: 'hadir',
+          waktu: nowIso,
+        };
+
+        await createAbsensi(newAbsensi);
+        await refreshAbsensi();
+        showSuccessNotification('Absen Pulang Berhasil', `Waktu: ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`);
+      } catch (error) {
+        console.error('Error creating absen pulang:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Gagal menyimpan absen pulang';
+        showErrorNotification('Error', errorMessage);
+      } finally {
+        setIsSubmittingPulang(false);
+      }
+    };
+
+    // Get status text for santri tahfiz
+    const getStatusTextSantri = () => {
+      if (todayDetailSantri.masukRawStatus === 'izin' || todayDetailSantri.pulangRawStatus === 'izin') {
+        return 'IZIN';
+      }
+      if (todayDetailSantri.masukRawStatus === 'sakit' || todayDetailSantri.pulangRawStatus === 'sakit') {
+        return 'SAKIT';
+      }
+      if (todayDetailSantri.masukRawStatus === 'alfa' || todayDetailSantri.pulangRawStatus === 'alfa') {
+        return 'ALFA';
+      }
+      if (todayDetailSantri.hasMasuk && todayDetailSantri.pulangRawStatus === 'alfa') {
+        return 'Anda Bolos, Tidak Absen Pulang';
+      }
+      if (todayDetailSantri.hasMasuk && todayDetailSantri.hasPulang) {
+        return 'Sudah absen masuk dan pulang';
+      }
+      if (todayDetailSantri.hasMasuk) {
+        return 'Sudah absen masuk';
+      }
+      return 'Belum absen masuk';
+    };
+
+    // Get status bar color for santri tahfiz
+    const getStatusBarColorSantri = () => {
+      const statusMasuk = todayDetailSantri.masukRawStatus;
+      const statusPulang = todayDetailSantri.pulangRawStatus;
+      
+      if (statusMasuk === 'izin' || statusPulang === 'izin') {
+        return 'bg-gradient-to-r from-yellow-500 to-yellow-600';
+      }
+      if (statusMasuk === 'sakit' || statusPulang === 'sakit') {
+        return 'bg-gradient-to-r from-blue-500 to-blue-600';
+      }
+      if (statusMasuk === 'alfa' || statusPulang === 'alfa') {
+        return 'bg-gradient-to-r from-red-500 to-red-600';
+      }
+      
+      if (todayDetailSantri.hasMasuk && todayDetailSantri.pulangRawStatus === 'alfa') {
+        return 'bg-gradient-to-r from-red-500 to-red-600';
+      }
+      
+      if (todayDetailSantri.hasMasuk && todayDetailSantri.hasPulang) {
+        return 'bg-gradient-to-r from-orange-500 to-orange-600';
+      }
+      
+      if (todayDetailSantri.hasMasuk) {
+        return 'bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700';
+      }
+      
+      return 'bg-gradient-to-r from-orange-500 to-orange-600';
+    };
+
     return (
       <div className="space-y-5 lg:space-y-6">
         {/* Welcome Header - Tema Hijau untuk Tahfiz */}
@@ -630,6 +950,279 @@ const MuridDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Absen Masuk & Pulang Buttons - Mobile & Tablet Only */}
+        {user && (
+          <div className="lg:hidden space-y-4">
+            {/* Action Buttons Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Absen Masuk Button */}
+              {todayDetailSantri.hasMasuk && todayDetailSantri.masukRawStatus !== 'izin' && todayDetailSantri.masukRawStatus !== 'sakit' && todayDetailSantri.masukRawStatus !== 'alfa' ? (
+                <div className="bg-gradient-to-br from-slate-200 to-slate-300 rounded-2xl shadow-lg p-4 sm:p-5 border border-slate-300">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-400/30 rounded-lg flex items-center justify-center">
+                      <LogIn className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" />
+                    </div>
+                    <span className="text-slate-600 font-bold text-sm sm:text-base uppercase">Masuk</span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-slate-600 font-bold text-2xl sm:text-3xl">
+                      {formatTimeWithDot(todayStatsSantri.waktuMasuk)}
+                    </p>
+                    <p className="text-slate-600 text-xs sm:text-sm font-medium">
+                      {todayDetailSantri.displayStatusMasuk || 'Tepat Waktu'}
+                    </p>
+                  </div>
+                </div>
+              ) : (todayDetailSantri.masukRawStatus === 'izin' || todayDetailSantri.masukRawStatus === 'sakit') ? (
+                <div className={`rounded-2xl shadow-lg p-4 sm:p-5 border ${
+                  todayDetailSantri.masukRawStatus === 'izin'
+                    ? 'bg-gradient-to-br from-yellow-100 to-yellow-200 border-yellow-300'
+                    : 'bg-gradient-to-br from-blue-100 to-blue-200 border-blue-300'
+                }`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center ${
+                      todayDetailSantri.masukRawStatus === 'izin'
+                        ? 'bg-yellow-400/30'
+                        : 'bg-blue-400/30'
+                    }`}>
+                      <LogIn className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                        todayDetailSantri.masukRawStatus === 'izin'
+                          ? 'text-yellow-600'
+                          : 'text-blue-600'
+                      }`} />
+                    </div>
+                    <span className={`font-bold text-sm sm:text-base uppercase ${
+                      todayDetailSantri.masukRawStatus === 'izin'
+                        ? 'text-yellow-600'
+                        : 'text-blue-600'
+                    }`}>Masuk</span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className={`font-bold text-2xl sm:text-3xl uppercase ${
+                      todayDetailSantri.masukRawStatus === 'izin'
+                        ? 'text-yellow-700'
+                        : 'text-blue-700'
+                    }`}>
+                      {todayDetailSantri.masukRawStatus === 'izin' ? 'IZIN' : 'SAKIT'}
+                    </p>
+                    <p className={`text-xs sm:text-sm font-medium ${
+                      todayDetailSantri.masukRawStatus === 'izin'
+                        ? 'text-yellow-600'
+                        : 'text-blue-600'
+                    }`}>
+                      Tidak Perlu Absen
+                    </p>
+                  </div>
+                </div>
+              ) : (activePengaturanAbsen?.enableManualAbsen !== false) ? (
+                <button
+                  onClick={handleAbsenMasukSantri}
+                  disabled={
+                    isSubmittingMasuk ||
+                    todayDetailSantri.hasMasuk ||
+                    todayDetailSantri.masukRawStatus === 'izin' ||
+                    todayDetailSantri.masukRawStatus === 'sakit' ||
+                    todayDetailSantri.masukRawStatus === 'alfa'
+                  }
+                  className={`relative flex flex-col items-center justify-center gap-3 p-5 sm:p-6 rounded-2xl shadow-lg transition-all duration-200 ${
+                    isSubmittingMasuk ||
+                    todayDetailSantri.hasMasuk ||
+                    todayDetailSantri.masukRawStatus === 'izin' ||
+                    todayDetailSantri.masukRawStatus === 'sakit' ||
+                    todayDetailSantri.masukRawStatus === 'alfa'
+                      ? 'bg-gradient-to-br from-slate-200 to-slate-300 cursor-not-allowed'
+                      : 'bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-600 hover:via-emerald-700 hover:to-emerald-800 active:scale-95 shadow-emerald-500/50'
+                  }`}
+                >
+                  <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center ${
+                    isSubmittingMasuk ||
+                    todayDetailSantri.hasMasuk ||
+                    todayDetailSantri.masukRawStatus === 'izin' ||
+                    todayDetailSantri.masukRawStatus === 'sakit' ||
+                    todayDetailSantri.masukRawStatus === 'alfa'
+                      ? 'bg-slate-400/30'
+                      : 'bg-white/20 backdrop-blur-sm'
+                  }`}>
+                    <LogIn className={`w-6 h-6 sm:w-8 sm:h-8 ${
+                      isSubmittingMasuk ||
+                      todayDetailSantri.hasMasuk ||
+                      todayDetailSantri.masukRawStatus === 'izin' ||
+                      todayDetailSantri.masukRawStatus === 'sakit' ||
+                      todayDetailSantri.masukRawStatus === 'alfa'
+                        ? 'text-slate-600'
+                        : 'text-white'
+                    }`} />
+                  </div>
+                  <span className={`font-semibold text-sm sm:text-base text-center ${
+                    isSubmittingMasuk ||
+                    todayDetailSantri.hasMasuk ||
+                    todayDetailSantri.masukRawStatus === 'izin' ||
+                    todayDetailSantri.masukRawStatus === 'sakit' ||
+                    todayDetailSantri.masukRawStatus === 'alfa'
+                      ? 'text-slate-600'
+                      : 'text-white'
+                  }`}>Absen Masuk</span>
+                  {isSubmittingMasuk && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-2xl">
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </button>
+              ) : null}
+
+              {/* Absen Pulang Button */}
+              {todayDetailSantri.hasPulang && todayDetailSantri.pulangRawStatus !== 'izin' && todayDetailSantri.pulangRawStatus !== 'sakit' ? (
+                <div className={`rounded-2xl shadow-lg p-4 sm:p-5 border ${
+                  todayDetailSantri.pulangRawStatus === 'alfa' 
+                    ? 'bg-gradient-to-br from-slate-100 to-slate-200 border-slate-200' 
+                    : 'bg-gradient-to-br from-slate-100 to-slate-200 border-slate-200'
+                }`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center ${
+                      todayDetailSantri.pulangRawStatus === 'alfa' 
+                        ? 'bg-slate-300/30' 
+                        : 'bg-slate-300/30'
+                    }`}>
+                      <LogOut className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500" />
+                    </div>
+                    <span className="text-slate-500 font-bold text-sm sm:text-base uppercase">Pulang</span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className={`font-bold text-2xl sm:text-3xl ${
+                      todayDetailSantri.pulangRawStatus === 'alfa' 
+                        ? 'text-slate-500 uppercase' 
+                        : 'text-slate-500'
+                    }`}>
+                      {todayDetailSantri.pulangRawStatus === 'alfa' 
+                        ? 'ALFA' 
+                        : formatTimeWithDot(todayStatsSantri.waktuPulang)}
+                    </p>
+                    <p className="text-slate-500 text-xs sm:text-sm font-medium">
+                      {todayDetailSantri.displayStatusPulang || 'Tepat Waktu'}
+                    </p>
+                  </div>
+                </div>
+              ) : (todayDetailSantri.pulangRawStatus === 'izin' || todayDetailSantri.pulangRawStatus === 'sakit') ? (
+                <div className={`rounded-2xl shadow-lg p-4 sm:p-5 border ${
+                  todayDetailSantri.pulangRawStatus === 'izin'
+                    ? 'bg-gradient-to-br from-yellow-100 to-yellow-200 border-yellow-300'
+                    : 'bg-gradient-to-br from-blue-100 to-blue-200 border-blue-300'
+                }`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center ${
+                      todayDetailSantri.pulangRawStatus === 'izin'
+                        ? 'bg-yellow-400/30'
+                        : 'bg-blue-400/30'
+                    }`}>
+                      <LogOut className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                        todayDetailSantri.pulangRawStatus === 'izin'
+                          ? 'text-yellow-600'
+                          : 'text-blue-600'
+                      }`} />
+                    </div>
+                    <span className={`font-bold text-sm sm:text-base uppercase ${
+                      todayDetailSantri.pulangRawStatus === 'izin'
+                        ? 'text-yellow-600'
+                        : 'text-blue-600'
+                    }`}>Pulang</span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className={`font-bold text-2xl sm:text-3xl uppercase ${
+                      todayDetailSantri.pulangRawStatus === 'izin'
+                        ? 'text-yellow-700'
+                        : 'text-blue-700'
+                    }`}>
+                      {todayDetailSantri.pulangRawStatus === 'izin' ? 'IZIN' : 'SAKIT'}
+                    </p>
+                    <p className={`text-xs sm:text-sm font-medium ${
+                      todayDetailSantri.pulangRawStatus === 'izin'
+                        ? 'text-yellow-600'
+                        : 'text-blue-600'
+                    }`}>
+                      Tidak Perlu Absen
+                    </p>
+                  </div>
+                </div>
+              ) : (activePengaturanAbsen?.enableManualAbsen !== false) ? (
+                <button
+                  onClick={handleAbsenPulangSantri}
+                  disabled={
+                    isSubmittingPulang ||
+                    !todayDetailSantri.hasMasuk ||
+                    todayDetailSantri.hasPulang ||
+                    todayDetailSantri.pulangRawStatus === 'izin' ||
+                    todayDetailSantri.pulangRawStatus === 'sakit' ||
+                    todayDetailSantri.pulangRawStatus === 'alfa'
+                  }
+                  className={`relative flex flex-col items-center justify-center gap-3 p-5 sm:p-6 rounded-2xl shadow-lg transition-all duration-200 ${
+                    isSubmittingPulang ||
+                    !todayDetailSantri.hasMasuk ||
+                    todayDetailSantri.hasPulang ||
+                    todayDetailSantri.pulangRawStatus === 'izin' ||
+                    todayDetailSantri.pulangRawStatus === 'sakit' ||
+                    todayDetailSantri.pulangRawStatus === 'alfa'
+                      ? 'bg-gradient-to-br from-slate-100 to-slate-200 cursor-not-allowed'
+                      : 'bg-gradient-to-br from-amber-500 via-orange-500 to-orange-600 hover:from-amber-600 hover:via-orange-600 hover:to-orange-700 active:scale-95 shadow-orange-500/50'
+                  }`}
+                >
+                  <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center ${
+                    isSubmittingPulang ||
+                    !todayDetailSantri.hasMasuk ||
+                    todayDetailSantri.hasPulang ||
+                    todayDetailSantri.pulangRawStatus === 'izin' ||
+                    todayDetailSantri.pulangRawStatus === 'sakit' ||
+                    todayDetailSantri.pulangRawStatus === 'alfa'
+                      ? 'bg-slate-300/30'
+                      : 'bg-white/20 backdrop-blur-sm'
+                  }`}>
+                    <LogOut className={`w-6 h-6 sm:w-8 sm:h-8 ${
+                      isSubmittingPulang ||
+                      !todayDetailSantri.hasMasuk ||
+                      todayDetailSantri.hasPulang ||
+                      todayDetailSantri.pulangRawStatus === 'izin' ||
+                      todayDetailSantri.pulangRawStatus === 'sakit' ||
+                      todayDetailSantri.pulangRawStatus === 'alfa'
+                        ? 'text-slate-500'
+                        : 'text-white'
+                    }`} />
+                  </div>
+                  <span className={`font-semibold text-sm sm:text-base text-center ${
+                    isSubmittingPulang ||
+                    !todayDetailSantri.hasMasuk ||
+                    todayDetailSantri.hasPulang ||
+                    todayDetailSantri.pulangRawStatus === 'izin' ||
+                    todayDetailSantri.pulangRawStatus === 'sakit' ||
+                    todayDetailSantri.pulangRawStatus === 'alfa'
+                      ? 'text-slate-500'
+                      : 'text-white'
+                  }`}>Absen Pulang</span>
+                  {isSubmittingPulang && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-2xl">
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </button>
+              ) : null}
+            </div>
+
+            {/* Status Bar */}
+            <div className={`${getStatusBarColorSantri()} rounded-2xl shadow-lg overflow-hidden transition-all duration-300`}>
+              <div className="px-5 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-white font-bold text-sm mb-1">Status Hari Ini</p>
+                  <p className="text-white text-base">{getStatusTextSantri()}</p>
+                </div>
+                <button
+                  onClick={() => navigate('/dashboard/absen-kehadiran')}
+                  className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-semibold px-4 py-2 rounded-xl transition-all duration-200 active:scale-95"
+                >
+                  Lihat
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Menu Cards - Only visible on mobile */}
         <div className="md:hidden">
@@ -686,6 +1279,144 @@ const MuridDashboard: React.FC = () => {
             <p className="text-xs text-slate-500 mt-1">Menunggu approval</p>
           </div>
         </div>
+
+        {/* Absen Masuk dan Pulang Hari Ini - Hidden di mobile, visible on desktop */}
+        {user && (
+          <div className="hidden lg:block bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-50 to-green-50 px-5 sm:px-6 py-4 border-b border-emerald-100">
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-600 rounded-lg p-2">
+                  <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">Status Absen Kehadiran Hari Ini</h3>
+                  <p className="text-xs sm:text-sm text-slate-600">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 sm:p-5 lg:p-6">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                {/* Masuk Status */}
+                <div className={`rounded-lg sm:rounded-xl p-4 sm:p-5 border ${
+                  todayDetailSantri.masukRawStatus === 'izin' ? 'bg-gradient-to-br from-yellow-50 to-yellow-50 border-yellow-100' :
+                  todayDetailSantri.masukRawStatus === 'sakit' ? 'bg-gradient-to-br from-blue-50 to-blue-50 border-blue-100' :
+                  todayDetailSantri.masukRawStatus === 'alfa' ? 'bg-gradient-to-br from-red-50 to-red-50 border-red-100' :
+                  'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`rounded-lg p-2 ${
+                        todayDetailSantri.masukRawStatus === 'izin' ? 'bg-yellow-600' :
+                        todayDetailSantri.masukRawStatus === 'sakit' ? 'bg-blue-600' :
+                        todayDetailSantri.masukRawStatus === 'alfa' ? 'bg-red-600' :
+                        'bg-emerald-600'
+                      }`}>
+                        <LogIn className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                      </div>
+                      <p className={`text-xs sm:text-sm font-semibold uppercase ${
+                        todayDetailSantri.masukRawStatus === 'izin' ? 'text-yellow-600' :
+                        todayDetailSantri.masukRawStatus === 'sakit' ? 'text-blue-600' :
+                        todayDetailSantri.masukRawStatus === 'alfa' ? 'text-red-600' :
+                        'text-emerald-600'
+                      }`}>Masuk</p>
+                    </div>
+                  </div>
+                  {todayDetailSantri.masukRawStatus === 'izin' || todayDetailSantri.masukRawStatus === 'sakit' || todayDetailSantri.masukRawStatus === 'alfa' ? (
+                    <div>
+                      <p className={`text-2xl sm:text-3xl font-bold mb-1 uppercase ${
+                        todayDetailSantri.masukRawStatus === 'izin' ? 'text-yellow-700' :
+                        todayDetailSantri.masukRawStatus === 'sakit' ? 'text-blue-700' :
+                        'text-red-700'
+                      }`}>
+                        {todayDetailSantri.masukRawStatus}
+                      </p>
+                      <p className={`text-xs sm:text-sm ${
+                        todayDetailSantri.masukRawStatus === 'izin' ? 'text-yellow-600' :
+                        todayDetailSantri.masukRawStatus === 'sakit' ? 'text-blue-600' :
+                        'text-red-600'
+                      }`}>
+                        Tidak Perlu Absen
+                      </p>
+                    </div>
+                  ) : todayStatsSantri.waktuMasuk ? (
+                    <div>
+                      <p className="text-2xl sm:text-3xl font-bold mb-1 text-emerald-700">
+                        {todayStatsSantri.waktuMasuk}
+                      </p>
+                      <p className="text-xs sm:text-sm text-emerald-600">
+                        {todayDetailSantri.displayStatusMasuk || 'Tepat Waktu'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-2xl sm:text-3xl font-bold text-slate-400 mb-1">-</p>
+                      <p className="text-xs sm:text-sm text-slate-600">Belum Absen</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pulang Status */}
+                <div className={`rounded-lg sm:rounded-xl p-4 sm:p-5 border ${
+                  todayDetailSantri.pulangRawStatus === 'izin' ? 'bg-gradient-to-br from-yellow-50 to-yellow-50 border-yellow-100' :
+                  todayDetailSantri.pulangRawStatus === 'sakit' ? 'bg-gradient-to-br from-blue-50 to-blue-50 border-blue-100' :
+                  todayDetailSantri.pulangRawStatus === 'alfa' ? 'bg-gradient-to-br from-red-50 to-red-50 border-red-100' :
+                  'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`rounded-lg p-2 ${
+                        todayDetailSantri.pulangRawStatus === 'izin' ? 'bg-yellow-600' :
+                        todayDetailSantri.pulangRawStatus === 'sakit' ? 'bg-blue-600' :
+                        todayDetailSantri.pulangRawStatus === 'alfa' ? 'bg-red-600' :
+                        'bg-amber-600'
+                      }`}>
+                        <LogOut className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                      </div>
+                      <p className={`text-xs sm:text-sm font-semibold uppercase ${
+                        todayDetailSantri.pulangRawStatus === 'izin' ? 'text-yellow-600' :
+                        todayDetailSantri.pulangRawStatus === 'sakit' ? 'text-blue-600' :
+                        todayDetailSantri.pulangRawStatus === 'alfa' ? 'text-red-600' :
+                        'text-amber-600'
+                      }`}>Pulang</p>
+                    </div>
+                  </div>
+                  {todayDetailSantri.pulangRawStatus === 'izin' || todayDetailSantri.pulangRawStatus === 'sakit' || todayDetailSantri.pulangRawStatus === 'alfa' ? (
+                    <div>
+                      <p className={`text-2xl sm:text-3xl font-bold mb-1 uppercase ${
+                        todayDetailSantri.pulangRawStatus === 'izin' ? 'text-yellow-700' :
+                        todayDetailSantri.pulangRawStatus === 'sakit' ? 'text-blue-700' :
+                        'text-red-700'
+                      }`}>
+                        {todayDetailSantri.pulangRawStatus === 'alfa' ? 'ALFA' : todayDetailSantri.pulangRawStatus}
+                      </p>
+                      <p className={`text-xs sm:text-sm ${
+                        todayDetailSantri.pulangRawStatus === 'izin' ? 'text-yellow-600' :
+                        todayDetailSantri.pulangRawStatus === 'sakit' ? 'text-blue-600' :
+                        'text-red-600'
+                      }`}>
+                        {todayDetailSantri.pulangRawStatus === 'alfa' ? 'Tidak Absen' : 'Tidak Perlu Absen'}
+                      </p>
+                    </div>
+                  ) : todayStatsSantri.waktuPulang ? (
+                    <div>
+                      <p className="text-2xl sm:text-3xl font-bold mb-1 text-amber-700">
+                        {todayStatsSantri.waktuPulang}
+                      </p>
+                      <p className="text-xs sm:text-sm text-amber-600">
+                        {todayDetailSantri.displayStatusPulang || 'Tepat Waktu'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-2xl sm:text-3xl font-bold text-slate-400 mb-1">-</p>
+                      <p className="text-xs sm:text-sm text-slate-600">Belum Absen</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Jadwal Tahfiz Hari Ini */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
