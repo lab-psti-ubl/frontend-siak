@@ -9,7 +9,7 @@ import {
   isAttendanceDayAllowed
 } from './rfidMonitoringUtils';
 import { apiService } from '../../../../../services/apiService';
-import { getLocalTimeISOString } from '../../../../../utils/absensiUtils';
+import { getLocalTimeISOString, getTodayIndonesia, getCurrentTimeIndonesia, getCurrentTimeLocal } from '../../../../../utils/absensiUtils';
 
 export interface ScanProcessingParams {
   scannedData: string;
@@ -27,9 +27,12 @@ export interface ScanProcessingResult {
   scanResult: ScanResult;
 }
 
+/** Setter type: accepts new state or updater function (untuk menghindari stale state saat banyak guru absen berurutan). */
+export type SetAbsensiGuruState = (value: AbsensiGuru[] | ((prev: AbsensiGuru[]) => AbsensiGuru[])) => void;
+
 export const processScan = async (
   params: ScanProcessingParams,
-  onSetAbsensiGuru: (data: AbsensiGuru[]) => void,
+  onSetAbsensiGuru: SetAbsensiGuruState,
   onSetAbsensi: (data: Absensi[]) => void
 ): Promise<ScanProcessingResult | null> => {
   const { scannedData, currentAlat, absensiGuru, absensi, users, kelas, pengaturanAbsen, izinGuru } = params;
@@ -74,11 +77,8 @@ export const processScan = async (
     return { logEntry, scanResult };
   }
 
-  const today = new Date().toISOString().split('T')[0];
-  const currentTime = new Date();
-  const hours = String(currentTime.getHours()).padStart(2, '0');
-  const minutes = String(currentTime.getMinutes()).padStart(2, '0');
-  const timeString = `${hours}:${minutes}`;
+  const today = getTodayIndonesia();
+  const timeString = getCurrentTimeLocal(); // jam lokal perangkat untuk jamMasuk/jamKeluar ke DB
 
   // Get enableEarlyDeparture from pengaturan sistem
   let enableEarlyDeparture = false;
@@ -120,6 +120,84 @@ export const processScan = async (
   return null;
 };
 
+export interface FaceVerificationParams {
+  guruId: string;
+  currentAlat: AlatRFID;
+  absensiGuru: AbsensiGuru[];
+  users: any[];
+  pengaturanAbsen: PengaturanAbsen[];
+  izinGuru: IzinGuru[];
+}
+
+/** Proses absensi guru berdasarkan verifikasi wajah (guruId dari face recognition) */
+export const processFaceVerificationScan = async (
+  params: FaceVerificationParams,
+  onSetAbsensiGuru: SetAbsensiGuruState
+): Promise<ScanProcessingResult | null> => {
+  const { guruId, currentAlat, absensiGuru, users, pengaturanAbsen, izinGuru } = params;
+
+  if (currentAlat?.status === 'nonaktif') {
+    const logEntry: ScanLogEntry = {
+      id: `scan-${Date.now()}`,
+      namaUser: 'Alat Nonaktif',
+      tipeUser: '-',
+      tipeAbsen: '-',
+      timestamp: new Date().toLocaleTimeString('id-ID'),
+      status: 'gagal',
+    };
+    playSound('error');
+    return null;
+  }
+
+  const guru = users.find((u: any) => u.id === guruId);
+  if (!guru || !guru.name) {
+    const logEntry: ScanLogEntry = {
+      id: `scan-${Date.now()}`,
+      namaUser: 'Wajah Tidak Dikenali',
+      tipeUser: '-',
+      tipeAbsen: '-',
+      timestamp: new Date().toLocaleTimeString('id-ID'),
+      status: 'gagal',
+    };
+    playSound('error');
+    const scanResult: ScanResult = {
+      user: { name: 'Wajah Tidak Dikenali' },
+      role: '-',
+      tipeAbsen: '-',
+      status: 'gagal',
+      timestamp: new Date().toLocaleTimeString('id-ID'),
+      statusMessage: 'Wajah tidak terdaftar atau tidak dikenali',
+      isError: true,
+      errorType: 'not_registered',
+    };
+    return { logEntry, scanResult };
+  }
+
+  const today = getTodayIndonesia();
+  const timeString = getCurrentTimeLocal(); // jam lokal perangkat untuk jamMasuk/jamKeluar ke DB
+
+  let enableEarlyDeparture = false;
+  try {
+    const pengaturanResponse = await apiService.getEnableEarlyDeparture();
+    if (pengaturanResponse.success) {
+      enableEarlyDeparture = pengaturanResponse.enableEarlyDeparture ?? false;
+    }
+  } catch (error) {
+    console.error('Error fetching enableEarlyDeparture:', error);
+  }
+
+  return await processGuruScan(
+    guru as Guru,
+    today,
+    timeString,
+    absensiGuru,
+    pengaturanAbsen,
+    izinGuru,
+    onSetAbsensiGuru,
+    enableEarlyDeparture
+  );
+};
+
 const processGuruScan = async (
   guru: Guru,
   today: string,
@@ -127,7 +205,7 @@ const processGuruScan = async (
   absensiGuru: AbsensiGuru[],
   pengaturanAbsen: PengaturanAbsen[],
   izinGuru: IzinGuru[],
-  onSetAbsensiGuru: (data: AbsensiGuru[]) => void,
+  onSetAbsensiGuru: SetAbsensiGuruState,
   enableEarlyDeparture: boolean = false
 ): Promise<ScanProcessingResult> => {
   // Check if guru has izin/sakit today
@@ -202,7 +280,16 @@ const processGuruScan = async (
 
   const existingAbsensi = absensiGuru.find(a => a.guruId === guru.id && a.tanggal === today);
 
-  if (existingAbsensi && existingAbsensi.jamMasuk && existingAbsensi.jamKeluar) {
+  // Sudah terpenuhi hanya jika masuk & keluar valid: status keluar bukan alfa/tidak_keluar (boleh update dengan absen terbaru)
+  const statusKeluarValid =
+    existingAbsensi?.statusKeluar &&
+    existingAbsensi.statusKeluar !== 'alfa' &&
+    existingAbsensi.statusKeluar !== 'tidak_keluar';
+  const sudahTerpenuhi =
+    existingAbsensi?.jamMasuk &&
+    existingAbsensi?.jamKeluar &&
+    statusKeluarValid;
+  if (existingAbsensi && sudahTerpenuhi) {
     const logEntry: ScanLogEntry = {
       id: `scan-${Date.now()}`,
       namaUser: guru.name,
@@ -220,12 +307,20 @@ const processGuruScan = async (
       status: 'sudah_terpenuhi',
       timestamp: timeString,
       statusMessage: 'Absen hari ini sudah terpenuhi',
+      statusMasuk: existingAbsensi.statusMasuk,
+      statusKeluar: existingAbsensi.statusKeluar,
     };
 
     return { logEntry, scanResult };
   }
 
-  const tipeAbsen = existingAbsensi?.jamMasuk ? 'keluar' : 'masuk';
+  // Tipe absen: jika belum ada masuk valid (atau status alfa/tidak_masuk) = masuk; jika ada masuk valid dan keluar bisa di-update = keluar
+  const statusMasukValid =
+    existingAbsensi?.jamMasuk &&
+    existingAbsensi?.statusMasuk &&
+    existingAbsensi.statusMasuk !== 'alfa' &&
+    existingAbsensi.statusMasuk !== 'tidak_masuk';
+  const tipeAbsen = statusMasukValid ? 'keluar' : 'masuk';
 
   // Check if trying to absen masuk but current time has passed jam pulang
   if (tipeAbsen === 'masuk') {
@@ -346,49 +441,78 @@ const processGuruScan = async (
     const activeTahunAjaran = tahunAjaranResponse.tahunAjaran;
 
     if (existingAbsensi) {
-      // Update existing absensi (keluar)
-      // Convert 'pulang_cepat' to 'pulang_awal' for guru (enum requirement)
-      const statusKeluarForGuru = statusAbsen === 'pulang_cepat' ? 'pulang_awal' : statusAbsen;
-      
-      const updateData = {
-        jamKeluar: timeString,
-        statusKeluar: statusKeluarForGuru,
-      };
-
-      const updateResponse = await apiService.updateAbsensiGuru(existingAbsensi.id, updateData);
-      
-      if (!updateResponse.success) {
-        console.error('Gagal update absensi guru:', updateResponse.message);
-        const logEntry: ScanLogEntry = {
-          id: `scan-${Date.now()}`,
-          namaUser: guru.name,
-          tipeUser: 'Guru',
-          tipeAbsen: 'keluar',
-          timestamp: timeString,
-          status: 'gagal',
+      if (tipeAbsen === 'masuk') {
+        // Update existing absensi (masuk) - mis. status masuk sebelumnya alfa/tidak_masuk
+        const updateData = {
+          jamMasuk: timeString,
+          statusMasuk: statusAbsen as AbsensiGuru['statusMasuk'],
         };
-        playSound('error');
-
-        const scanResult: ScanResult = {
-          user: guru,
-          role: 'guru',
-          tipeAbsen: 'keluar',
-          status: 'gagal',
-          timestamp: timeString,
-          statusMessage: 'Gagal menyimpan absensi keluar',
-          isError: true,
+        const updateResponse = await apiService.submitAbsensiGuruUpdateWithFallback(existingAbsensi.id, updateData);
+        if (!updateResponse.success) {
+          console.error('Gagal update absensi guru (masuk):', updateResponse.message);
+          const logEntry: ScanLogEntry = {
+            id: `scan-${Date.now()}`,
+            namaUser: guru.name,
+            tipeUser: 'Guru',
+            tipeAbsen: 'Masuk',
+            timestamp: timeString,
+            status: 'gagal',
+          };
+          playSound('error');
+          const scanResult: ScanResult = {
+            user: guru,
+            role: 'guru',
+            tipeAbsen: 'masuk',
+            status: 'gagal',
+            timestamp: timeString,
+            statusMessage: 'Gagal menyimpan absensi masuk',
+            isError: true,
+          };
+          return { logEntry, scanResult };
+        }
+        const updatedAbsensi: AbsensiGuru = {
+          ...existingAbsensi,
+          jamMasuk: timeString,
+          statusMasuk: statusAbsen as AbsensiGuru['statusMasuk'],
         };
-
-        return { logEntry, scanResult };
+        onSetAbsensiGuru((prev: AbsensiGuru[]) => prev.map((a: AbsensiGuru) => (a.id === existingAbsensi.id ? updatedAbsensi : a)));
+      } else {
+        // Update existing absensi (keluar)
+        const statusKeluarForGuru = statusAbsen === 'pulang_cepat' ? 'pulang_awal' : statusAbsen;
+        const updateData = {
+          jamKeluar: timeString,
+          statusKeluar: statusKeluarForGuru,
+        };
+        const updateResponse = await apiService.submitAbsensiGuruUpdateWithFallback(existingAbsensi.id, updateData);
+        if (!updateResponse.success) {
+          console.error('Gagal update absensi guru:', updateResponse.message);
+          const logEntry: ScanLogEntry = {
+            id: `scan-${Date.now()}`,
+            namaUser: guru.name,
+            tipeUser: 'Guru',
+            tipeAbsen: 'keluar',
+            timestamp: timeString,
+            status: 'gagal',
+          };
+          playSound('error');
+          const scanResult: ScanResult = {
+            user: guru,
+            role: 'guru',
+            tipeAbsen: 'keluar',
+            status: 'gagal',
+            timestamp: timeString,
+            statusMessage: 'Gagal menyimpan absensi keluar',
+            isError: true,
+          };
+          return { logEntry, scanResult };
+        }
+        const updatedAbsensi: AbsensiGuru = {
+          ...existingAbsensi,
+          jamKeluar: timeString,
+          statusKeluar: statusKeluarForGuru as AbsensiGuru['statusKeluar'],
+        };
+        onSetAbsensiGuru((prev: AbsensiGuru[]) => prev.map((a: AbsensiGuru) => (a.id === existingAbsensi.id ? updatedAbsensi : a)));
       }
-
-      // Update local state
-      const updatedAbsensi: AbsensiGuru = {
-        ...existingAbsensi,
-        jamKeluar: timeString,
-        statusKeluar: statusKeluarForGuru,
-      };
-      onSetAbsensiGuru(absensiGuru.map(a => a.id === existingAbsensi.id ? updatedAbsensi : a));
     } else {
       // Create new absensi (masuk)
       const newAbsensi = {
@@ -396,14 +520,14 @@ const processGuruScan = async (
         guruId: guru.id,
         tanggal: today,
         jamMasuk: timeString,
-        statusMasuk: statusAbsen,
-        statusKeluar: 'tidak_keluar',
-        keteranganAbsensi: 'Hadir',
+        statusMasuk: statusAbsen as AbsensiGuru['statusMasuk'],
+        statusKeluar: 'tidak_keluar' as const,
+        keteranganAbsensi: 'Hadir' as const,
         tahunAjaranId: activeTahunAjaran.id,
         semester: activeTahunAjaran.semester,
       };
 
-      const createResponse = await apiService.createAbsensiGuru(newAbsensi);
+      const createResponse = await apiService.submitAbsensiGuruWithFallback(newAbsensi);
       
       if (!createResponse.success) {
         console.error('Gagal create absensi guru:', createResponse.message);
@@ -430,12 +554,12 @@ const processGuruScan = async (
         return { logEntry, scanResult };
       }
 
-      // Update local state
+      // Update local state (functional update agar tidak menimpa state dari proses lain)
       const createdAbsensi: AbsensiGuru = {
         ...newAbsensi,
         createdAt: getLocalTimeISOString(),
       };
-      onSetAbsensiGuru([...absensiGuru, createdAbsensi]);
+      onSetAbsensiGuru((prev: AbsensiGuru[]) => [...prev, createdAbsensi]);
     }
 
     const logEntry: ScanLogEntry = {
@@ -448,6 +572,7 @@ const processGuruScan = async (
     };
     playSound('success');
 
+    const newStatusKeluar = statusAbsen === 'pulang_cepat' ? 'pulang_awal' : statusAbsen;
     const scanResult: ScanResult = {
       user: guru,
       role: 'guru',
@@ -455,6 +580,8 @@ const processGuruScan = async (
       status: statusAbsen,
       timestamp: timeString,
       statusMessage: getAbsenStatusMessage(statusAbsen, tipeAbsen),
+      statusMasuk: tipeAbsen === 'masuk' ? statusAbsen : existingAbsensi?.statusMasuk,
+      statusKeluar: tipeAbsen === 'keluar' ? newStatusKeluar : existingAbsensi?.statusKeluar,
     };
 
     return { logEntry, scanResult };
@@ -807,7 +934,7 @@ const processMuridScan = async (
         newAbsensi.waktu = now;
       }
 
-      const createResponse = await apiService.createAbsensi(newAbsensi);
+      const createResponse = await apiService.submitAbsensiMuridWithFallback(newAbsensi);
       
       if (!createResponse.success) {
         console.error('Gagal create absensi:', createResponse.message);

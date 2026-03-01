@@ -1,9 +1,10 @@
 import { JadwalPelajaran, IzinGuru, Guru } from '../../../../../types';
 import { getHariFromDate } from '../../izin-guru/utils/izinGuruUtils';
+import { getTodayIndonesia, getCurrentTimeIndonesia } from '../../../../../utils/absensiUtils';
 
 export const getActiveIzinForSubstitute = (userId: string, izinGuru: IzinGuru[] = []): IzinGuru | null => {
-  const today = new Date().toISOString().split('T')[0];
-  const currentTime = new Date().toTimeString().slice(0, 5);
+  const today = getTodayIndonesia();
+  const currentTime = getCurrentTimeIndonesia();
 
   return izinGuru.find(i => {
     // Check if user is assigned as substitute
@@ -24,14 +25,11 @@ export const getActiveIzinForSubstitute = (userId: string, izinGuru: IzinGuru[] 
 };
 
 export const isJadwalFinishedOnDate = (jadwal: JadwalPelajaran, tanggal: string): boolean => {
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
-
+  const today = getTodayIndonesia();
   if (tanggal !== today) {
     return false;
   }
-
-  const currentTime = now.toTimeString().slice(0, 5);
+  const currentTime = getCurrentTimeIndonesia();
   return currentTime >= jadwal.jamSelesai;
 };
 

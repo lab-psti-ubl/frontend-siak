@@ -1,4 +1,5 @@
 import { AbsensiGuru } from '../../../../types';
+import { getTodayIndonesia } from '../../../../utils/absensiUtils';
 
 export const getMyAttendance = (
   absensiGuru: AbsensiGuru[],
@@ -22,9 +23,11 @@ export const getRecentAttendance = (
   datesInDb: string[] = [] // Array of dates that exist in database
 ): AttendanceRecord[] => {
   const attendanceData: AttendanceRecord[] = [];
-  const today = new Date();
-  const currentMonth = today.getMonth() + 1;
-  const currentYear = today.getFullYear();
+  // Gunakan waktu Indonesia untuk konsistensi tanggal
+  const todayStr = getTodayIndonesia();
+  const [todayYear, todayMonth, todayDay] = todayStr.split('-').map(Number);
+  const currentMonth = todayMonth;
+  const currentYear = todayYear;
 
   const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
 
@@ -33,7 +36,7 @@ export const getRecentAttendance = (
   if (selectedYear > currentYear || (selectedYear === currentYear && selectedMonth > currentMonth)) {
     maxDay = 0;
   } else if (selectedYear === currentYear && selectedMonth === currentMonth) {
-    maxDay = today.getDate();
+    maxDay = todayDay;
   }
 
   // Create a Set for faster lookup

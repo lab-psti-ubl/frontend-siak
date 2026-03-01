@@ -4,6 +4,7 @@ import Card from '../../../ui/Card';
 import Badge from '../../../ui/Badge';
 import QRScanner, { ScanResult } from '../../../ui/QRScanner';
 import { useAuth } from '../../../../context/AuthContext';
+import { useLanguage } from '../../../../context/LanguageContext';
 import { useAbsensi } from '../../../../hooks/useAbsensi';
 import { useSesiAbsensi } from '../../../../hooks/useSesiAbsensi';
 import { useJadwalPelajaran } from '../../../../hooks/useJadwalPelajaran';
@@ -29,10 +30,12 @@ import {
   getAbsenMasukStatus,
   getAbsenPulangStatus,
 } from './absenKehadiranIntegratedUtils';
-import { getLocalTimeISOString } from '../../../../utils/absensiUtils';
+import { getLocalTimeISOString, getTodayIndonesia, getCurrentTimeIndonesia } from '../../../../utils/absensiUtils';
 
 const AbsenKehadiran: React.FC = () => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   const { absensi, refreshAbsensi, createAbsensi: createAbsensiAPI } = useAbsensi({ muridId: user?.id });
   const { sesiAbsensi, refreshSesiAbsensi } = useSesiAbsensi();
   const { jadwalPelajaran } = useJadwalPelajaran();
@@ -116,7 +119,7 @@ const AbsenKehadiran: React.FC = () => {
     : muridKelas?.name || 'Kelas tidak ditemukan';
 
   const getTodayStatusDetail = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayIndonesia();
     
     // Find today's absensi (one record per day in new structure)
     const todayAbsensi = absensi.find(a =>
@@ -353,7 +356,7 @@ const AbsenKehadiran: React.FC = () => {
   };
 
   const handleManualAbsen = async (tipeAbsen: 'masuk' | 'pulang', keterangan?: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayIndonesia();
     if (!effectiveKelasIdForAttendance) {
       showErrorNotification('Kelas Tidak Ditemukan', 'Kelas Anda belum ditetapkan. Hubungi admin.');
       return;
@@ -363,9 +366,7 @@ const AbsenKehadiran: React.FC = () => {
 
     // Check if trying to absen masuk but current time has passed jam pulang
     if (tipeAbsen === 'masuk' && activePengaturanAbsen) {
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+      const [currentHour, currentMinute] = getCurrentTimeIndonesia().split(':').map(Number);
       const [jamPulangHour, jamPulangMinute] = activePengaturanAbsen.jamPulang.split(':').map(Number);
       
       const currentTimeMinutes = currentHour * 60 + currentMinute;
@@ -382,9 +383,7 @@ const AbsenKehadiran: React.FC = () => {
 
     // Check enableEarlyDeparture restriction for pulang
     if (tipeAbsen === 'pulang' && !enableEarlyDeparture && activePengaturanAbsen) {
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+      const [currentHour, currentMinute] = getCurrentTimeIndonesia().split(':').map(Number);
       const [jamPulangHour, jamPulangMinute] = activePengaturanAbsen.jamPulang.split(':').map(Number);
       
       const currentTimeMinutes = currentHour * 60 + currentMinute;
@@ -458,10 +457,10 @@ const AbsenKehadiran: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1 sm:mb-2">
-                Absen Kehadiran
+                {t('muridKehadiranPage.headerTitle') || 'Absen Kehadiran'}
               </h1>
               <p className="text-sm sm:text-base text-blue-100">
-                Scan QR Admin atau Wali Kelas untuk mencatat absen masuk dan pulang
+                {t('muridKehadiranPage.headerSubtitle') || 'Kelola kehadiran umum Anda'}
               </p>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
@@ -484,9 +483,16 @@ const AbsenKehadiran: React.FC = () => {
               <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">Status Absen Hari Ini</h3>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                {t('muridKehadiranPage.todayStatusTitle') || 'Status Absen Hari Ini'}
+              </h3>
               <p className="text-xs sm:text-sm text-slate-600">
-                {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                {new Date().toLocaleDateString(dateLocale, {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
               </p>
             </div>
           </div>
@@ -532,7 +538,7 @@ const AbsenKehadiran: React.FC = () => {
                     todayDetail.masukRawStatus === 'sakit' ? 'text-blue-600' :
                     'text-red-600'
                   }`}>
-                    Tidak Perlu Absen
+                    {t('muridKehadiranPage.tidakPerluAbsenText') || 'Tidak Perlu Absen'}
                   </p>
                 </div>
               ) : todayStats.waktuMasuk ? (
@@ -547,7 +553,9 @@ const AbsenKehadiran: React.FC = () => {
               ) : (
                 <div>
                   <p className="text-2xl sm:text-3xl font-bold text-slate-400 mb-1">-</p>
-                  <p className="text-xs sm:text-sm text-slate-600">Belum Absen</p>
+                  <p className="text-xs sm:text-sm text-slate-600">
+                    {t('muridKehadiranPage.belumAbsenText') || 'Belum Absen'}
+                  </p>
                 </div>
               )}
             </div>
@@ -591,7 +599,7 @@ const AbsenKehadiran: React.FC = () => {
                     todayDetail.pulangRawStatus === 'sakit' ? 'text-blue-600' :
                     'text-red-600'
                   }`}>
-                    Tidak Perlu Absen
+                    {t('muridKehadiranPage.tidakPerluAbsenText') || 'Tidak Perlu Absen'}
                   </p>
                 </div>
               ) : todayStats.waktuPulang ? (
@@ -606,27 +614,31 @@ const AbsenKehadiran: React.FC = () => {
               ) : (
                 <div>
                   <p className="text-2xl sm:text-3xl font-bold text-slate-400 mb-1">-</p>
-                  <p className="text-xs sm:text-sm text-slate-600">Belum Absen</p>
+                  <p className="text-xs sm:text-sm text-slate-600">
+                    {t('muridKehadiranPage.belumAbsenText') || 'Belum Absen'}
+                  </p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Buttons */}
-          <div className="grid grid-cols-2 gap-3 mt-4 sm:mt-5">
-            <button
-              onClick={() => setIsQRScannerOpen(true)}
-              disabled={todayDetail.masukRawStatus === 'izin' || todayDetail.masukRawStatus === 'sakit' || todayDetail.masukRawStatus === 'alfa' || (todayDetail.hasMasuk && todayDetail.hasPulang)}
-              className={`font-semibold py-3 sm:py-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-md ${
-                todayDetail.masukRawStatus === 'izin' || todayDetail.masukRawStatus === 'sakit' || todayDetail.masukRawStatus === 'alfa' || (todayDetail.hasMasuk && todayDetail.hasPulang)
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white hover:shadow-lg'
-              }`}
-            >
-              <QrCode className="w-5 h-5 sm:w-6 sm:h-6" />
-              <span className="text-sm sm:text-base">Scan QR</span>
-            </button>
-            {activePengaturanAbsen?.enableManualAbsen !== false && (
+          {/* Buttons - hanya tampil jika absen manual diaktifkan di pengaturan */}
+          {activePengaturanAbsen?.enableManualAbsen !== false && (
+            <div className="grid grid-cols-2 gap-3 mt-4 sm:mt-5">
+              <button
+                onClick={() => setIsQRScannerOpen(true)}
+                disabled={todayDetail.masukRawStatus === 'izin' || todayDetail.masukRawStatus === 'sakit' || todayDetail.masukRawStatus === 'alfa' || (todayDetail.hasMasuk && todayDetail.hasPulang)}
+                className={`font-semibold py-3 sm:py-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-md ${
+                  todayDetail.masukRawStatus === 'izin' || todayDetail.masukRawStatus === 'sakit' || todayDetail.masukRawStatus === 'alfa' || (todayDetail.hasMasuk && todayDetail.hasPulang)
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white hover:shadow-lg'
+                }`}
+                >
+                <QrCode className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span className="text-sm sm:text-base">
+                  {t('muridKehadiranPage.scanQRButton') || 'Scan QR'}
+                </span>
+              </button>
               <button
                 onClick={() => setIsManualAbsenOpen(true)}
                 disabled={todayDetail.masukRawStatus === 'izin' || todayDetail.masukRawStatus === 'sakit' || todayDetail.masukRawStatus === 'alfa' || (todayDetail.hasMasuk && todayDetail.hasPulang)}
@@ -635,12 +647,14 @@ const AbsenKehadiran: React.FC = () => {
                     ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                     : 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white hover:shadow-lg'
                 }`}
-              >
+                >
                 <span className="text-lg">✓</span>
-                <span className="text-sm sm:text-base">Manual</span>
+                <span className="text-sm sm:text-base">
+                  {t('muridKehadiranPage.manualButton') || 'Manual'}
+                </span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -655,7 +669,9 @@ const AbsenKehadiran: React.FC = () => {
                 </div>
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-slate-600 mb-1">Masuk</p>
+                <p className="text-xs sm:text-sm text-slate-600 mb-1">
+                  {t('muridKehadiranPage.statsMasukLabel') || 'Masuk'}
+                </p>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{stats.masuk}</p>
               </div>
             </div>
@@ -671,7 +687,9 @@ const AbsenKehadiran: React.FC = () => {
                 </div>
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-slate-600 mb-1">Pulang</p>
+                <p className="text-xs sm:text-sm text-slate-600 mb-1">
+                  {t('muridKehadiranPage.statsPulangLabel') || 'Pulang'}
+                </p>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{stats.pulang}</p>
               </div>
             </div>
@@ -687,7 +705,9 @@ const AbsenKehadiran: React.FC = () => {
                 </div>
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-slate-600 mb-1">Hari</p>
+                <p className="text-xs sm:text-sm text-slate-600 mb-1">
+                  {t('muridKehadiranPage.statsHariLabel') || 'Hari'}
+                </p>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{stats.total}</p>
               </div>
             </div>
@@ -698,8 +718,12 @@ const AbsenKehadiran: React.FC = () => {
       {/* Filter Section */}
       <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-5 sm:px-6 py-4 border-b border-slate-200">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900">Filter Riwayat</h3>
-          <p className="text-xs sm:text-sm text-slate-600 mt-0.5">Pilih periode untuk melihat riwayat absen kehadiran</p>
+          <h3 className="text-base sm:text-lg font-bold text-slate-900">
+            {t('muridKehadiranPage.filterSectionTitle') || 'Filter Riwayat'}
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+            {t('muridKehadiranPage.filterSectionSubtitle') || 'Pilih periode untuk melihat riwayat absen kehadiran'}
+          </p>
         </div>
         <div className="p-4 sm:p-5 lg:p-6">
           <div className="space-y-4">
@@ -710,7 +734,9 @@ const AbsenKehadiran: React.FC = () => {
                   <Calendar className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Kelas Saat Ini</p>
+                  <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">
+                    {t('muridKehadiranPage.kelasSaatIniLabel') || 'Kelas Saat Ini'}
+                  </p>
                   <h4 className="text-base sm:text-lg font-bold text-blue-900">
                     {displayKelasName}
                   </h4>
@@ -721,7 +747,7 @@ const AbsenKehadiran: React.FC = () => {
             {/* Month Year Picker */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Pilih Bulan & Tahun
+                {t('muridKehadiranPage.pilihBulanTahunLabel') || 'Pilih Bulan & Tahun'}
               </label>
               <MonthYearPickerKehadiran
                 selectedMonth={selectedMonth}
@@ -735,9 +761,14 @@ const AbsenKehadiran: React.FC = () => {
                 availableMonths={availableMonths}
                 availableYears={availableYears}
                 monthsYears={monthsYears}
+                language={language}
               />
               <p className="text-xs sm:text-sm text-slate-600 mt-2">
-                Menampilkan data untuk {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+                {(t('muridKehadiranPage.menampilkanDataUntuk') || 'Menampilkan data untuk')}{' '}
+                {new Date(selectedYear, selectedMonth - 1).toLocaleDateString(dateLocale, {
+                  month: 'long',
+                  year: 'numeric',
+                })}
               </p>
             </div>
           </div>
@@ -753,13 +784,20 @@ const AbsenKehadiran: React.FC = () => {
                 <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-slate-900">Riwayat Kehadiran</h3>
-                <p className="text-xs sm:text-sm text-slate-600">Detail absen masuk dan pulang</p>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                  {t('muridKehadiranPage.riwayatSectionTitle') || 'Riwayat Kehadiran'}
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-600">
+                  {t('muridKehadiranPage.riwayatSectionSubtitle') || 'Detail absen masuk dan pulang'}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+                {new Date(selectedYear, selectedMonth - 1).toLocaleDateString(dateLocale, {
+                  month: 'long',
+                  year: 'numeric',
+                })}
               </span>
             </div>
           </div>

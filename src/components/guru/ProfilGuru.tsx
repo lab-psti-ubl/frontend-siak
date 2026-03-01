@@ -23,7 +23,7 @@ import PasswordTab from './pages/profil/PasswordTab';
 
 const ProfilGuru: React.FC = () => {
   const { user: authUser, logout } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const { kelas } = useKelas();
   const { jurusan } = useJurusan();
@@ -160,7 +160,15 @@ const handleLogout = () => {
     try {
       const backgroundDepan = backgroundKTA?.backgroundDepanGuruBase64;
       const backgroundBelakang = backgroundKTA?.backgroundBelakangGuruBase64;
-      await generateGuruKartuPegawai(user, myKelas, myJurusan, backgroundDepan, backgroundBelakang, orientation);
+      await generateGuruKartuPegawai(
+        user,
+        myKelas,
+        myJurusan,
+        backgroundDepan,
+        backgroundBelakang,
+        orientation,
+        language
+      );
       alert('Kartu pegawai berhasil diunduh!');
     } catch (error) {
       console.error('Error generating kartu pegawai:', error);

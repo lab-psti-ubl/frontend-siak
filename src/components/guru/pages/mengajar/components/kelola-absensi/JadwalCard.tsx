@@ -6,7 +6,9 @@ import Badge from '../../../../../ui/Badge';
 import { JadwalPelajaran, SesiAbsensi, AbsensiGuru, FotoMengajar, AbsensiPelajaran } from '../../../../../../types';
 import CameraCapture from '../../../../../ui/CameraCapture';
 import { apiService } from '../../../../../../services/apiService';
-import { useJurnal, Jurnal } from '../../../../../../hooks/useJurnal';
+import { useJurnal } from '../../../../../../hooks/useJurnal';
+import { useJurnalTahfiz } from '../../../../../../hooks/useJurnalTahfiz';
+
 
 interface JadwalCardProps {
   jadwal: JadwalPelajaran;
@@ -69,9 +71,9 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
   const [isJurnalDetailOpen, setIsJurnalDetailOpen] = useState(false);
   const isSessionActive = session?.status === 'dibuka';
   
-  // Fetch jurnal from jurnal collection
+  // Fetch jurnal from jurnal collection (for regular classes)
   const { jurnal: jurnalList, refreshJurnal } = useJurnal(
-    today && jadwal.id
+    !isTahfiz && today && jadwal.id
       ? {
           tanggal: today,
           jadwalId: jadwal.id,
@@ -79,13 +81,37 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
         }
       : undefined
   );
+
+  // Fetch jurnal tahfiz from jurnaltahfiz collection (for Tahfiz)
+  // Use getAllJurnalTahfiz and filter client-side to get full document structure with pertemuan array
+  const { jurnalTahfiz: allJurnalTahfiz, refreshJurnalTahfiz } = useJurnalTahfiz(
+    isTahfiz
+      ? {
+          tahun: (session as any)?.tahun || new Date().getFullYear().toString(),
+        }
+      : undefined
+  );
+  
+  // Filter jurnal tahfiz for this specific jadwal and tanggal
+  const jurnalTahfiz = useMemo(() => {
+    if (!isTahfiz || !today || !jadwal.id || !allJurnalTahfiz) return [];
+    return allJurnalTahfiz.filter(j => 
+      j.jadwalId === jadwal.id && 
+      j.kelasId === jadwal.kelasId &&
+      j.pertemuan && 
+      Array.isArray(j.pertemuan) &&
+      j.pertemuan.some((p: any) => p.tanggal === today)
+    );
+  }, [allJurnalTahfiz, isTahfiz, today, jadwal.id, jadwal.kelasId]);
   
   // Refresh jurnal when modal is closed (to get latest data after save)
   useEffect(() => {
     const handleJurnalSaved = () => {
-      // For Tahfiz, jurnal is stored in session, so refresh is handled by parent component
-      // Only refresh jurnal collection for regular classes
-      if (!isTahfiz) {
+      if (isTahfiz) {
+        // For Tahfiz, refresh from jurnaltahfiz collection
+        refreshJurnalTahfiz();
+      } else {
+        // For regular classes, refresh from jurnal collection
         refreshJurnal();
       }
     };
@@ -95,54 +121,61 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
     return () => {
       window.removeEventListener('jurnal-saved', handleJurnalSaved);
     };
-  }, [refreshJurnal, isTahfiz]);
+  }, [refreshJurnal, refreshJurnalTahfiz, isTahfiz]);
   
   const jurnal = useMemo(() => {
     if (!today || !jadwal.id) return undefined;
     
-    // For Tahfiz: Check if jurnal is stored in session.jurnal (SesiAbsensiTahfiz)
-    // Use isTahfiz flag or check if session has 'tahun' property (SesiAbsensiTahfiz)
-    if (isTahfiz && session && (session as any).jurnal) {
-      const sessionJurnal = (session as any).jurnal;
-      // Return jurnal from session (for Tahfiz) - return if jurnal exists and has content
-      if (sessionJurnal && (sessionJurnal.judul || sessionJurnal.deskripsi)) {
-        return {
-          id: session.id,
-          jadwalId: jadwal.id,
-          kelasId: jadwal.kelasId,
-          tanggal: today,
-          judul: sessionJurnal.judul || '',
-          deskripsi: sessionJurnal.deskripsi || '',
-          waktuInput: sessionJurnal.waktuInput || new Date().toISOString(),
-          file: sessionJurnal.file,
-          tahunAjaranId: (session as any).tahun || '',
-          semester: 1, // Not used for Tahfiz
-          createdAt: (session as any).createdAt || new Date().toISOString(),
-          updatedAt: (session as any).updatedAt || new Date().toISOString(),
-        };
+    // For Tahfiz: Priority 1 - Check jurnaltahfiz collection
+    if (isTahfiz) {
+      // First, try to get from jurnaltahfiz collection
+      if (jurnalTahfiz && jurnalTahfiz.length > 0) {
+        // jurnalTahfiz is already filtered by jadwalId and tanggal
+        const jurnalDoc = jurnalTahfiz[0]; // Should only have one match after filtering
+        
+        if (jurnalDoc && jurnalDoc.pertemuan && Array.isArray(jurnalDoc.pertemuan)) {
+          // Find pertemuan with matching tanggal
+          const pertemuan = jurnalDoc.pertemuan.find((p: any) => p.tanggal === today);
+          if (pertemuan && (pertemuan.judul || pertemuan.deskripsi || pertemuan.fotoMengajar)) {
+            return {
+              id: jurnalDoc.id,
+              jadwalId: jurnalDoc.jadwalId,
+              kelasId: jurnalDoc.kelasId,
+              tanggal: pertemuan.tanggal,
+              judul: pertemuan.judul || '',
+              deskripsi: pertemuan.deskripsi || '',
+              waktuInput: pertemuan.waktuInput || new Date().toISOString(),
+              file: pertemuan.file,
+              tahunAjaranId: jurnalDoc.tahun || '',
+              semester: 1, // Not used for Tahfiz
+              createdAt: jurnalDoc.createdAt || new Date().toISOString(),
+              updatedAt: jurnalDoc.updatedAt || new Date().toISOString(),
+            };
+          }
+        }
       }
-      return undefined;
-    }
-    
-    // Also check for Tahfiz by session property (backward compatibility)
-    if (!isTahfiz && session && (session as any).jurnal && (session as any).tahun !== undefined) {
-      const sessionJurnal = (session as any).jurnal;
-      if (sessionJurnal && (sessionJurnal.judul || sessionJurnal.deskripsi)) {
-        return {
-          id: session.id,
-          jadwalId: jadwal.id,
-          kelasId: jadwal.kelasId,
-          tanggal: today,
-          judul: sessionJurnal.judul || '',
-          deskripsi: sessionJurnal.deskripsi || '',
-          waktuInput: sessionJurnal.waktuInput || new Date().toISOString(),
-          file: sessionJurnal.file,
-          tahunAjaranId: (session as any).tahun || '',
-          semester: 1,
-          createdAt: (session as any).createdAt || new Date().toISOString(),
-          updatedAt: (session as any).updatedAt || new Date().toISOString(),
-        };
+      
+      // Priority 2 - Fallback to session.jurnal (SesiAbsensiTahfiz) for backward compatibility
+      if (session && (session as any).jurnal) {
+        const sessionJurnal = (session as any).jurnal;
+        if (sessionJurnal && (sessionJurnal.judul || sessionJurnal.deskripsi)) {
+          return {
+            id: session.id,
+            jadwalId: jadwal.id,
+            kelasId: jadwal.kelasId,
+            tanggal: today,
+            judul: sessionJurnal.judul || '',
+            deskripsi: sessionJurnal.deskripsi || '',
+            waktuInput: sessionJurnal.waktuInput || new Date().toISOString(),
+            file: sessionJurnal.file,
+            tahunAjaranId: (session as any).tahun || '',
+            semester: 1, // Not used for Tahfiz
+            createdAt: (session as any).createdAt || new Date().toISOString(),
+            updatedAt: (session as any).updatedAt || new Date().toISOString(),
+          };
+        }
       }
+      
       return undefined;
     }
     
@@ -182,18 +215,58 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
     }
     
     return undefined;
-  }, [jurnalList, jadwal.id, jadwal.kelasId, today, session, isTahfiz]);
+  }, [jurnalList, jurnalTahfiz, jadwal.id, jadwal.kelasId, today, session, isTahfiz]);
   
-  // Check if session is completed (closed + has photo + has journal)
-  const isSessionCompleted = session?.status === 'ditutup' && hasPhoto && jurnal;
-
   const getPhotoForJadwal = () => {
+    // For Tahfiz: Priority 1 - Check foto mengajar from jurnal tahfiz
+    if (isTahfiz) {
+      // First try from filtered jurnalTahfiz
+      if (jurnalTahfiz && jurnalTahfiz.length > 0) {
+        const jurnalDoc = jurnalTahfiz[0]; // Should only have one match after filtering
+        if (jurnalDoc && jurnalDoc.pertemuan && Array.isArray(jurnalDoc.pertemuan)) {
+          const pertemuan = jurnalDoc.pertemuan.find((p: any) => p.tanggal === today);
+          if (pertemuan && pertemuan.fotoMengajar) {
+            // Convert foto mengajar from jurnal tahfiz format to FotoMengajar format
+            return {
+              id: pertemuan.fotoMengajar.id,
+              jadwalId: jadwal.id,
+              mataPelajaranId: 'tahfiz',
+              kelasId: jadwal.kelasId,
+              fotoBase64: pertemuan.fotoMengajar.fotoBase64,
+              waktuFoto: pertemuan.fotoMengajar.waktuFoto,
+              keterangan: pertemuan.fotoMengajar.keterangan,
+            };
+          }
+        }
+      }
+      
+      // Priority 2 - Fallback to absensiGuru (from session.fotoMengajar)
+      if (absensiGuru && absensiGuru.length > 0) {
+        const todayAbsensi = absensiGuru.find(a => a.guruId === userId && a.tanggal === today);
+        const fotoFromAbsensi = todayAbsensi?.fotoMengajar?.find(f => f.jadwalId === jadwal.id);
+        if (fotoFromAbsensi) {
+          return fotoFromAbsensi;
+        }
+      }
+      
+      return null;
+    }
+    
+    // For regular classes: Get from absensiGuru
     if (!absensiGuru || !userId || !today) return null;
     const todayAbsensi = absensiGuru.find(a => a.guruId === userId && a.tanggal === today);
     return todayAbsensi?.fotoMengajar?.find(f => f.jadwalId === jadwal.id);
   };
 
   const foto = getPhotoForJadwal();
+  
+  // Use foto variable to determine if photo exists (more reliable than hasPhoto prop)
+  // This ensures we check both session.fotoMengajar and jurnalTahfiz.pertemuan[].fotoMengajar for Tahfiz
+  const hasPhotoActual = !!foto;
+  
+  // Check if session is completed (closed + has photo + has journal)
+  // Use hasPhotoActual (from foto variable) instead of hasPhoto prop for more accurate check
+  const isSessionCompleted = session?.status === 'ditutup' && hasPhotoActual && jurnal;
 
   const handleDeletePhoto = async () => {
     if (!selectedPhoto || !session || !userId || !today) return;
@@ -222,8 +295,8 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
       const updatedFotoMengajar = (todayAbsensi.fotoMengajar || []).filter(f => f.id !== selectedPhoto.id);
 
       // Update absensi guru
-      const response = await apiService.updateAbsensiGuru(todayAbsensi.id, {
-        fotoMengajar: updatedFotoMengajar
+      const response = await apiService.submitAbsensiGuruUpdateWithFallback(todayAbsensi.id, {
+        fotoMengajar: updatedFotoMengajar,
       });
 
       if (response.success) {
@@ -283,8 +356,8 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
       );
 
       // Update absensi guru
-      const response = await apiService.updateAbsensiGuru(todayAbsensi.id, {
-        fotoMengajar: updatedFotoMengajar
+      const response = await apiService.submitAbsensiGuruUpdateWithFallback(todayAbsensi.id, {
+        fotoMengajar: updatedFotoMengajar,
       });
 
       if (response.success) {
@@ -561,7 +634,7 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
                         </div>
                         <span className="text-xs sm:text-sm font-semibold text-slate-700">Bukti Mengajar</span>
                       </div>
-                      {hasPhoto && (
+                      {hasPhotoActual && (
                         <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200 flex-shrink-0 flex items-center justify-center">
                           <CheckCircle size={12} className="mr-1" />
                           Tersimpan
@@ -610,7 +683,7 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
                         </p>
                       </div>
                     )}
-                    {!hasPhoto && (isFinished || session.status === 'ditutup') && (
+                    {!hasPhotoActual && (isFinished || session.status === 'ditutup') && (
                       <Button
                         size="sm"
                         onClick={() => onTakePhoto(jadwal)}
@@ -620,7 +693,7 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
                         Ambil Foto
                       </Button>
                     )}
-                    {!hasPhoto && !isFinished && session.status !== 'ditutup' && (
+                    {!hasPhotoActual && !isFinished && session.status !== 'ditutup' && (
                       <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-center">
                         <p className="text-xs sm:text-sm text-amber-700 font-medium">
                           Selesaikan sesi untuk mengambil foto
@@ -721,7 +794,7 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
                       </div>
                     ) : (
                       <>
-                        {session && (isFinished || session.status === 'ditutup') && (
+                        {session && (
                           <Button
                             size="sm"
                             onClick={() => onOpenJurnalModal(session)}
@@ -731,10 +804,10 @@ const JadwalCard: React.FC<JadwalCardProps> = ({
                             Input Jurnal
                           </Button>
                         )}
-                        {(!session || (!isFinished && session.status !== 'ditutup')) && (
+                        {!session && (
                           <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-center">
                             <p className="text-xs sm:text-sm text-amber-700 font-medium">
-                              {session ? 'Selesaikan sesi untuk menginput jurnal' : 'Buka sesi terlebih dahulu untuk menginput jurnal'}
+                              Buka sesi terlebih dahulu untuk menginput jurnal
                             </p>
                           </div>
                         )}

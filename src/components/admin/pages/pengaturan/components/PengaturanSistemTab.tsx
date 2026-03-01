@@ -136,13 +136,22 @@ const PengaturanSistemTab: React.FC = () => {
           text: response.message || t('system.resetDatabaseSuccess') || 'Database berhasil direset',
         });
         
+        // Clear all caches to ensure fresh start
+        const { clearAllCaches } = await import('../../../../../utils/clearAllCaches');
+        const { clearPengaturanCache } = await import('../../../../../hooks/usePengaturanSistem');
+        clearAllCaches();
+        clearPengaturanCache();
+        
         // Clear localStorage flags to ensure app returns to initial setup flow
         localStorage.removeItem('systemTypeWasSet');
         localStorage.removeItem('pengaturanJenjangPendidikan');
         
-        // Clear auth token to force logout
+        // Clear auth token and user data to force logout
         localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
         localStorage.removeItem('user');
+        sessionStorage.removeItem('app_session_active');
+        sessionStorage.removeItem('gst_modal_shown');
         
         // Reload page after 2 seconds to restart the system
         // Redirect to root to trigger initial setup flow

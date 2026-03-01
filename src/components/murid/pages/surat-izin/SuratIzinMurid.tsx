@@ -18,6 +18,7 @@ import SuratIzinTable from './SuratIzinTable';
 import SuratIzinModal from './SuratIzinModal';
 import { generateSuratPDF, getDisabledDates, getActiveIzinRanges } from './suratIzinMuridUtils';
 import { useProfilSekolah } from '../../../../hooks/useProfilSekolah';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 const SuratIzinMurid: React.FC = () => {
   const { user } = useAuth();
@@ -43,6 +44,7 @@ const SuratIzinMurid: React.FC = () => {
   });
   const [disabledDates, setDisabledDates] = useState<string[]>([]);
   const [activeIzinRanges, setActiveIzinRanges] = useState<Array<{ start: string; end: string }>>([]);
+  const { t } = useLanguage();
 
   // Combine gurus and murid into users array for compatibility
   const users = [...gurus, ...murid];
@@ -69,7 +71,7 @@ const SuratIzinMurid: React.FC = () => {
   if (loadingSuratIzin || loadingMurid || loadingGurus || loadingKelas) {
     return (
       <Card className="text-center py-12">
-        <p className="text-gray-600">Memuat data...</p>
+        <p className="text-gray-600">{t('muridSuratIzin.loading') || 'Memuat data...'}</p>
       </Card>
     );
   }
@@ -82,26 +84,43 @@ const SuratIzinMurid: React.FC = () => {
 
     if (formData.jenis === 'izin_dispen') {
       if (!formData.jamMulai || !formData.jamSelesai) {
-        showErrorNotification('Validasi Jam', 'Jam mulai dan jam selesai harus diisi!');
+        showErrorNotification(
+          t('muridSuratIzin.validateJamTitle') || 'Validasi Jam',
+          t('muridSuratIzin.validateJamRequired') || 'Jam mulai dan jam selesai harus diisi!'
+        );
         return;
       }
       if (formData.jamMulai >= formData.jamSelesai) {
-        showErrorNotification('Validasi Jam', 'Jam selesai harus lebih besar dari jam mulai');
+        showErrorNotification(
+          t('muridSuratIzin.validateJamTitle') || 'Validasi Jam',
+          t('muridSuratIzin.validateJamOrder') || 'Jam selesai harus lebih besar dari jam mulai'
+        );
         return;
       }
     } else {
       if (!formData.bukti) {
-        showErrorNotification('Bukti Pendukung Diperlukan', 'Bukti pendukung wajib diupload untuk surat izin dan surat sakit!');
+        showErrorNotification(
+          t('muridSuratIzin.validateBuktiTitle') || 'Bukti Pendukung Diperlukan',
+          t('muridSuratIzin.validateBuktiRequired') ||
+            'Bukti pendukung wajib diupload untuk surat izin dan surat sakit!'
+        );
         return;
       }
       if (new Date(formData.tanggalMulai) > new Date(formData.tanggalSelesai)) {
-        showErrorNotification('Tanggal Tidak Valid', 'Tanggal mulai tidak boleh lebih besar dari tanggal selesai!');
+        showErrorNotification(
+          t('muridSuratIzin.validateTanggalTitle') || 'Tanggal Tidak Valid',
+          t('muridSuratIzin.validateTanggalOrder') || 'Tanggal mulai tidak boleh lebih besar dari tanggal selesai!'
+        );
         return;
       }
     }
 
     if (!activeTahunAjaran) {
-      showErrorNotification('Error', 'Tidak ada tahun ajaran aktif. Silakan hubungi administrator.');
+      showErrorNotification(
+        t('muridSuratIzin.errorTitle') || 'Error',
+        t('muridSuratIzin.errorNoTahunAjaran') ||
+          'Tidak ada tahun ajaran aktif. Silakan hubungi administrator.'
+      );
       return;
     }
 
@@ -124,7 +143,10 @@ const SuratIzinMurid: React.FC = () => {
 
         if (response.success) {
           await refreshSuratIzin();
-          showSuccessNotification('Surat Berhasil Diubah', 'Perubahan surat izin Anda telah disimpan.');
+          showSuccessNotification(
+            t('muridSuratIzin.successUpdateTitle') || 'Surat Berhasil Diubah',
+            t('muridSuratIzin.successUpdateMessage') || 'Perubahan surat izin Anda telah disimpan.'
+          );
           resetForm();
         } else {
           throw new Error(response.message || 'Gagal mengubah surat izin');
@@ -149,8 +171,12 @@ const SuratIzinMurid: React.FC = () => {
         if (response.success) {
           await refreshSuratIzin();
           showSuccessNotification(
-            'Surat Berhasil Diajukan',
-            `Surat ${formData.jenis === 'izin_dispen' ? 'izin dispen' : formData.jenis} Anda telah diajukan dan menunggu verifikasi wali kelas.`
+            t('muridSuratIzin.successCreateTitle') || 'Surat Berhasil Diajukan',
+            (t('muridSuratIzin.successCreateMessage') ||
+              `Surat ${formData.jenis === 'izin_dispen' ? 'izin dispen' : formData.jenis} Anda telah diajukan dan menunggu verifikasi wali kelas.`).replace(
+              '{jenis}',
+              formData.jenis === 'izin_dispen' ? 'izin dispen' : formData.jenis
+            )
           );
           resetForm();
         } else {
@@ -159,7 +185,10 @@ const SuratIzinMurid: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error submitting surat izin:', error);
-      showErrorNotification('Error', error.message || 'Terjadi kesalahan saat menyimpan surat izin');
+      showErrorNotification(
+        t('muridSuratIzin.errorTitle') || 'Error',
+        error.message || t('muridSuratIzin.errorSave') || 'Terjadi kesalahan saat menyimpan surat izin'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -209,13 +238,19 @@ const SuratIzinMurid: React.FC = () => {
       const response = await apiService.deleteSuratIzin(suratId);
       if (response.success) {
         await refreshSuratIzin();
-        showSuccessNotification('Surat Berhasil Dihapus', 'Surat izin Anda telah dihapus.');
+        showSuccessNotification(
+          t('muridSuratIzin.successDeleteTitle') || 'Surat Berhasil Dihapus',
+          t('muridSuratIzin.successDeleteMessage') || 'Surat izin Anda telah dihapus.'
+        );
       } else {
         throw new Error(response.message || 'Gagal menghapus surat izin');
       }
     } catch (error: any) {
       console.error('Error deleting surat izin:', error);
-      showErrorNotification('Error', error.message || 'Terjadi kesalahan saat menghapus surat izin');
+      showErrorNotification(
+        t('muridSuratIzin.errorTitle') || 'Error',
+        error.message || t('muridSuratIzin.errorDelete') || 'Terjadi kesalahan saat menghapus surat izin'
+      );
     }
   };
 
@@ -228,8 +263,12 @@ const SuratIzinMurid: React.FC = () => {
               <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mb-1">Pengajuan Surat Izin</h2>
-              <p className="text-sm sm:text-base text-slate-600">Ajukan surat izin atau sakit untuk keperluan Anda</p>
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mb-1">
+                {t('muridSuratIzin.headerTitle') || 'Pengajuan Izin'}
+              </h2>
+              <p className="text-sm sm:text-base text-slate-600">
+                {t('muridSuratIzin.headerSubtitle') || 'Ajukan surat izin atau sakit untuk keperluan Anda'}
+              </p>
             </div>
           </div>
           <Button
@@ -237,7 +276,9 @@ const SuratIzinMurid: React.FC = () => {
             className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap"
           >
             <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="text-sm sm:text-base">Ajukan Surat</span>
+            <span className="text-sm sm:text-base">
+              {t('muridSuratIzin.addButton') || 'Ajukan Surat'}
+            </span>
           </Button>
         </div>
       </div>

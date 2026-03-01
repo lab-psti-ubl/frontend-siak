@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 import { User, SesiAbsensiTahfiz, TahfizSchedule } from '../../../../../types';
 import { TahfizClass } from '../../../../../hooks/useKelasTahfiz';
 import KelasTahfizListView from './KelasTahfizListView';
@@ -33,6 +34,7 @@ const LihatTahfizView: React.FC<LihatTahfizViewProps> = ({
   kelasTahfiz,
   onViewJurnalFile
 }) => {
+  const { t } = useLanguage();
   const [navigation, setNavigation] = useState<NavigationState>({
     level: 'kelas'
   });
@@ -96,32 +98,32 @@ const LihatTahfizView: React.FC<LihatTahfizViewProps> = ({
   };
 
   const getBreadcrumb = () => {
-    const breadcrumbs: string[] = ['Riwayat Tahfiz'];
+    const breadcrumbs: string[] = [t('detailAbsensiModal.riwayatTahfiz')];
 
     if (navigation.level === 'murid') {
       const kelas = kelasTahfiz.find(k => k.id === navigation.kelasId);
-      breadcrumbs.push(kelas?.namaKelas || 'Kelas');
-      breadcrumbs.push('Data Santri');
+      breadcrumbs.push(kelas?.namaKelas || t('detailAbsensiModal.kelas'));
+      breadcrumbs.push(t('detailAbsensiModal.dataSantri'));
     } else if (navigation.level === 'tahfiz') {
       const kelas = kelasTahfiz.find(k => k.id === navigation.kelasId);
-      breadcrumbs.push(kelas?.namaKelas || 'Kelas');
-      breadcrumbs.push('Tahfiz');
+      breadcrumbs.push(kelas?.namaKelas || t('detailAbsensiModal.kelas'));
+      breadcrumbs.push(t('detailAbsensiModal.tahfiz'));
     } else if (navigation.level === 'pertemuan') {
       const kelas = kelasTahfiz.find(k => k.id === navigation.kelasId);
-      breadcrumbs.push(kelas?.namaKelas || 'Kelas');
-      breadcrumbs.push('Tahfiz');
-      breadcrumbs.push('Pertemuan');
+      breadcrumbs.push(kelas?.namaKelas || t('detailAbsensiModal.kelas'));
+      breadcrumbs.push(t('detailAbsensiModal.tahfiz'));
+      breadcrumbs.push(t('detailAbsensiModal.pertemuan'));
     } else if (navigation.level === 'absensi') {
       const kelas = kelasTahfiz.find(k => k.id === navigation.kelasId);
-      breadcrumbs.push(kelas?.namaKelas || 'Kelas');
-      breadcrumbs.push('Tahfiz');
-      breadcrumbs.push('Pertemuan');
-      breadcrumbs.push('Detail Absensi');
+      breadcrumbs.push(kelas?.namaKelas || t('detailAbsensiModal.kelas'));
+      breadcrumbs.push(t('detailAbsensiModal.tahfiz'));
+      breadcrumbs.push(t('detailAbsensiModal.pertemuan'));
+      breadcrumbs.push(t('detailAbsensiModal.detailAbsensiLabel'));
     } else if (navigation.level === 'rekap') {
       const kelas = kelasTahfiz.find(k => k.id === navigation.kelasId);
-      breadcrumbs.push(kelas?.namaKelas || 'Kelas');
-      breadcrumbs.push('Tahfiz');
-      breadcrumbs.push('Rekap Absensi Pertemuan');
+      breadcrumbs.push(kelas?.namaKelas || t('detailAbsensiModal.kelas'));
+      breadcrumbs.push(t('detailAbsensiModal.tahfiz'));
+      breadcrumbs.push(t('detailAbsensiModal.rekapAbsensiPertemuan'));
     }
 
     return breadcrumbs;
@@ -151,7 +153,7 @@ const LihatTahfizView: React.FC<LihatTahfizViewProps> = ({
         </div>
         {navigation.level === 'kelas' && (
           <div className="flex items-center gap-2">
-            <label className="text-xs md:text-sm font-medium text-gray-700 whitespace-nowrap">Tahun:</label>
+            <label className="text-xs md:text-sm font-medium text-gray-700 whitespace-nowrap">{t('detailAbsensiModal.tahun')}:</label>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { UserCircle, ListChecks, BarChart3 } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 import Modal from '../../../../ui/Modal';
 import Button from '../../../../ui/Button';
 import { User, AbsensiGuru, IzinGuru, JadwalPelajaran, SesiAbsensi, FotoMengajar, TahunAjaran, TahfizSchedule } from '../../../../../types';
@@ -18,6 +19,7 @@ import { useUstadz } from '../../../../../hooks/useUstadz';
 import { useJadwalTahfiz } from '../../../../../hooks/useJadwalTahfiz';
 import { useSesiAbsensiTahfiz } from '../../../../../hooks/useSesiAbsensiTahfiz';
 import { useKelasTahfiz } from '../../../../../hooks/useKelasTahfiz';
+import { usePengaturanSistem } from '../../../../../hooks/usePengaturanSistem';
 
 interface DetailAbsensiModalProps {
   isOpen: boolean;
@@ -72,11 +74,16 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
   tahunAjaranAktif,
   semesterAktif
 }) => {
+  const { t } = useLanguage();
   const { ustadz } = useUstadz();
   const { jadwalTahfiz } = useJadwalTahfiz();
   const { sesiAbsensiTahfiz } = useSesiAbsensiTahfiz();
   const { kelasTahfiz } = useKelasTahfiz();
+  const { systemType } = usePengaturanSistem();
   const [activeTab, setActiveTab] = React.useState<'akademik' | 'tahfiz'>('akademik');
+  
+  // Check if system is tahfiz-only
+  const isTahfizOnly = systemType === 'tahfiz';
   const [isRekapMengajarTahfizOpen, setIsRekapMengajarTahfizOpen] = React.useState(false);
   const [selectedJadwalTahfiz, setSelectedJadwalTahfiz] = React.useState<TahfizSchedule | null>(null);
   const [selectedJadwalTahfizDate, setSelectedJadwalTahfizDate] = React.useState('');
@@ -99,26 +106,28 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
     return jadwalTahfiz.filter(j => myKelasIds.includes(j.kelasId));
   }, [jadwalTahfiz, myKelasTahfiz]);
 
-  // Reset to akademik tab when modal closes or guru changes
+  // Reset to appropriate tab when modal closes or guru changes
   React.useEffect(() => {
     if (!isOpen) {
-      setActiveTab('akademik');
+      setActiveTab(isTahfizOnly ? 'tahfiz' : 'akademik');
     }
-  }, [isOpen]);
+  }, [isOpen, isTahfizOnly]);
 
-  // Auto switch to akademik tab if guru is not ustadz
+  // Auto switch to tahfiz tab if system is tahfiz-only
   React.useEffect(() => {
-    if (!isUstadz && activeTab === 'tahfiz') {
+    if (isTahfizOnly) {
+      setActiveTab('tahfiz');
+    } else if (!isUstadz && activeTab === 'tahfiz') {
       setActiveTab('akademik');
     }
-  }, [isUstadz, activeTab]);
+  }, [isTahfizOnly, isUstadz, activeTab]);
 
   return (
     <>
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={`Detail Absensi - ${selectedGuru?.name}`}
+        title={t('detailAbsensiModal.titleWithName', { name: selectedGuru?.name || '' })}
         size="xl"
       >
         {selectedGuru && detailView === 'default' && (
@@ -128,8 +137,8 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
               getKelasName={getKelasName}
             />
 
-            {/* Tabs */}
-            {isUstadz && (
+            {/* Tabs - Only show if not tahfiz-only system and guru is ustadz */}
+            {isUstadz && !isTahfizOnly && (
               <div className="flex border-b border-gray-200">
                 <button
                   onClick={() => setActiveTab('akademik')}
@@ -139,7 +148,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  Akademik
+                  {t('detailAbsensiModal.akademik')}
                 </button>
                 <button
                   onClick={() => setActiveTab('tahfiz')}
@@ -149,18 +158,18 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  Tahfiz
+                  {t('detailAbsensiModal.tahfiz')}
                 </button>
               </div>
             )}
 
-            {activeTab === 'akademik' && (
+            {activeTab === 'akademik' && !isTahfizOnly && (
               <>
                 <div className="p-3 sm:p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-sm sm:text-base text-blue-900 mb-3">Filter Tanggal</h4>
+                  <h4 className="font-medium text-sm sm:text-base text-blue-900 mb-3">{t('detailAbsensiModal.filterTanggal')}</h4>
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-row items-center gap-2 sm:gap-3">
-                      <label className="text-xs sm:text-sm font-medium text-blue-700 whitespace-nowrap flex-shrink-0">Tanggal:</label>
+                      <label className="text-xs sm:text-sm font-medium text-blue-700 whitespace-nowrap flex-shrink-0">{t('detailAbsensiModal.tanggal')}:</label>
                       <input
                         type="date"
                         value={detailDate}
@@ -173,7 +182,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                         onClick={() => onDetailDateChange(new Date().toISOString().split('T')[0])}
                         className="text-xs sm:text-sm flex-shrink-0 whitespace-nowrap"
                       >
-                        Hari Ini
+                        {t('detailAbsensiModal.hariIni')}
                       </Button>
                     </div>
                    
@@ -185,7 +194,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                         className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1"
                       >
                         <UserCircle size={14} className="sm:w-4 sm:h-4" />
-                        <span className="truncate">Lihat Kehadiran</span>
+                        <span className="truncate">{t('detailAbsensiModal.lihatKehadiran')}</span>
                       </Button>
                       <Button
                         size="sm"
@@ -194,7 +203,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                         className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1"
                       >
                         <ListChecks size={14} className="sm:w-4 sm:h-4" />
-                        <span className="truncate">Lihat Pertemuan</span>
+                        <span className="truncate">{t('detailAbsensiModal.lihatPertemuan')}</span>
                       </Button>
                       <Button
                         size="sm"
@@ -203,7 +212,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                         className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1"
                       >
                         <BarChart3 size={14} className="sm:w-4 sm:h-4" />
-                        <span className="truncate">Rekap Mengajar</span>
+                        <span className="truncate">{t('detailAbsensiModal.rekapMengajar')}</span>
                       </Button>
                     </div>
                   </div>
@@ -233,13 +242,13 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
               </>
             )}
 
-            {activeTab === 'tahfiz' && isUstadz && (
+            {activeTab === 'tahfiz' && (isUstadz || isTahfizOnly) && (
               <>
                 <div className="p-3 sm:p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-sm sm:text-base text-blue-900 mb-3">Filter Tanggal</h4>
+                  <h4 className="font-medium text-sm sm:text-base text-blue-900 mb-3">{t('detailAbsensiModal.filterTanggal')}</h4>
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-row items-center gap-2 sm:gap-3">
-                      <label className="text-xs sm:text-sm font-medium text-blue-700 whitespace-nowrap flex-shrink-0">Tanggal:</label>
+                      <label className="text-xs sm:text-sm font-medium text-blue-700 whitespace-nowrap flex-shrink-0">{t('detailAbsensiModal.tanggal')}:</label>
                       <input
                         type="date"
                         value={detailDate}
@@ -252,7 +261,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                         onClick={() => onDetailDateChange(new Date().toISOString().split('T')[0])}
                         className="text-xs sm:text-sm flex-shrink-0 whitespace-nowrap"
                       >
-                        Hari Ini
+                        {t('detailAbsensiModal.hariIni')}
                       </Button>
                     </div>
                    
@@ -264,7 +273,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                         className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1"
                       >
                         <ListChecks size={14} className="sm:w-4 sm:h-4" />
-                        <span className="truncate">Lihat Tahfiz</span>
+                        <span className="truncate">{t('detailAbsensiModal.lihatTahfiz')}</span>
                       </Button>
                       <Button
                         size="sm"
@@ -273,7 +282,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                         className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1"
                       >
                         <BarChart3 size={14} className="sm:w-4 sm:h-4" />
-                        <span className="truncate">Rekap Mengajar Tahfiz</span>
+                        <span className="truncate">{t('detailAbsensiModal.rekapMengajarTahfiz')}</span>
                       </Button>
                     </div>
                   </div>
@@ -305,7 +314,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
           </div>
         )}
 
-        {selectedGuru && detailView === 'kehadiran' && activeTab === 'akademik' && (
+        {selectedGuru && detailView === 'kehadiran' && activeTab === 'akademik' && !isTahfizOnly && (
           <LihatKehadiranView
             guru={selectedGuru}
             absensiGuru={absensiGuru}
@@ -314,13 +323,13 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
           />
         )}
 
-        {selectedGuru && detailView === 'pertemuan' && activeTab === 'akademik' && (
+        {selectedGuru && detailView === 'pertemuan' && activeTab === 'akademik' && !isTahfizOnly && (
           <LihatPertemuanView
             guru={selectedGuru}
           />
         )}
 
-        {selectedGuru && detailView === 'pertemuan' && activeTab === 'tahfiz' && isUstadz && (
+        {selectedGuru && detailView === 'pertemuan' && activeTab === 'tahfiz' && (isUstadz || isTahfizOnly) && (
           <LihatTahfizView
             guru={selectedGuru}
             jadwalTahfiz={myJadwalTahfiz}
@@ -335,7 +344,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
         <Modal
           isOpen={isRekapMengajarOpen}
           onClose={() => onRekapMengajarOpen(false)}
-          title="Rekap Mengajar Guru"
+          title={t('detailAbsensiModal.rekapMengajarGuru')}
           size="full"
         >
           <RekapMengajarGuruModal
@@ -349,11 +358,11 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
         </Modal>
       )}
 
-      {selectedGuru && isUstadz && (
+      {selectedGuru && (isUstadz || isTahfizOnly) && (
         <Modal
           isOpen={isRekapMengajarTahfizOpen}
           onClose={() => setIsRekapMengajarTahfizOpen(false)}
-          title="Rekap Mengajar Tahfiz"
+          title={t('detailAbsensiModal.rekapMengajarTahfizTitle')}
           size="full"
         >
           <RekapMengajarTahfizModal

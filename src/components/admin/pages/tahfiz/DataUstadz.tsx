@@ -15,7 +15,7 @@ import { useLanguage } from '../../../../context/LanguageContext';
 import { generateTeacherAttendanceQRCode, generateQRCodeURL, downloadQRCode } from '../../../../utils/qrCodeGenerator';
 
 const DataUstadz: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { ustadz, refreshUstadz } = useUstadz();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
@@ -304,7 +304,7 @@ const DataUstadz: React.FC = () => {
                         variant="secondary"
                         onClick={() => handleViewQRCode(ustadzItem)}
                         className="!p-2 flex items-center justify-center"
-                        title={t('tahfiz.lihatQRCode') || 'Lihat QR Code'}
+                        title={t('tahfiz.lihatqrcode') || 'Lihat QR Code'}
                       >
                         <QrCode size={14} />
                       </Button>
@@ -443,7 +443,7 @@ const DataUstadz: React.FC = () => {
                     className="flex-1 text-xs flex items-center justify-center"
                   >
                     <QrCode size={12} className="mr-1" />
-                    QR
+                    {t('tahfiz.qrCode') || 'QR Code'}
                   </Button>
                   <Button
                     size="sm"
@@ -569,7 +569,7 @@ const DataUstadz: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">{t('tahfiz.bergabung')}:</span>
                     <span className="text-gray-700">
-                      {selectedUstadz.createdAt ? new Date(selectedUstadz.createdAt).toLocaleDateString('id-ID') : '-'}
+                      {selectedUstadz.createdAt ? new Date(selectedUstadz.createdAt).toLocaleDateString(language === 'ms' ? 'ms-MY' : 'id-ID') : '-'}
                     </span>
                   </div>
                 </div>
@@ -583,7 +583,7 @@ const DataUstadz: React.FC = () => {
                 className="text-sm lg:text-base flex items-center justify-center"
               >
                 <QrCode size={16} className="mr-2" />
-                {t('tahfiz.lihatQRCode') || 'Lihat QR Code'}
+                {t('tahfiz.lihatqrcode') || 'Lihat QR Code'}
               </Button>
               <Button
                 variant="secondary"
@@ -686,7 +686,7 @@ const DataUstadz: React.FC = () => {
               disabled={!qrCodeURL || qrCodeLoading}
             >
               <Download size={16} className="mr-2" />
-              {t('tahfiz.downloadQRCode') || 'Download QR Code'}
+              {t('tahfiz.downloadQRCode') || 'Unduh QR Code'}
             </Button>
           </div>
         )}

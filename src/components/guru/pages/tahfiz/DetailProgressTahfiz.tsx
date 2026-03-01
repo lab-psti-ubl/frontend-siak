@@ -33,7 +33,8 @@ const DetailProgressTahfiz: React.FC = () => {
   const { santriId } = useParams<{ santriId: string }>();
   const navigate = useNavigate();
   const { santri } = useSantri();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   const currentYear = new Date().getFullYear().toString();
 
   const [showAddProgressModal, setShowAddProgressModal] = useState(false);
@@ -620,8 +621,8 @@ const DetailProgressTahfiz: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-sm">
                         {progress.tanggalTes 
-                          ? new Date(progress.tanggalTes).toLocaleDateString('id-ID')
-                          : new Date(progress.tanggal).toLocaleDateString('id-ID')
+                          ? new Date(progress.tanggalTes).toLocaleDateString(dateLocale)
+                          : new Date(progress.tanggal).toLocaleDateString(dateLocale)
                         }
                       </TableCell>
                       <TableCell className="text-sm">
@@ -729,8 +730,8 @@ const DetailProgressTahfiz: React.FC = () => {
                         <span className="text-slate-500">Tanggal:</span>
                         <span className="text-slate-900 font-medium">
                           {progress.tanggalTes 
-                            ? new Date(progress.tanggalTes).toLocaleDateString('id-ID')
-                            : new Date(progress.tanggal).toLocaleDateString('id-ID')
+                            ? new Date(progress.tanggalTes).toLocaleDateString(dateLocale)
+                            : new Date(progress.tanggal).toLocaleDateString(dateLocale)
                           }
                         </span>
                       </div>

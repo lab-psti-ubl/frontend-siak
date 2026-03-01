@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useProfilSekolahPublic } from '../hooks/useProfilSekolahPublic';
+import { useLanguage } from '../context/LanguageContext';
 import Button from './ui/Button';
 import Card from './ui/Card';
+import Footer from './layout/Footer';
 import { School, Eye, EyeOff, LogIn } from 'lucide-react';
 
 const LoginForm: React.FC = () => {
@@ -14,6 +16,7 @@ const LoginForm: React.FC = () => {
   const [error, setError] = useState('');
   const { login, isLoading } = useAuth();
   const { profilSekolah } = useProfilSekolahPublic();
+  const { t } = useLanguage();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,21 +27,15 @@ const LoginForm: React.FC = () => {
       if (result.success) {
         navigate('/dashboard');
       } else {
-        setError(result.message || 'Email atau password salah');
+        setError(result.message || t('login.errorInvalidCredentials'));
       }
     } catch (error: any) {
       // Handle any unexpected errors
-      setError(error.message || 'Terjadi kesalahan saat login. Silakan coba lagi.');
+      setError(error.message || t('login.errorGeneral'));
     }
   };
 
-  const demoAccounts = [
-    { role: 'Admin', email: 'admin@sekolah.com', password: 'admin123' },
-    { role: 'Guru', email: 'sari@sekolah.com', password: 'abc1234' },
-    { role: 'Murid', email: 'ahmad@student.com', password: 'abc1234' },
-  ];
-
-  const schoolName = profilSekolah?.namaSekolah || 'Sistem Absensi Sekolah';
+  const schoolName = profilSekolah?.namaSekolah || t('login.systemName');
   const schoolLogo = profilSekolah?.logoSekolah;
 
  return (
@@ -66,7 +63,7 @@ const LoginForm: React.FC = () => {
                 {schoolName}
               </h1>
               <p className="text-blue-100 text-sm font-medium">
-                Sistem Informasi Absensi & Akademik
+                {t('login.systemSubtitle')}
               </p>
             </div>
           </div>
@@ -75,31 +72,31 @@ const LoginForm: React.FC = () => {
           <div className="px-6 py-8">
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-1">
-                Selamat Datang
+                {t('login.welcomeTitle')}
               </h2>
               <p className="text-gray-600 text-sm">
-                Masuk dengan akun Anda untuk melanjutkan
+                {t('login.welcomeSubtitle')}
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email
+                  {t('login.emailOrNisn')}
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500"
-                  placeholder="nama@sekolah.com"
+                  placeholder={t('login.emailOrNisnPlaceholder')}
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Password
+                  {t('login.password')}
                 </label>
                 <div className="relative">
                   <input
@@ -107,7 +104,7 @@ const LoginForm: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500"
-                    placeholder="Masukkan password Anda"
+                    placeholder={t('login.passwordPlaceholder')}
                     required
                   />
                   <button
@@ -132,9 +129,11 @@ const LoginForm: React.FC = () => {
                 loading={isLoading}
                 className="mt-8 h-12 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl shadow-lg flex items-center justify-center"
               >
-                <LogIn size={18} className="mr-1"/> Masuk Sekarang
+                <LogIn size={18} className="mr-1"/> {t('login.loginButton')}
               </Button>
             </form>
+            {/* Footer di dalam section login, bawah tombol masuk */}
+            <Footer variant="card" />
           </div>
         </Card>
       </div>
@@ -159,39 +158,39 @@ const LoginForm: React.FC = () => {
           {schoolName}
         </h1>
         <p className="text-blue-100 text-sm">
-          Sistem Informasi Absensi & Akademik
+          {t('login.systemSubtitle')}
         </p>
       </div>
 
       {/* RIGHT SIDE FORM */}
       <div className="w-1/2 p-12">
-        <h2 className="text-2xl font-semibold mb-1">Selamat Datang</h2>
+        <h2 className="text-2xl font-semibold mb-1">{t('login.welcomeTitle')}</h2>
         <p className="text-gray-600 text-sm mb-6">
-          Masuk dengan akun Anda untuk melanjutkan
+          {t('login.welcomeSubtitle')}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-semibold mb-2">Email</label>
+            <label className="block text-sm font-semibold mb-2">{t('login.emailOrNisn')}</label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 border rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500"
-              placeholder="nama@sekolah.com"
+              placeholder={t('login.emailOrNisnPlaceholder')}
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2">Password</label>
+            <label className="block text-sm font-semibold mb-2">{t('login.password')}</label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 pr-12 border rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500"
-                placeholder="Masukkan password Anda"
+                placeholder={t('login.passwordPlaceholder')}
                 required
               />
               <button
@@ -216,13 +215,13 @@ const LoginForm: React.FC = () => {
             fullWidth
             className="h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md flex items-center justify-center"
           >
-            <LogIn size={18} className="mr-1"/> Masuk Sekarang
+            <LogIn size={18} className="mr-1"/> {t('login.loginButton')}
           </Button>
         </form>
-
+        {/* Footer di dalam section login, bawah tombol masuk */}
+        <Footer variant="card" />
       </div>
     </div>
-
   </div>
 );
 

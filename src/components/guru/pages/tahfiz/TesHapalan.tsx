@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, XCircle, Loader2, CheckCircle2, AlertCircle, User, BookOpen, Calendar } from 'lucide-react';
 import { useLanguage } from '../../../../context/LanguageContext';
+import { getDateLocale } from '../../../../utils/dateLocaleUtils';
 import Button from '../../../ui/Button';
 import Modal from '../../../ui/Modal';
 import { ProgressHafalan, useProgressHafalan } from '../../../../hooks/useProgressHafalan';
@@ -64,7 +65,7 @@ const TesHapalan: React.FC = () => {
   
   const { saveHasilTes } = useProgressHafalan(progress?.santriId);
   const { santri } = useSantri();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   
   // Get santri data from santriId
   const santriData = progress?.santriId 
@@ -347,7 +348,7 @@ const TesHapalan: React.FC = () => {
               <div className="flex items-center gap-2 bg-white/20 rounded-lg px-4 py-2 border border-white/30">
                 <Calendar className="w-4 h-4 text-white" />
                 <span className="text-sm text-white font-medium">
-                  {new Date().toLocaleDateString('id-ID', { 
+                  {new Date().toLocaleDateString(getDateLocale(language), { 
                     weekday: 'long', 
                     year: 'numeric', 
                     month: 'long', 

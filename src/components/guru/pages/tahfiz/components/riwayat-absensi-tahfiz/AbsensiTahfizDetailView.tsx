@@ -8,8 +8,10 @@ import { SesiAbsensiTahfiz, TahfizSchedule, User } from '../../../../../../types
 import { TahfizClass } from '../../../../../../hooks/useKelasTahfiz';
 import { useSesiAbsensiTahfiz } from '../../../../../../hooks/useSesiAbsensiTahfiz';
 import { useAuth } from '../../../../../../context/AuthContext';
+import { useLanguage } from '../../../../../../context/LanguageContext';
 import { apiService } from '../../../../../../services/apiService';
 import { getLocalTimeISOString } from '../../../../../../utils/absensiUtils';
+import { getDateLocale } from '../../../../../../utils/dateLocaleUtils';
 
 interface AbsensiTahfizDetailViewProps {
   sesiId: string;
@@ -33,9 +35,22 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
   selectedTahun,
 }) => {
   const { user } = useAuth();
-  const { sesiAbsensiTahfiz: allSesiAbsensiTahfiz, refreshSesiAbsensiTahfiz, createSesiAbsensiTahfiz } = useSesiAbsensiTahfiz();
+  const { language } = useLanguage();
+  const dateLocale = getDateLocale(language);
+  const { 
+    sesiAbsensiTahfiz: allSesiAbsensiTahfiz, 
+    refreshSesiAbsensiTahfiz, 
+    createSesiAbsensiTahfiz,
+    addAbsensiToSesiTahfiz: addAbsensiToSesiTahfizAPI,
+    bulkAddAbsensiToSesiTahfiz: bulkAddAbsensiToSesiTahfizAPI,
+    isSyncingWithWorker,
+    syncMessage,
+  } = useSesiAbsensiTahfiz();
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [isCreatingSesi, setIsCreatingSesi] = React.useState(false);
+  const [loadingSantriIds, setLoadingSantriIds] = React.useState<Set<string>>(new Set());
+  const [isBulkLoading, setIsBulkLoading] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
 
   // Check if this is a virtual session (pertemuan yang tidak mengajar)
   const isVirtualSession = sesiId.startsWith('virtual-tahfiz-');
@@ -187,17 +202,27 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
     };
 
     try {
-      const response = await apiService.addAbsensiToSesiTahfiz(activeSesi.id, absensiPelajaranData);
-      if (response.success) {
-        await refreshSesiAbsensiTahfiz();
-        setRefreshKey(prev => prev + 1);
-      }
+      setIsSaving(true);
+      // Set loading state for this santri
+      setLoadingSantriIds(prev => new Set(prev).add(selectedSantri.id));
+      
+      await addAbsensiToSesiTahfizAPI(activeSesi.id, absensiPelajaranData);
+      // refreshSesiAbsensiTahfiz is already called inside addAbsensiToSesiTahfizAPI
+      
+      setRefreshKey(prev => prev + 1);
+      setEditModalOpen(false);
+      setSelectedSantri(null);
     } catch (error) {
       console.error('Error saving tahfiz absensi:', error);
+    } finally {
+      setIsSaving(false);
+      // Clear loading state
+      setLoadingSantriIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(selectedSantri.id);
+        return newSet;
+      });
     }
-
-    setEditModalOpen(false);
-    setSelectedSantri(null);
   };
 
   const handleCeklisHadirSemua = async () => {
@@ -243,13 +268,16 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
     }));
 
     try {
-      const response = await apiService.bulkAddAbsensiToSesiTahfiz(activeSesi.id, absensiList);
-      if (response.success) {
-        await refreshSesiAbsensiTahfiz();
-        setRefreshKey(prev => prev + 1);
-      }
+      setIsBulkLoading(true);
+      
+      await bulkAddAbsensiToSesiTahfizAPI(activeSesi.id, absensiList);
+      // refreshSesiAbsensiTahfiz is already called inside bulkAddAbsensiToSesiTahfizAPI
+      
+      setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error bulk saving tahfiz absensi:', error);
+    } finally {
+      setIsBulkLoading(false);
     }
   };
 
@@ -261,7 +289,7 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
       month: 'long',
       day: 'numeric'
     };
-    return date.toLocaleDateString('id-ID', options);
+    return date.toLocaleDateString(dateLocale, options);
   };
 
   const formatWaktu = (waktu: string) => {
@@ -324,6 +352,16 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
 
   return (
     <div className="space-y-5 lg:space-y-6">
+      {/* Global Loading Indicator for Worker Sync */}
+      {(isSyncingWithWorker || isBulkLoading) && (
+        <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl">
+          <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" aria-label="Memuat data absensi" />
+          <p className="text-sm font-medium">
+            {syncMessage || (isBulkLoading ? 'Menyimpan absensi tahfiz...' : 'Memproses absensi tahfiz...')}
+          </p>
+        </div>
+      )}
+
       {/* Header Info */}
       <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
         <div className="p-4 sm:p-6">
@@ -395,9 +433,19 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
                 variant="primary"
                 size="sm"
                 className="text-xs sm:text-sm w-full sm:w-auto flex items-center justify-center"
+                disabled={isBulkLoading}
               >
-                <CheckCircle size={14} className="mr-1.5 sm:mr-2" />
-                Ceklis Hadir Semua
+                {isBulkLoading ? (
+                  <>
+                    <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5 sm:mr-2" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={14} className="mr-1.5 sm:mr-2" />
+                    Ceklis Hadir Semua
+                  </>
+                )}
               </Button>
             )}
           </div>
@@ -441,14 +489,22 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
                         {absensi?.keterangan || '-'}
                       </td>
                       <td className="px-5 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-center">
-                        <Button
-                          onClick={() => handleEditAbsensi(santriItem, absensi)}
-                          variant="secondary"
-                          size="sm"
-                          className="text-xs px-2 py-1 mx-auto"
-                        >
-                          {absensi ? 'Edit' : 'Tambah'}
-                        </Button>
+                        {loadingSantriIds.has(santriItem.id) ? (
+                          <div className="flex items-center justify-center gap-2 text-blue-600">
+                            <div className="h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs">Menyimpan...</span>
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => handleEditAbsensi(santriItem, absensi)}
+                            variant="secondary"
+                            size="sm"
+                            className="text-xs px-2 py-1 mx-auto"
+                            disabled={loadingSantriIds.has(santriItem.id)}
+                          >
+                            {absensi ? 'Edit' : 'Tambah'}
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -488,14 +544,22 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
                       </div>
                     )}
                   </div>
-                  <Button
-                    onClick={() => handleEditAbsensi(santriItem, absensi)}
-                    variant="primary"
-                    size="sm"
-                    className="w-full mt-3 text-xs flex items-center justify-center"
-                  >
-                    {absensi ? 'Edit Absensi' : 'Tambah Absensi'}
-                  </Button>
+                  {loadingSantriIds.has(santriItem.id) ? (
+                    <div className="flex items-center justify-center gap-2 text-blue-600 py-2">
+                      <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs">Menyimpan...</span>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => handleEditAbsensi(santriItem, absensi)}
+                      variant="primary"
+                      size="sm"
+                      className="w-full mt-3 text-xs flex items-center justify-center"
+                      disabled={loadingSantriIds.has(santriItem.id)}
+                    >
+                      {absensi ? 'Edit Absensi' : 'Tambah Absensi'}
+                    </Button>
+                  )}
                 </Card>
               );
             })}
@@ -503,7 +567,7 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
         </div>
       </Card>
 
-      <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} size="md">
+      <Modal isOpen={editModalOpen} onClose={() => !isSaving && setEditModalOpen(false)} size="md">
         <div className="space-y-4">
           <h3 className="text-xl font-bold text-gray-900">
             {isNewAbsensi ? 'Tambah' : 'Edit'} Absensi Tahfiz
@@ -518,6 +582,15 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
             </div>
           )}
 
+          {isSaving && (
+            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl">
+              <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" aria-label="Menyimpan data absensi" />
+              <p className="text-sm font-medium">
+                Menyimpan absensi tahfiz melalui worker...
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Status Kehadiran
@@ -526,6 +599,7 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
               value={editStatus}
               onChange={(e) => setEditStatus(e.target.value as 'hadir' | 'izin' | 'sakit' | 'alfa')}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isSaving}
             >
               <option value="hadir">Hadir</option>
               <option value="izin">Izin</option>
@@ -544,6 +618,7 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
               rows={3}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Tambahkan keterangan..."
+              disabled={isSaving}
             />
           </div>
 
@@ -551,6 +626,7 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
             <Button
               onClick={() => setEditModalOpen(false)}
               variant="secondary"
+              disabled={isSaving}
             >
               Batal
             </Button>
@@ -558,9 +634,19 @@ const AbsensiTahfizDetailView: React.FC<AbsensiTahfizDetailViewProps> = ({
               onClick={handleSaveEdit}
               variant="primary"
               className="flex items-center"
+              disabled={isSaving}
             >
-              <Save size={16} className="mr-2" />
-              Simpan
+              {isSaving ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Save size={16} className="mr-2" />
+                  Simpan
+                </>
+              )}
             </Button>
           </div>
         </div>

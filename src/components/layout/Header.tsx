@@ -106,7 +106,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, onMenuClick }) => {
                     className="object-contain flex-shrink-0 h-10 w-10 sm:h-14 sm:w-14"
                   />
                   <div className="flex flex-col">
-                    <span className="text-sm sm:text-base font-semibold text-gray-900 leading-tight max-w-[180px] sm:max-w-[220px] truncate">
+                    <span className="text-sm sm:text-base font-semibold text-gray-900 leading-tight max-w-[180px] sm:max-w-[220px] line-clamp-2 break-words">
                       {profilSekolah.namaSekolah || 'Aplikasi'}
                     </span>
                   </div>

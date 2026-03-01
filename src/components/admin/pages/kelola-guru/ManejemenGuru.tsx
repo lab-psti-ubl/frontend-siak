@@ -48,9 +48,11 @@ const ManajemenGuru: React.FC = () => {
   const isKepalaSekolah = user?.role === 'kepala_sekolah';
 
   const filteredGurus = gurus.filter(guru => {
+    const g = guru as User & { username?: string };
     const matchesSearch = guru.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          guru.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (guru.nip && guru.nip.toLowerCase().includes(searchTerm.toLowerCase()));
+                         (guru.nip && guru.nip.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (g?.username && g.username.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = statusFilter === 'all' || 
                          (statusFilter === 'active' && guru.isActive !== false) ||
@@ -364,7 +366,7 @@ const ManajemenGuru: React.FC = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 sm:w-5 sm:h-5" />
               <input
                 type="text"
-                placeholder="Cari nama, email, atau NIP..."
+                placeholder="Cari nama, email, NIP, atau username..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
@@ -488,6 +490,11 @@ const ManajemenGuru: React.FC = () => {
                         <Mail size={12} className="mr-2 flex-shrink-0" />
                         <span className="truncate" title={guru.email}>{guru.email}</span>
                       </div>
+                      {(guru as User & { username?: string }).username && (
+                        <div className="text-xs text-slate-500 truncate">
+                          <span className="font-mono">@{(guru as User & { username?: string }).username}</span>
+                        </div>
+                      )}
                       {guru.phone ? (
                         <button
                           onClick={() => handleWhatsAppCall(guru.phone || '')}
@@ -634,6 +641,9 @@ const ManajemenGuru: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-slate-900 text-sm truncate">{guru.name}</p>
                     <p className="text-xs text-slate-500">{guru.subject || 'Guru'}</p>
+                    {(guru as User & { username?: string }).username && (
+                      <p className="text-xs text-slate-500 font-mono">@{(guru as User & { username?: string }).username}</p>
+                    )}
                     <p className="text-xs text-slate-600 mt-1">NIP: {guru.nip}</p>
                   </div>
                   <div className="flex items-start gap-1">
@@ -790,6 +800,13 @@ const ManajemenGuru: React.FC = () => {
                     <Mail size={14} className="text-gray-400 flex-shrink-0" />
                     <span className="text-xs lg:text-sm text-gray-700 break-all">{selectedGuru.email}</span>
                   </div>
+                  {(selectedGuru as User & { username?: string }).username && (
+                    <div className="flex items-center gap-2">
+                      <UserCheck size={14} className="text-gray-400 flex-shrink-0" />
+                      <span className="text-xs lg:text-sm text-gray-700 font-mono">{(selectedGuru as User & { username?: string }).username}</span>
+                      <span className="text-xs text-gray-500">(username untuk login)</span>
+                    </div>
+                  )}
                   {selectedGuru.phone ? (
                     <button
                       onClick={() => handleWhatsAppCall(selectedGuru.phone || '')}

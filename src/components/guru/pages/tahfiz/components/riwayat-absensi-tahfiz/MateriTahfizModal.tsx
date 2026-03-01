@@ -5,9 +5,12 @@ import Badge from '../../../../../ui/Badge';
 import { Eye, Download, X, FileText, BookOpen, Calendar, Clock, Edit, Plus, Upload, Trash2, FileJson } from 'lucide-react';
 import { SesiAbsensiTahfiz, TahfizSchedule, JurnalMengajar } from '../../../../../../types';
 import { TahfizClass } from '../../../../../../hooks/useKelasTahfiz';
-import { useJurnal, Jurnal } from '../../../../../../hooks/useJurnal';
+import { useJurnalTahfiz } from '../../../../../../hooks/useJurnalTahfiz';
+import { JurnalTahfiz } from '../../../../../../types';
 import { showErrorToast, showSuccessToast } from '../../../../../../components/ui/ToastContainer';
 import { apiService } from '../../../../../../services/apiService';
+import { useLanguage } from '../../../../../../context/LanguageContext';
+import { getDateLocale } from '../../../../../../utils/dateLocaleUtils';
 
 interface MateriTahfizModalProps {
   isOpen: boolean;
@@ -32,16 +35,20 @@ const MateriTahfizModal: React.FC<MateriTahfizModalProps> = ({
   selectedTahun,
   onUpdateJurnal,
 }) => {
+  const { language } = useLanguage();
+  const dateLocale = getDateLocale(language);
   const jadwal = jadwalTahfiz.find(j => j.id === jadwalId);
   const kelasData = kelasTahfiz.find(k => k.id === kelasId);
 
-  // Fetch all jurnal for the selected jadwal
-  const { jurnal: allJurnal, refreshJurnal } = useJurnal();
+  // Fetch all jurnal tahfiz for the selected jadwal
+  const { jurnalTahfiz: allJurnalTahfiz, refreshJurnalTahfiz } = useJurnalTahfiz({
+    tahun: selectedTahun
+  });
 
-  const [selectedMateri, setSelectedMateri] = useState<{ jurnal: Jurnal; tanggal: string; jadwalId: string } | null>(null);
+  const [selectedMateri, setSelectedMateri] = useState<{ jurnal: { id: string; jadwalId: string; kelasId: string; tanggal: string; judul: string; deskripsi: string; waktuInput: string; file?: { name: string; type: string; data: string; size: number }; tahunAjaranId: string; semester: number; createdAt: string; updatedAt: string }; tanggal: string; jadwalId: string } | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editingMeeting, setEditingMeeting] = useState<{ jadwalId: string; kelasId: string; tanggal: string; jurnal?: Jurnal } | null>(null);
+  const [editingMeeting, setEditingMeeting] = useState<{ jadwalId: string; kelasId: string; tanggal: string; jurnal?: { id: string; jadwalId: string; kelasId: string; tanggal: string; judul: string; deskripsi: string; waktuInput: string; file?: { name: string; type: string; data: string; size: number }; tahunAjaranId: string; semester: number; createdAt: string; updatedAt: string } } | null>(null);
 
   const [formData, setFormData] = useState({
     judul: '',
@@ -54,12 +61,12 @@ const MateriTahfizModal: React.FC<MateriTahfizModalProps> = ({
     .filter(sesi => sesi.jadwalId === jadwalId && sesi.status === 'ditutup' && sesi.tahun === selectedTahun)
     .sort((a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
 
-  // Get jurnal for selected jadwal
+  // Get jurnal tahfiz for selected jadwal
   const jurnalMap = useMemo(() => {
-    const map = new Map<string, Jurnal>();
-    allJurnal.forEach(j => {
-      if (j.jadwalId === jadwalId) {
-        // Check if jurnal has pertemuan array (new structure)
+    const map = new Map<string, { id: string; jadwalId: string; kelasId: string; tanggal: string; judul: string; deskripsi: string; waktuInput: string; file?: { name: string; type: string; data: string; size: number }; tahunAjaranId: string; semester: number; createdAt: string; updatedAt: string }>();
+    allJurnalTahfiz.forEach(j => {
+      if (j.jadwalId === jadwalId && j.kelasId === kelasId) {
+        // Jurnal tahfiz always has pertemuan array
         if (j.pertemuan && Array.isArray(j.pertemuan)) {
           // Add each pertemuan to the map
           j.pertemuan.forEach((pertemuan: { tanggal: string; judul: string; deskripsi: string; waktuInput: string; file?: { name: string; type: string; data: string; size: number } }) => {
@@ -73,21 +80,17 @@ const MateriTahfizModal: React.FC<MateriTahfizModalProps> = ({
               deskripsi: pertemuan.deskripsi,
               waktuInput: pertemuan.waktuInput,
               file: pertemuan.file,
-              tahunAjaranId: j.tahunAjaranId,
-              semester: j.semester,
+              tahunAjaranId: j.tahun || '',
+              semester: 1, // Not used for Tahfiz
               createdAt: j.createdAt,
               updatedAt: j.updatedAt,
             });
           });
-        } else if (j.tanggal) {
-          // Old structure (backward compatibility)
-          const key = `${j.jadwalId}-${j.tanggal}`;
-          map.set(key, j);
         }
       }
     });
     return map;
-  }, [allJurnal, jadwalId]);
+  }, [allJurnalTahfiz, jadwalId, kelasId]);
 
   const generateAllMeetings = () => {
     if (!jadwal) return [];
@@ -101,7 +104,7 @@ const MateriTahfizModal: React.FC<MateriTahfizModalProps> = ({
       jadwalId: string;
       kelasId: string;
       sesi?: SesiAbsensiTahfiz;
-      jurnal?: Jurnal;
+      jurnal?: { id: string; jadwalId: string; kelasId: string; tanggal: string; judul: string; deskripsi: string; waktuInput: string; file?: { name: string; type: string; data: string; size: number }; tahunAjaranId: string; semester: number; createdAt: string; updatedAt: string };
       hasMateri: boolean;
     }> = [];
 
@@ -183,7 +186,7 @@ const MateriTahfizModal: React.FC<MateriTahfizModalProps> = ({
 
   const formatTanggal = (tanggal: string) => {
     const date = new Date(tanggal);
-    return date.toLocaleDateString('id-ID', {
+    return date.toLocaleDateString(dateLocale, {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -200,7 +203,7 @@ const MateriTahfizModal: React.FC<MateriTahfizModalProps> = ({
     setIsDetailOpen(true);
   };
 
-  const handleDownload = (jurnal: Jurnal) => {
+  const handleDownload = (jurnal: { id: string; jadwalId: string; kelasId: string; tanggal: string; judul: string; deskripsi: string; waktuInput: string; file?: { name: string; type: string; data: string; size: number }; tahunAjaranId: string; semester: number; createdAt: string; updatedAt: string }) => {
     if (!jurnal.file) return;
 
     const link = document.createElement('a');
@@ -276,7 +279,7 @@ const MateriTahfizModal: React.FC<MateriTahfizModalProps> = ({
 
     try {
       await onUpdateJurnal(editingMeeting.jadwalId, editingMeeting.kelasId, editingMeeting.tanggal, jurnal);
-      await refreshJurnal();
+      await refreshJurnalTahfiz();
       showSuccessToast(
         'Berhasil',
         editingMeeting.jurnal ? 'Jurnal materi berhasil diperbarui' : 'Jurnal materi berhasil ditambahkan'

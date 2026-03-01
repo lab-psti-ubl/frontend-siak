@@ -32,6 +32,8 @@ import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
 import { User as UserType, Kelas, TahunAjaran, IzinGuru } from '../../types';
 import { isMaxTingkatSync } from '../../utils/jenjangPendidikanUtils';
 import { getTeacherTerm } from '../../utils/terminologyUtils';
+import { getTodayIndonesia, getCurrentTimeIndonesia } from '../../utils/absensiUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface MenuCard {
   id: string;
@@ -57,16 +59,18 @@ const GuruMenuCards: React.FC = () => {
   const { izinGuru } = useIzinGuru();
   const { riwayatWaliKelas: riwayatWaliKelasData } = useRiwayatWaliKelasData();
   const { ustadz } = useUstadz();
-  const { systemType } = usePengaturanSistem();
+  const { systemType, cbtEnabled } = usePengaturanSistem();
   const [showAllCards, setShowAllCards] = useState(false);
+  const { t } = useLanguage();
   
   const teacherTerm = getTeacherTerm(systemType);
   const isTahfizSystem = systemType === 'tahfiz';
   const isSekolahUmumTahfiz = systemType === 'sekolah_umum_tahfiz';
+  const isCbtEnabled = cbtEnabled ?? true;
 
   const activeIzinForSubstitute = (() => {
-    const today = new Date().toISOString().split('T')[0];
-    const currentTime = new Date().toTimeString().slice(0, 5);
+    const today = getTodayIndonesia();
+    const currentTime = getCurrentTimeIndonesia();
     
     return izinGuru.find(i => {
       // Check if user is assigned as substitute
@@ -101,7 +105,7 @@ const GuruMenuCards: React.FC = () => {
   const mengajarCards: MenuCard[] = [
     {
       id: 'jadwal-saya',
-      label: 'Jadwal Saya',
+      label: t('guruMenu.jadwalSaya') || 'Jadwal Saya',
       icon: Calendar,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-blue-600 to-blue-700',
@@ -109,7 +113,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'kelola-absensi',
-      label: 'Kelola Absensi',
+      label: t('guruMenu.kelolaAbsensi') || 'Kelola Absensi',
       icon: ClipboardList,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-orange-600 to-orange-700',
@@ -117,7 +121,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'input-nilai',
-      label: 'Input Nilai',
+      label: t('guruMenu.inputNilai') || 'Input Nilai',
       icon: BarChart3,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-teal-600 to-teal-700',
@@ -125,7 +129,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'capaian-pembelajaran',
-      label: 'Capaian Pembelajaran',
+      label: t('guruMenu.capaianPembelajaran') || 'Capaian Pembelajaran',
       icon: BookOpen,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-indigo-600 to-indigo-700',
@@ -133,7 +137,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'riwayat-absensi',
-      label: 'Riwayat Absensi',
+      label: t('guruMenu.riwayatAbsensi') || 'Riwayat Absensi',
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-green-600 to-green-700',
@@ -141,10 +145,29 @@ const GuruMenuCards: React.FC = () => {
     },
   ];
 
+  const cbtCards: MenuCard[] = [
+    {
+      id: 'cbt-bank-soal',
+      label: (t('guruMenu.bankSoalCBT') || t('sidebar.bankSoalCBT')) ?? 'Bank Soal CBT',
+      icon: BookOpen,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
+      route: '/dashboard/cbt-bank-soal',
+    },
+    {
+      id: 'cbt-buat-ujian',
+      label: (t('guruMenu.buatUjianCBT') || t('sidebar.buatUjianCBT')) ?? 'Buat Ujian CBT',
+      icon: FileText,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-indigo-600 to-indigo-700',
+      route: '/dashboard/cbt-buat-ujian',
+    },
+  ];
+
   const baseMenuCards: MenuCard[] = [
     {
       id: 'absen-guru',
-      label: isTahfizSystem ? 'Absen Saya' : 'Absen',
+      label: isTahfizSystem ? t('guruMenu.absenSaya') : t('guruMenu.absen'),
       icon: ClipboardList,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-purple-600 to-purple-700',
@@ -152,7 +175,7 @@ const GuruMenuCards: React.FC = () => {
     },
     ...(isSekolahUmumTahfiz ? [{
       id: 'absen-siswa',
-      label: 'Absen Siswa',
+      label: t('guruMenu.absenSantri'),
       icon: UserCheck,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-indigo-600 to-indigo-700',
@@ -160,7 +183,7 @@ const GuruMenuCards: React.FC = () => {
     }] : []),
     {
       id: 'izin-guru',
-      label: 'Pengajuan Izin',
+      label: t('guruMenu.pengajuanIzin'),
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-red-600 to-red-700',
@@ -168,7 +191,7 @@ const GuruMenuCards: React.FC = () => {
     },
     ...(activeIzinForSubstitute ? [{
       id: 'pengganti',
-      label: 'Pengganti',
+      label: t('guruMenu.pengganti') || 'Pengganti',
       icon: Briefcase,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-cyan-600 to-cyan-700',
@@ -176,7 +199,7 @@ const GuruMenuCards: React.FC = () => {
     }] : []),
     {
       id: 'profil',
-      label: 'Profil',
+      label: t('guruMenu.profil'),
       icon: User,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-amber-600 to-amber-700',
@@ -187,7 +210,7 @@ const GuruMenuCards: React.FC = () => {
   const waliKelasCards: MenuCard[] = [
     {
       id: 'absen-kelas',
-      label: 'Absen Kelas',
+      label: t('guruMenu.absenKelas'),
       icon: ClipboardList,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-indigo-600 to-indigo-700',
@@ -195,7 +218,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'data-murid-kelas',
-      label: 'Data Murid Kelas',
+      label: t('guruMenu.dataMuridKelas'),
       icon: ClipboardList,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-pink-600 to-pink-700',
@@ -203,7 +226,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'murid-kelas',
-      label: 'Absen Pelajaran',
+      label: t('guruMenu.absenPelajaran'),
       icon: ClipboardList,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-rose-600 to-rose-700',
@@ -211,7 +234,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'nilai-kelas',
-      label: 'Nilai Kelas',
+      label: t('guruMenu.nilaiKelas'),
       icon: BookOpen,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-sky-600 to-sky-700',
@@ -219,7 +242,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'nilai-ekstrakulikuler',
-      label: 'Nilai Ekstrakulikuler',
+      label: t('guruMenu.nilaiEkstrakurikuler'),
       icon: Trophy,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-yellow-600 to-yellow-700',
@@ -227,7 +250,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'kokulikuler',
-      label: 'Kokulikuler',
+      label: t('guruMenu.kokulikuler'),
       icon: BookOpen,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-purple-600 to-pink-500',
@@ -235,7 +258,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'surat-izin',
-      label: 'Surat Izin',
+      label: t('guruMenu.suratIzin'),
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-lime-600 to-lime-700',
@@ -243,7 +266,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'jadwal-kelas',
-      label: 'Jadwal Pelajaran Kelas',
+      label: t('guruMenu.jadwalPelajaranKelas'),
       icon: Calendar,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-violet-600 to-violet-700',
@@ -251,7 +274,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'raport-murid',
-      label: 'Raport Murid',
+      label: t('guruMenu.raportMurid'),
       icon: GraduationCap,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-fuchsia-600 to-fuchsia-700',
@@ -259,7 +282,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'e-raport',
-      label: 'Nilai E-Raport',
+      label: t('guruMenu.nilaiERaport'),
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-teal-600 to-teal-700',
@@ -267,7 +290,7 @@ const GuruMenuCards: React.FC = () => {
     },
     ...(shouldShowInfoKelulusan ? [{
       id: 'info-kelulusan',
-      label: 'Info Kelulusan',
+      label: t('guruMenu.infoKelulusan'),
       icon: Award,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
@@ -278,7 +301,7 @@ const GuruMenuCards: React.FC = () => {
   const tahfizQuranCards: MenuCard[] = [
     {
       id: 'data-santri-tahfiz-guru',
-      label: 'Data Santri Tahfiz',
+      label: t('guruMenu.tahfizDataSantri'),
       icon: Users,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
@@ -286,7 +309,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'jadwal-tahfiz-guru',
-      label: 'Jadwal Tahfiz',
+      label: t('guruMenu.tahfizJadwal'),
       icon: Calendar,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-cyan-600 to-cyan-700',
@@ -294,7 +317,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'absensi-tahfiz',
-      label: 'Absensi Tahfiz',
+      label: t('guruMenu.tahfizAbsensi'),
       icon: ClipboardList,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-red-600 to-red-800',
@@ -302,7 +325,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'riwayat-absensi-tahfiz',
-      label: 'Riwayat Absensi Tahfiz',
+      label: t('guruMenu.tahfizRiwayatAbsensi'),
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-orange-600 to-orange-700',
@@ -310,7 +333,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'progress-tahfiz',
-      label: 'Progress Tahfiz',
+      label: t('guruMenu.tahfizProgress'),
       icon: BarChart3,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-violet-600 to-violet-700',
@@ -318,7 +341,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'izin-santri-tahfiz',
-      label: 'Izin Santri',
+      label: t('guruMenu.tahfizIzinSantri'),
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-pink-600 to-pink-700',
@@ -329,7 +352,7 @@ const GuruMenuCards: React.FC = () => {
   const riwayatCards: MenuCard[] = [
     {
       id: 'riwayat-wali-kelas',
-      label: 'Riwayat Wali Kelas',
+      label: t('guruMenu.riwayatWaliKelas'),
       icon: GraduationCap,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-slate-600 to-slate-700',
@@ -337,7 +360,7 @@ const GuruMenuCards: React.FC = () => {
     },
     {
       id: 'riwayat-kelulusan',
-      label: 'Riwayat Kelulusan',
+      label: t('guruMenu.riwayatKelulusan'),
       icon: Award,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-zinc-600 to-zinc-700',
@@ -351,14 +374,14 @@ const GuruMenuCards: React.FC = () => {
     ? (isUstadz 
         ? [...baseMenuCards, {
             id: 'absen-siswa',
-            label: 'Absensi Murid',
+            label: t('guruMenu.absensiMurid'),
             icon: UserCheck,
             color: 'text-white',
             bgColor: 'bg-gradient-to-br from-indigo-600 to-indigo-700',
             route: '/dashboard/absen-siswa',
           }, {
             id: 'absensi-tahfiz',
-            label: 'Absensi Tahfiz',
+            label: t('guruMenu.tahfizAbsensi'),
             icon: ClipboardList,
             color: 'text-white',
             bgColor: 'bg-gradient-to-br from-red-600 to-red-800',
@@ -368,54 +391,56 @@ const GuruMenuCards: React.FC = () => {
     : isSekolahUmumTahfiz
     ? [...mengajarCards, ...baseMenuCards]
     : [...mengajarCards, ...baseMenuCards];
-  
-  const shouldShowMoreButton = isTahfizSystem
-    ? isUstadz
-    : isSekolahUmumTahfiz
-    ? (user?.isWaliKelas || isUstadz || hasRiwayatWaliKelas)
-    : (user?.isWaliKelas || isUstadz || hasRiwayatWaliKelas);
 
   const sections: MenuSection[] = isTahfizSystem
     ? [
         ...(isUstadz ? [{
-          title: 'Tahfiz Qur\'an',
+          title: t('guruMenu.sectionTahfizQuran'),
           cards: tahfizQuranCards,
         }] : []),
       ]
     : isSekolahUmumTahfiz
     ? [
         {
-          title: 'Mengajar',
+          title: t('guruMenu.sectionMengajar'),
           cards: mengajarCards,
         },
+        ...(isCbtEnabled ? [{
+          title: t('guruMenu.sectionKelolaCBT') || t('sidebar.kelolaCBT') || 'Kelola CBT',
+          cards: cbtCards,
+        }] : []),
         ...(user?.isWaliKelas ? [{
-          title: 'Wali Kelas',
+          title: t('guruMenu.sectionWaliKelas'),
           cards: waliKelasCards,
         }] : []),
         ...(isUstadz ? [{
-          title: 'Tahfiz Qur\'an',
+          title: t('guruMenu.sectionTahfizQuran'),
           cards: tahfizQuranCards,
         }] : []),
         ...(hasRiwayatWaliKelas ? [{
-          title: 'Riwayat',
+          title: t('guruMenu.sectionRiwayat'),
           cards: riwayatCards,
         }] : []),
       ]
     : [
         {
-          title: 'Mengajar',
+          title: t('guruMenu.sectionMengajar'),
           cards: mengajarCards,
         },
+        ...(isCbtEnabled ? [{
+          title: t('guruMenu.sectionKelolaCBT') || t('sidebar.kelolaCBT') || 'Kelola CBT',
+          cards: cbtCards,
+        }] : []),
         ...(user?.isWaliKelas ? [{
-          title: 'Wali Kelas',
+          title: t('guruMenu.sectionWaliKelas'),
           cards: waliKelasCards,
         }] : []),
         ...(isUstadz ? [{
-          title: 'Tahfiz Qur\'an',
+          title: t('guruMenu.sectionTahfizQuran'),
           cards: tahfizQuranCards,
         }] : []),
         ...(hasRiwayatWaliKelas ? [{
-          title: 'Riwayat',
+          title: t('guruMenu.sectionRiwayat'),
           cards: riwayatCards,
         }] : []),
       ];
@@ -423,39 +448,49 @@ const GuruMenuCards: React.FC = () => {
   const sectionsForExpanded: MenuSection[] = isTahfizSystem
     ? [
         ...(isUstadz ? [{
-          title: 'Tahfiz Qur\'an',
+          title: t('guruMenu.sectionTahfizQuran'),
           cards: tahfizQuranCards,
         }] : []),
       ]
     : isSekolahUmumTahfiz
     ? [
+        ...(isCbtEnabled ? [{
+          title: t('guruMenu.sectionKelolaCBT') || t('sidebar.kelolaCBT') || 'Kelola CBT',
+          cards: cbtCards,
+        }] : []),
         ...(user?.isWaliKelas ? [{
-          title: 'Wali Kelas',
+          title: t('guruMenu.sectionWaliKelas'),
           cards: waliKelasCards,
         }] : []),
         ...(isUstadz ? [{
-          title: 'Tahfiz Qur\'an',
+          title: t('guruMenu.sectionTahfizQuran'),
           cards: tahfizQuranCards,
         }] : []),
         ...(hasRiwayatWaliKelas ? [{
-          title: 'Riwayat',
+          title: t('guruMenu.sectionRiwayat'),
           cards: riwayatCards,
         }] : []),
       ]
     : [
+        ...(isCbtEnabled ? [{
+          title: t('guruMenu.sectionKelolaCBT') || t('sidebar.kelolaCBT') || 'Kelola CBT',
+          cards: cbtCards,
+        }] : []),
         ...(user?.isWaliKelas ? [{
-          title: 'Wali Kelas',
+          title: t('guruMenu.sectionWaliKelas'),
           cards: waliKelasCards,
         }] : []),
         ...(isUstadz ? [{
-          title: 'Tahfiz Qur\'an',
+          title: t('guruMenu.sectionTahfizQuran'),
           cards: tahfizQuranCards,
         }] : []),
         ...(hasRiwayatWaliKelas ? [{
-          title: 'Riwayat',
+          title: t('guruMenu.sectionRiwayat'),
           cards: riwayatCards,
         }] : []),
       ];
+
+  const shouldShowMoreButton = sectionsForExpanded.length > 0;
 
   const renderMenuCards = (cards: MenuCard[]) => {
     return (
@@ -484,8 +519,8 @@ const GuruMenuCards: React.FC = () => {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
-        <h3 className="text-lg font-bold text-slate-900">Menu Utama</h3>
-        <p className="text-sm text-slate-600 mt-0.5">Akses semua fitur dengan mudah</p>
+        <h3 className="text-lg font-bold text-slate-900">{t('guruMenu.headerTitle')}</h3>
+        <p className="text-sm text-slate-600 mt-0.5">{t('guruMenu.headerSubtitle')}</p>
       </div>
 
       <div className="p-6 space-y-8">
@@ -515,12 +550,12 @@ const GuruMenuCards: React.FC = () => {
             >
               {showAllCards ? (
                 <>
-                  Tampilkan Lebih Sedikit
+                  {t('guruMenu.showLess')}
                   <ChevronUp size={20} />
                 </>
               ) : (
                 <>
-                  Lihat Lainnya
+                  {t('guruMenu.showMore')}
                   <ChevronDown size={20} />
                 </>
               )}

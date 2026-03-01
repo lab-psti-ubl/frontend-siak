@@ -4,13 +4,15 @@ import Card from '../../../ui/Card';
 import Button from '../../../ui/Button';
 import Badge from '../../../ui/Badge';
 import { AlatRFID } from '../../../../types';
-import TambahAlatRFIDModal from './TambahAlatRFIDModal';
+import TambahAlatRFIDModal, { JenisAbsenAlat } from './TambahAlatRFIDModal';
 import EditAlatRFIDModal from './EditAlatRFIDModal';
 import { showToast } from '../../../ui/ToastContainer';
 import { apiService } from '../../../../services/apiService';
 import { usePengaturanSistem } from '../../../../hooks/usePengaturanSistem';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 const ManajemenAlatRFID: React.FC = () => {
+  const { t } = useLanguage();
   const [alatRfid, setAlatRfid] = useState<AlatRFID[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -32,51 +34,53 @@ const ManajemenAlatRFID: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching alat RFID:', error);
-      showToast('Gagal memuat data alat RFID', 'error');
+      showToast(t('manajemenAlatRFID.gagalMemuat'), 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAddAlat = async (namaAlat: string, lokasi: string) => {
+  const handleAddAlat = async (namaAlat: string, lokasi: string, jenisAbsen: JenisAbsenAlat = 'rfid') => {
     try {
       const response = await apiService.createAlatRFID({
         namaAlat,
         lokasi,
         status: 'aktif',
+        jenisAbsen,
       });
 
       if (response.success) {
         setShowModal(false);
-        showToast(`Alat RFID "${namaAlat}" berhasil ditambahkan`, 'success');
+        showToast(t('manajemenAlatRFID.alatBerhasilDitambahkan', { nama: namaAlat }), 'success');
         fetchAlatRFID();
       } else {
-        showToast(response.message || 'Gagal menambahkan alat RFID', 'error');
+        showToast(response.message || t('manajemenAlatRFID.gagalMenambahkan'), 'error');
       }
     } catch (error: any) {
       console.error('Error adding alat RFID:', error);
-      showToast(error.message || 'Gagal menambahkan alat RFID', 'error');
+      showToast(error.message || t('manajemenAlatRFID.gagalMenambahkan'), 'error');
     }
   };
 
-  const handleEditAlat = async (id: string, namaAlat: string, lokasi: string) => {
+  const handleEditAlat = async (id: string, namaAlat: string, lokasi: string, jenisAbsen: JenisAbsenAlat = 'rfid') => {
     try {
       const response = await apiService.updateAlatRFID(id, {
         namaAlat,
         lokasi,
+        jenisAbsen,
       });
 
       if (response.success) {
         setShowEditModal(false);
         setSelectedAlat(null);
-        showToast(`Alat RFID "${namaAlat}" berhasil diperbarui`, 'success');
+        showToast(t('manajemenAlatRFID.alatBerhasilDiperbarui', { nama: namaAlat }), 'success');
         fetchAlatRFID();
       } else {
-        showToast(response.message || 'Gagal memperbarui alat RFID', 'error');
+        showToast(response.message || t('manajemenAlatRFID.gagalMemperbarui'), 'error');
       }
     } catch (error: any) {
       console.error('Error updating alat RFID:', error);
-      showToast(error.message || 'Gagal memperbarui alat RFID', 'error');
+      showToast(error.message || t('manajemenAlatRFID.gagalMemperbarui'), 'error');
     }
   };
 
@@ -87,21 +91,21 @@ const ManajemenAlatRFID: React.FC = () => {
 
   const handleDeleteAlat = async (id: string) => {
     const alatToDelete = alatRfid.find(a => a.id === id);
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus alat RFID "${alatToDelete?.namaAlat}"?`)) {
+    if (!window.confirm(t('manajemenAlatRFID.confirmHapus', { nama: alatToDelete?.namaAlat || '' }))) {
       return;
     }
 
     try {
       const response = await apiService.deleteAlatRFID(id);
       if (response.success) {
-        showToast(`Alat RFID "${alatToDelete?.namaAlat}" berhasil dihapus`, 'success');
+        showToast(t('manajemenAlatRFID.alatBerhasilDihapus', { nama: alatToDelete?.namaAlat || '' }), 'success');
         fetchAlatRFID();
       } else {
-        showToast(response.message || 'Gagal menghapus alat RFID', 'error');
+        showToast(response.message || t('manajemenAlatRFID.gagalMenghapus'), 'error');
       }
     } catch (error: any) {
       console.error('Error deleting alat RFID:', error);
-      showToast(error.message || 'Gagal menghapus alat RFID', 'error');
+      showToast(error.message || t('manajemenAlatRFID.gagalMenghapus'), 'error');
     }
   };
 
@@ -111,18 +115,18 @@ const ManajemenAlatRFID: React.FC = () => {
       if (response.success) {
         fetchAlatRFID();
       } else {
-        showToast(response.message || 'Gagal mengubah status alat RFID', 'error');
+        showToast(response.message || t('manajemenAlatRFID.gagalMengubahStatus'), 'error');
       }
     } catch (error: any) {
       console.error('Error toggling status alat RFID:', error);
-      showToast(error.message || 'Gagal mengubah status alat RFID', 'error');
+      showToast(error.message || t('manajemenAlatRFID.gagalMengubahStatus'), 'error');
     }
   };
 
   const handleCopyToken = (token: string) => {
     navigator.clipboard.writeText(token);
     setCopiedToken(token);
-    showToast('Token berhasil disalin', 'success');
+    showToast(t('manajemenAlatRFID.tokenBerhasilDisalin'), 'success');
     setTimeout(() => setCopiedToken(null), 2000);
   };
 
@@ -130,12 +134,12 @@ const ManajemenAlatRFID: React.FC = () => {
     const alat = alatRfid.find(a => a.id === alatId);
 
     if (!alat) {
-      showToast('Alat tidak ditemukan', 'error');
+      showToast(t('manajemenAlatRFID.alatTidakDitemukan'), 'error');
       return;
     }
 
     if (alat.status === 'nonaktif') {
-      showToast('Alat ini telah dinonaktifkan. Silakan aktifkan terlebih dahulu untuk membuka monitoring.', 'error');
+      showToast(t('manajemenAlatRFID.alatDinonaktifkan'), 'error');
       return;
     }
 
@@ -166,15 +170,15 @@ const ManajemenAlatRFID: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Data Alat RFID</h2>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Kelola perangkat RFID untuk sistem scanning</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{t('manajemenAlatRFID.title')}</h2>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">{t('manajemenAlatRFID.subtitle')}</p>
         </div>
         <Button
           className="gap-2 w-full sm:w-auto flex items-center justify-center sm:justify-start"
           onClick={() => setShowModal(true)}
         >
           <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span className="text-sm sm:text-base">Tambah Alat RFID</span>
+          <span className="text-sm sm:text-base">{t('manajemenAlatRFID.tambahAlat')}</span>
         </Button>
       </div>
 
@@ -182,13 +186,13 @@ const ManajemenAlatRFID: React.FC = () => {
       <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 sm:gap-4">
         <Card className="border-0 shadow-lg">
           <div className="p-4 sm:p-6">
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-2">Total Alat</p>
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-2">{t('manajemenAlatRFID.totalAlat')}</p>
             <p className="text-2xl sm:text-3xl font-bold text-gray-900">{alatRfid.length}</p>
           </div>
         </Card>
         <Card className="border-0 shadow-lg">
           <div className="p-4 sm:p-6">
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-2">Alat Aktif</p>
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-2">{t('manajemenAlatRFID.alatAktif')}</p>
             <p className="text-2xl sm:text-3xl font-bold text-emerald-600">
               {alatRfid.filter(a => a.status === 'aktif').length}
             </p>
@@ -196,7 +200,7 @@ const ManajemenAlatRFID: React.FC = () => {
         </Card>
         <Card className="border-0 shadow-lg">
           <div className="p-4 sm:p-6">
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-2">Alat Nonaktif</p>
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-2">{t('manajemenAlatRFID.alatNonaktif')}</p>
             <p className="text-2xl sm:text-3xl font-bold text-orange-600">
               {alatRfid.filter(a => a.status === 'nonaktif').length}
             </p>
@@ -210,7 +214,7 @@ const ManajemenAlatRFID: React.FC = () => {
           {isLoading ? (
             <div className="text-center py-12">
               <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600">Memuat data alat RFID...</p>
+              <p className="text-gray-600">{t('manajemenAlatRFID.memuatData')}</p>
             </div>
           ) : alatRfid.length > 0 ? (
             <>
@@ -219,11 +223,12 @@ const ManajemenAlatRFID: React.FC = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">Nama Alat</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">Lokasi</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">Token</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">Status</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">Aksi</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">{t('manajemenAlatRFID.namaAlat')}</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">{t('manajemenAlatRFID.lokasi')}</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">{t('manajemenAlatRFID.jenisAbsen')}</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">{t('manajemenAlatRFID.tokenAkses')}</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">{t('manajemenAlatRFID.status')}</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 text-sm">{t('common.aksi')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -236,12 +241,23 @@ const ManajemenAlatRFID: React.FC = () => {
                           <span className="text-gray-700">{alat.lokasi}</span>
                         </td>
                         <td className="py-3 px-4">
+                          {alat.jenisAbsen === 'facerecognition' ? (
+                            <Badge variant="warning">
+                              {t('manajemenAlatRFID.faceRecognitionOption')}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">
+                              RFID
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <span className="text-gray-700 text-sm font-mono">{alat.token.substring(0, 8)}...</span>
                             <button
                               onClick={() => handleCopyToken(alat.token)}
                               className="p-1 hover:bg-gray-200 rounded transition-colors"
-                              title="Salin token"
+                              title={t('manajemenAlatRFID.salinToken')}
                             >
                               {copiedToken === alat.token ? (
                                 <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -253,7 +269,7 @@ const ManajemenAlatRFID: React.FC = () => {
                         </td>
                         <td className="py-3 px-4">
                           <Badge variant={alat.status === 'aktif' ? 'success' : 'warning'}>
-                            {alat.status === 'aktif' ? 'Aktif' : 'Nonaktif'}
+                            {alat.status === 'aktif' ? t('manajemenAlatRFID.aktif') : t('manajemenAlatRFID.tidakAktif')}
                           </Badge>
                         </td>
                         <td className="py-3 px-4">
@@ -266,14 +282,14 @@ const ManajemenAlatRFID: React.FC = () => {
                                   ? 'text-gray-400 cursor-not-allowed'
                                   : 'hover:bg-blue-100 text-blue-600'
                               }`}
-                              title={alat.status === 'nonaktif' ? 'Alat harus aktif untuk monitoring' : 'Buka monitoring'}
+                              title={alat.status === 'nonaktif' ? t('manajemenAlatRFID.alatHarusAktif') : t('manajemenAlatRFID.bukaMonitoring')}
                             >
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => openEditModal(alat)}
                               className="p-2 hover:bg-indigo-100 text-indigo-600 rounded transition-colors"
-                              title="Edit"
+                              title={t('manajemenAlatRFID.edit')}
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
@@ -284,7 +300,7 @@ const ManajemenAlatRFID: React.FC = () => {
                                   ? 'hover:bg-orange-100 text-orange-600'
                                   : 'hover:bg-emerald-100 text-emerald-600'
                               }`}
-                              title={alat.status === 'aktif' ? 'Matikan' : 'Aktifkan'}
+                              title={alat.status === 'aktif' ? t('manajemenAlatRFID.matikan') : t('manajemenAlatRFID.aktifkan')}
                             >
                               {alat.status === 'aktif' ? (
                                 <Power className="w-4 h-4" />
@@ -295,7 +311,7 @@ const ManajemenAlatRFID: React.FC = () => {
                             <button
                               onClick={() => handleDeleteAlat(alat.id)}
                               className="p-2 hover:bg-red-100 text-red-600 rounded transition-colors"
-                              title="Hapus"
+                              title={t('manajemenAlatRFID.hapus')}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -312,8 +328,8 @@ const ManajemenAlatRFID: React.FC = () => {
               <div className="text-gray-400 mb-4">
                 <Eye className="w-16 h-16 mx-auto" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Belum Ada Alat RFID</h3>
-              <p className="text-gray-600 mb-6">Mulai dengan menambahkan alat RFID baru</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('manajemenAlatRFID.belumAdaAlat')}</h3>
+              <p className="text-gray-600 mb-6">{t('manajemenAlatRFID.mulaiDenganMenambah')}</p>
             </div>
           )}
         </div>
@@ -326,7 +342,7 @@ const ManajemenAlatRFID: React.FC = () => {
             <div className="p-4 sm:p-6">
               <div className="text-center py-12">
                 <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600 text-sm">Memuat data alat RFID...</p>
+                <p className="text-gray-600 text-sm">{t('manajemenAlatRFID.memuatData')}</p>
               </div>
             </div>
           </Card>
@@ -369,22 +385,30 @@ const ManajemenAlatRFID: React.FC = () => {
                       <h3 className="text-base font-semibold text-gray-900 truncate">{alat.namaAlat}</h3>
                       <p className="text-sm text-gray-600 mt-1 truncate">{alat.lokasi}</p>
                     </div>
-                    <Badge variant={alat.status === 'aktif' ? 'success' : 'warning'} className="ml-2 flex-shrink-0">
-                      {alat.status === 'aktif' ? 'Aktif' : 'Nonaktif'}
-                    </Badge>
+                      <div className="flex flex-wrap gap-1.5 ml-2 flex-shrink-0">
+                        <Badge
+                          variant={alat.jenisAbsen === 'facerecognition' ? 'warning' : 'secondary'}
+                          size="sm"
+                        >
+                          {alat.jenisAbsen === 'facerecognition' ? 'Face Recognition' : 'RFID'}
+                        </Badge>
+                        <Badge variant={alat.status === 'aktif' ? 'success' : 'warning'} size="sm">
+                          {alat.status === 'aktif' ? t('manajemenAlatRFID.aktif') : t('manajemenAlatRFID.tidakAktif')}
+                        </Badge>
+                      </div>
                   </div>
 
                   {/* Token Section */}
                   <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-500 mb-1">Token</p>
+                        <p className="text-xs text-gray-500 mb-1">{t('manajemenAlatRFID.tokenAkses')}</p>
                         <p className="text-sm font-mono text-gray-900 break-all">{alat.token}</p>
                       </div>
                       <button
                         onClick={() => handleCopyToken(alat.token)}
                         className="ml-2 p-2 hover:bg-gray-200 rounded transition-colors flex-shrink-0"
-                        title="Salin token"
+                        title={t('manajemenAlatRFID.salinToken')}
                       >
                         {copiedToken === alat.token ? (
                           <CheckCircle className="w-5 h-5 text-emerald-600" />
@@ -407,14 +431,14 @@ const ManajemenAlatRFID: React.FC = () => {
                       }`}
                     >
                       <Eye className="w-4 h-4" />
-                      <span>Monitoring</span>
+                      <span>{t('manajemenAlatRFID.monitoring')}</span>
                     </button>
                     <button
                       onClick={() => openEditModal(alat)}
                       className="flex-1 min-w-[100px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 active:bg-indigo-200 transition-colors"
                     >
                       <Pencil className="w-4 h-4" />
-                      <span>Edit</span>
+                      <span>{t('manajemenAlatRFID.edit')}</span>
                     </button>
                     <button
                       onClick={() => handleToggleStatus(alat.id)}
@@ -427,12 +451,12 @@ const ManajemenAlatRFID: React.FC = () => {
                       {alat.status === 'aktif' ? (
                         <>
                           <Power className="w-4 h-4" />
-                          <span>Matikan</span>
+                          <span>{t('manajemenAlatRFID.matikan')}</span>
                         </>
                       ) : (
                         <>
                           <PowerOff className="w-4 h-4" />
-                          <span>Aktifkan</span>
+                          <span>{t('manajemenAlatRFID.aktifkan')}</span>
                         </>
                       )}
                     </button>
@@ -441,7 +465,7 @@ const ManajemenAlatRFID: React.FC = () => {
                       className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
-                      <span>Hapus</span>
+                      <span>{t('manajemenAlatRFID.hapus')}</span>
                     </button>
                   </div>
                 </div>
@@ -455,8 +479,8 @@ const ManajemenAlatRFID: React.FC = () => {
                 <div className="text-gray-400 mb-4">
                   <Eye className="w-16 h-16 mx-auto" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Belum Ada Alat RFID</h3>
-                <p className="text-gray-600 mb-6 text-sm">Mulai dengan menambahkan alat RFID baru</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('manajemenAlatRFID.belumAdaAlat')}</h3>
+                <p className="text-gray-600 mb-6 text-sm">{t('manajemenAlatRFID.mulaiDenganMenambah')}</p>
               </div>
             </div>
           </Card>
@@ -478,7 +502,7 @@ const ManajemenAlatRFID: React.FC = () => {
             setSelectedAlat(null);
           }}
           alat={selectedAlat}
-          onSubmit={handleEditAlat}
+          onSubmit={(id, namaAlat, lokasi, jenisAbsen) => handleEditAlat(id, namaAlat, lokasi, jenisAbsen)}
         />
       )}
     </div>

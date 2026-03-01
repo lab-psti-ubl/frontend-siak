@@ -3,6 +3,7 @@ import { User, Lock, CreditCard, ArrowLeft, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { User as UserType, Kelas } from '../../types';
 import { usePasswordChange } from '../../hooks/usePasswordChange';
 import { useKelas } from '../../hooks/useKelas';
@@ -23,6 +24,7 @@ const ProfilMurid: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserType | null>(authUser);
   const [isMobile, setIsMobile] = useState(false);
   const [showTabContent, setShowTabContent] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     setCurrentUser(authUser);
@@ -74,9 +76,24 @@ const ProfilMurid: React.FC = () => {
   });
 
   const tabs = [
-    { id: 'akun', label: 'Akun', icon: User, description: 'Kelola data pribadi Anda' },
-    { id: 'kartu', label: 'Kartu Pelajar', icon: CreditCard, description: 'Lihat dan unduh kartu pelajar' },
-    { id: 'password', label: 'Ubah Password', icon: Lock, description: 'Perbarui kata sandi akun Anda' },
+    {
+      id: 'akun',
+      label: t('muridProfil.tabAccount') || 'Akun',
+      icon: User,
+      description: t('muridProfil.tabAccountDesc') || 'Kelola data pribadi Anda',
+    },
+    {
+      id: 'kartu',
+      label: t('muridProfil.tabCard') || 'Kartu Pelajar',
+      icon: CreditCard,
+      description: t('muridProfil.tabCardDesc') || 'Lihat dan unduh kartu pelajar',
+    },
+    {
+      id: 'password',
+      label: t('muridProfil.tabPassword') || 'Ubah Password',
+      icon: Lock,
+      description: t('muridProfil.tabPasswordDesc') || 'Perbarui kata sandi akun Anda',
+    },
   ];
 
   if (isMobile) {
@@ -85,8 +102,12 @@ const ProfilMurid: React.FC = () => {
         <div className="space-y-5">
           <div className="bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-600 rounded-2xl shadow-lg overflow-hidden">
             <div className="px-5 sm:px-6 py-6 sm:py-8">
-              <h1 className="text-2xl font-bold text-white mb-1">Profil Saya</h1>
-              <p className="text-sm text-blue-100">Kelola informasi akun dan keamanan Anda</p>
+              <h1 className="text-2xl font-bold text-white mb-1">
+                {t('muridProfil.headerTitle') || 'Profil Saya'}
+              </h1>
+              <p className="text-sm text-blue-100">
+                {t('muridProfil.headerSubtitle') || 'Kelola informasi akun dan keamanan Anda'}
+              </p>
             </div>
           </div>
 
@@ -117,17 +138,12 @@ const ProfilMurid: React.FC = () => {
             
           </Card>
          <button
-  onClick={handleLogout}
-  className="w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg 
-             bg-red-600 hover:bg-red-700 text-white font-semibold 
-             transition-colors duration-200 shadow-md hover:shadow-lg"
->
-  <LogOut
-    size={22}
-    className="text-white"
-  />
-  Logout
-</button>
+           onClick={handleLogout}
+           className="w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors duration-200 shadow-md hover:shadow-lg"
+         >
+           <LogOut size={22} className="text-white" />
+           {t('muridProfil.logoutButton') || 'Logout'}
+         </button>
 
 
 
@@ -145,7 +161,9 @@ const ProfilMurid: React.FC = () => {
               <ArrowLeft size={20} className="text-slate-700" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Profil Saya</h1>
+              <h1 className="text-2xl font-bold text-slate-900">
+                {t('muridProfil.headerTitle') || 'Profil Saya'}
+              </h1>
               <p className="text-sm text-slate-600">
                 {tabs.find(t => t.id === activeTab)?.label}
               </p>
@@ -175,10 +193,10 @@ const ProfilMurid: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1 sm:mb-2">
-                Profil Saya
+                {t('muridProfil.headerTitle') || 'Profil Saya'}
               </h1>
               <p className="text-sm sm:text-base text-blue-100">
-                Kelola informasi akun dan keamanan Anda
+                {t('muridProfil.headerSubtitle') || 'Kelola informasi akun dan keamanan Anda'}
               </p>
             </div>
           </div>

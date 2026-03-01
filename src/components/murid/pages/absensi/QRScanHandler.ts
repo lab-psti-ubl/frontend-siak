@@ -3,7 +3,7 @@ import { parseQRCodeData, parseSubjectQRCodeData } from '../../../../utils/qrCod
 import { showSuccessNotification, showErrorNotification, showWarningNotification } from '../../../../utils/notificationUtils';
 import { apiService } from '../../../../services/apiService';
 import { clearSesiAbsensiCache } from '../../../../hooks/useSesiAbsensi';
-import { getLocalTimeISOString } from '../../../../utils/absensiUtils';
+import { getLocalTimeISOString, getTodayIndonesia } from '../../../../utils/absensiUtils';
 
 interface QRScanHandlerParams {
   qrData: string;
@@ -16,6 +16,7 @@ interface QRScanHandlerParams {
   refreshAbsensi: () => Promise<void>;
   createAbsensiAPI: (absensi: Partial<Absensi>) => Promise<Absensi>;
   refreshSesiAbsensi: () => Promise<void>;
+  addAbsensiToSesiAPI: (sesiId: string, absensiData: any) => Promise<any>;
   setRefreshKey: React.Dispatch<React.SetStateAction<number>>;
   lastProcessedScan: {data: string, time: number} | null;
   setLastProcessedScan: (scan: {data: string, time: number} | null) => void;
@@ -215,19 +216,11 @@ export const handleQRScanResult = async ({
         keteranganAbsensi: 'Hadir',
       };
 
-      // Simpan ke SesiAbsensi.dataAbsensi
-      const response = await apiService.addAbsensiToSesi(sesi.id, absensiPelajaranData);
+      // Simpan ke SesiAbsensi.dataAbsensi (using hook method with worker fallback)
+      // Hook's addAbsensiToSesi handles worker fallback and auto-refresh with waitForWorker
+      await addAbsensiToSesiAPI(sesi.id, absensiPelajaranData);
       
-      if (!response.success) {
-        throw new Error(response.message || 'Gagal menyimpan absensi');
-      }
-
-      // LANGKAH 5: Setelah penyimpanan berhasil, clear cache dan refresh data
-      clearSesiAbsensiCache();
-      
-      // Refresh sesi absensi untuk mendapatkan data terbaru setelah penyimpanan
-      await refreshSesiAbsensi();
-      // Juga refresh absensi untuk memastikan UI terupdate
+      // Refresh absensi untuk memastikan UI terupdate
       await refreshAbsensi();
 
       const mapel = mataPelajaran.find(m => m.id === jadwal?.mataPelajaranId);
@@ -276,7 +269,7 @@ export const handleQRScanResult = async ({
 
     // Check if absensi already exists
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayIndonesia();
       const existingAbsensiResponse = await apiService.getAllAbsensi({
         muridId: user.id,
         tanggal: today,
@@ -312,7 +305,7 @@ export const handleQRScanResult = async ({
         kelasId: kelasId,
         tipeAbsen: 'masuk', // Default untuk absensi per sesi
         status: 'hadir',
-        waktu: new Date().toISOString(),
+        waktu: getLocalTimeISOString(),
         method: 'qr',
         tahunAjaranId: activeTA.id,
         semester: activeTA.semester,

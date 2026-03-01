@@ -11,6 +11,7 @@ import { getBuktiFromLocalStorage } from '../../../utils/fileUploadUtils';
 import { openVerificationPage, getVerificationUrl } from '../../../utils/verificationPageUtils';
 import { printSuratIzin } from '../../../utils/printSuratIzinUtils';
 import { getJenjangShortLabelSync } from '../../../utils/jenjangPendidikanUtils';
+import { useLanguage } from '../../../context/LanguageContext';
 
 interface SuratIzinDisplayProps {
   surat: SuratIzin;
@@ -57,9 +58,12 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
   const { profilSekolah } = useProfilSekolah();
   const { dataKepsek } = useDataKepsek();
   const { gurus } = useGurus();
+  const { language, t } = useLanguage();
   const [buktiModalOpen, setBuktiModalOpen] = useState(false);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
 
   const buktiInfo = useMemo(() => {
     if (!surat.bukti) return { base64: undefined, mimeType: undefined, fileName: undefined };
@@ -90,11 +94,11 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
   }, [surat.bukti]);
 
   const muridUser = users.find(u => u.id === surat.muridId) as Murid | undefined;
-  const muridName = getMuridName ? getMuridName(surat.muridId) : muridUser?.name || 'Tidak diketahui';
+  const muridName = getMuridName ? getMuridName(surat.muridId) : muridUser?.name || t('suratIzinDisplay.tidakDiketahui');
   const kelasData = muridUser?.kelasId
     ? kelas.find(k => k.id === muridUser.kelasId)
     : null;
-  const kelasName = kelasData?.name || 'Tidak diketahui';
+  const kelasName = kelasData?.name || t('suratIzinDisplay.tidakDiketahui');
   const waliKelasId = kelasData?.waliKelasId;
   
   // Cari wali kelas dengan prioritas:
@@ -150,11 +154,12 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
         muridUser,
         qrDataUrl,
         showVerificationSection,
-        currentUserName
+        currentUserName,
+        language
       );
     } catch (error) {
       console.error('Error printing surat:', error);
-      alert('Gagal mencetak surat. Silakan coba lagi.');
+      alert(t('suratIzinDisplay.gagalMencetak'));
     } finally {
       setIsPrinting(false);
     }
@@ -163,21 +168,21 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
   const schoolData = useMemo(() => {
     if (profilSekolah) {
       return {
-        namaSekolah: profilSekolah.namaSekolah || 'Sekolah',
-        alamat: profilSekolah.alamat || 'Alamat Sekolah',
+        namaSekolah: profilSekolah.namaSekolah || t('suratIzinDisplay.sekolah'),
+        alamat: profilSekolah.alamat || t('suratIzinDisplay.alamatSekolah'),
         nomorTelepon: profilSekolah.nomorTelepon || '-',
         email: profilSekolah.email || '-',
         logoSekolah: profilSekolah.logoSekolah
       };
     }
     return {
-      namaSekolah: 'Sekolah',
-      alamat: 'Alamat Sekolah',
+      namaSekolah: t('suratIzinDisplay.sekolah'),
+      alamat: t('suratIzinDisplay.alamatSekolah'),
       nomorTelepon: '-',
       email: '-',
       logoSekolah: undefined
     };
-  }, [profilSekolah]);
+  }, [profilSekolah, t]);
 
   const headmasterData = useMemo(() => {
     if (dataKepsek && dataKepsek.length > 0) {
@@ -195,7 +200,7 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors font-medium"
         >
           <Printer className="w-4 h-4" />
-          <span>{isPrinting ? 'Memproses...' : 'Print Surat'}</span>
+          <span>{isPrinting ? t('suratIzinDisplay.memproses') : t('suratIzinDisplay.printSurat')}</span>
         </button>
       </div>
 
@@ -204,7 +209,7 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
           {schoolData.logoSekolah ? (
             <img
               src={schoolData.logoSekolah}
-              alt="Logo Sekolah"
+              alt={t('suratIzinDisplay.logoSekolah')}
               className="w-16 h-16 object-contain mr-4 flex-shrink-0"
             />
           ) : (
@@ -215,7 +220,7 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
           <div className="text-left">
             <h1 className="text-xl font-bold text-gray-900">{schoolData.namaSekolah}</h1>
             <p className="text-sm text-gray-600">{schoolData.alamat}</p>
-            <p className="text-sm text-gray-600">Telp: {schoolData.nomorTelepon} | Email: {schoolData.email}</p>
+            <p className="text-sm text-gray-600">{t('suratIzinDisplay.telp')}: {schoolData.nomorTelepon} | {t('suratIzinDisplay.email')}: {schoolData.email}</p>
           </div>
         </div>
       </div>
@@ -225,41 +230,42 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
           SURAT {surat.jenis.toUpperCase()}
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          Nomor: {surat.id.toUpperCase()}/SISWA/{new Date(surat.createdAt).getFullYear()}
+          {t('suratIzinDisplay.nomor')}: {surat.id.toUpperCase()}/SISWA/{new Date(surat.createdAt).getFullYear()}
         </p>
       </div>
 
       <div className="space-y-4 text-sm leading-relaxed">
-        <p>Yang bertanda tangan di bawah ini:</p>
+        <p>{t('suratIzinDisplay.yangBertandaTangan')}</p>
 
         <div className="ml-8 space-y-1">
           <div className="flex">
-            <span className="w-24 inline-block">Nama</span>
+            <span className="w-24 inline-block">{t('suratIzinDisplay.nama')}</span>
             <span className="mr-2">:</span>
             <span className="font-medium">{muridName}</span>
           </div>
           <div className="flex">
-            <span className="w-24 inline-block">Kelas</span>
+            <span className="w-24 inline-block">{t('suratIzinDisplay.kelas')}</span>
             <span className="mr-2">:</span>
             <span>{kelasName}</span>
           </div>
           <div className="flex">
-            <span className="w-24 inline-block">NISN</span>
+            <span className="w-24 inline-block">{t('suratIzinDisplay.nisn')}</span>
             <span className="mr-2">:</span>
-            <span>{muridUser?.nisn || 'Tidak diketahui'}</span>
+            <span>{muridUser?.nisn || t('suratIzinDisplay.tidakDiketahui')}</span>
           </div>
         </div>
 
         <p className="mt-4">
-          Dengan ini mengajukan permohonan {surat.jenis} untuk tidak mengikuti kegiatan pembelajaran
-          pada tanggal <strong>{new Date(surat.tanggalMulai).toLocaleDateString('id-ID', {
+          {t('suratIzinDisplay.denganIniMengajukan', { jenis: surat.jenis })}{' '}
+          {t('suratIzinDisplay.padaTanggal')}{' '}
+          <strong>{new Date(surat.tanggalMulai).toLocaleDateString(dateLocale, {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
             day: 'numeric'
           })}</strong>
           {surat.tanggalMulai !== surat.tanggalSelesai && (
-            <span> sampai dengan <strong>{new Date(surat.tanggalSelesai).toLocaleDateString('id-ID', {
+            <span> {t('suratIzinDisplay.sampaiDengan')} <strong>{new Date(surat.tanggalSelesai).toLocaleDateString(dateLocale, {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
@@ -270,14 +276,14 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
 
         {surat.jenis === 'izin_dispen' && (surat.jamMulai || surat.jamSelesai) && (
           <div className="mt-4 p-3 bg-blue-50 border-l-4 border-blue-500">
-            <p className="font-medium mb-2">Jam Izin Dispen:</p>
+            <p className="font-medium mb-2">{t('suratIzinDisplay.jamIzinDispen')}</p>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-600">Jam Mulai: </span>
+                <span className="text-gray-600">{t('suratIzinDisplay.jamMulai')} </span>
                 <span className="font-medium">{surat.jamMulai || '-'}</span>
               </div>
               <div>
-                <span className="text-gray-600">Jam Selesai: </span>
+                <span className="text-gray-600">{t('suratIzinDisplay.jamSelesai')} </span>
                 <span className="font-medium">{surat.jamSelesai || '-'}</span>
               </div>
             </div>
@@ -285,7 +291,7 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
         )}
 
         <div className="mt-4">
-          <p className="mb-2">Alasan {surat.jenis}:</p>
+          <p className="mb-2">{t('suratIzinDisplay.alasan', { jenis: surat.jenis })}</p>
           <div className="ml-4 p-3 bg-gray-50 border-l-4 border-blue-500 italic">
             "{surat.alasan}"
           </div>
@@ -293,28 +299,27 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
 
         {surat.bukti && (
           <div className="mt-4">
-            <p className="mb-2">Bukti pendukung:</p>
+            <p className="mb-2">{t('suratIzinDisplay.buktiPendukung')}</p>
             <button
               onClick={() => setBuktiModalOpen(true)}
               className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
             >
               <Eye className="w-4 h-4" />
-              <span className="truncate max-w-xs">{buktiInfo.fileName || 'Bukti Pendukung'}</span>
+              <span className="truncate max-w-xs">{buktiInfo.fileName || t('suratIzinDisplay.buktiPendukungLabel')}</span>
             </button>
           </div>
         )}
 
         <p className="mt-6">
-          Demikian surat {surat.jenis} ini saya buat dengan sebenar-benarnya.
-          Atas perhatian dan kebijaksanaan Bapak/Ibu, saya ucapkan terima kasih.
+          {t('suratIzinDisplay.demikianSurat', { jenis: surat.jenis })}
         </p>
       </div>
 
       <div className="mt-8 grid grid-cols-2 gap-8">
         <div className="text-sm">
-          <p>Diajukan pada:</p>
+          <p>{t('suratIzinDisplay.diajukanPada')}</p>
           <p className="font-medium">
-            {new Date(surat.createdAt).toLocaleDateString('id-ID', {
+            {new Date(surat.createdAt).toLocaleDateString(dateLocale, {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
@@ -327,22 +332,22 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
 
       <div className="mt-8 grid grid-cols-2 gap-8">
         <div className="text-sm text-center">
-          <p>Hormat Saya.</p>
-        <p className="text-xs text-gray-600 mt-1">Murid</p>
+          <p>{t('suratIzinDisplay.hormatSaya')}</p>
+        <p className="text-xs text-gray-600 mt-1">{t('suratIzinDisplay.murid')}</p>
           <div className="mt-12 border-t border-gray-400 pt-1">
             <p className="font-medium">{muridName}</p>
           </div>
         </div>
         <div className="text-sm text-center">
-          <p>Diketahui,</p>
-          <p className="text-xs text-gray-600 mt-1">Wali Kelas</p>
+          <p>{t('suratIzinDisplay.diketahui')}</p>
+          <p className="text-xs text-gray-600 mt-1">{t('suratIzinDisplay.waliKelas')}</p>
           <div className="mt-12 border-t border-gray-400 pt-1">
             <p className="font-medium text-sm">{waliKelasDisplayName}</p>
             <p className="text-xs text-gray-600">NIP: {waliKelas?.nip || '-'}</p>
           </div>
           {surat.status === 'diterima' && (
             <div className="mt-6 flex flex-col items-center">
-              <p className="text-xs font-medium text-gray-700 mb-2">Tanda Tangan Digital</p>
+              <p className="text-xs font-medium text-gray-700 mb-2">{t('suratIzinDisplay.tandaTanganDigital')}</p>
               <div className="bg-white p-3 border-2 border-green-400 rounded inline-block">
                 <VerificationQRCode
                   ref={qrCanvasRef}
@@ -353,18 +358,18 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
               <button
                 onClick={() => openVerificationPage(
                   surat.id,
-                  'Telah ditanda tangani oleh sistem secara digital dan dinyatakan sah',
+                  t('verificationPage.telahDitandatangani'),
                   `surat_izin_${surat.jenis}` as any,
                   {
                     name: muridName,
                     nisn: muridUser?.nisn,
                     kelas: kelasName,
-                    signatureTitle: 'Wali Kelas'
+                    signatureTitle: t('suratIzinDisplay.waliKelas')
                   }
                 )}
                 className="text-xs text-green-600 font-medium mt-2 hover:text-green-700 cursor-pointer transition-colors duration-200 underline hover:no-underline"
               >
-                Sah & Terverifikasi Walikelas
+                {t('suratIzinDisplay.sahTerverifikasiWalikelas')}
               </button>
             </div>
           )}
@@ -373,30 +378,32 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
 
       {showVerificationSection && surat.status !== 'menunggu' && (
         <div className="mt-8 p-4 border-2 border-gray-300 rounded-lg bg-gray-50">
-          <h3 className="font-bold text-center mb-4">STATUS VERIFIKASI WALI KELAS</h3>
+          <h3 className="font-bold text-center mb-4">
+            {t('suratIzinDisplay.statusVerifikasiWaliKelas')}
+          </h3>
           <div className="grid grid-cols-2 gap-4 text-sm text-center">
             <div>
-              <p><strong>Status:</strong></p>
+              <p><strong>{t('suratIzinDisplay.status')}</strong></p>
               <div className="mt-1">
                 <Badge variant={surat.status === 'diterima' ? 'success' : 'danger'}>
-                  {surat.status === 'diterima' ? 'DISETUJUI' : 'DITOLAK'}
+                  {surat.status === 'diterima' ? t('suratIzinDisplay.disetujui') : t('suratIzinDisplay.ditolak')}
                 </Badge>
               </div>
             </div>
             <div>
-              <p><strong>Tanggal Verifikasi:</strong></p>
-              <p>{surat.verifiedAt ? new Date(surat.verifiedAt).toLocaleDateString('id-ID') : '-'}</p>
+              <p><strong>{t('suratIzinDisplay.tanggalVerifikasi')}</strong></p>
+              <p>{surat.verifiedAt ? new Date(surat.verifiedAt).toLocaleDateString(dateLocale) : '-'}</p>
             </div>
           </div>
           {surat.keterangan && (
             <div className="mt-3">
-              <p><strong>Keterangan Wali Kelas:</strong></p>
+              <p><strong>{t('suratIzinDisplay.keteranganWaliKelas')}</strong></p>
               <p className="mt-1 p-2 bg-white border rounded italic">"{surat.keterangan}"</p>
             </div>
           )}
           {currentUserName && (
             <div className="mt-4 text-center">
-              <p className="text-sm">Wali Kelas</p>
+              <p className="text-sm">{t('suratIzinDisplay.waliKelas')}</p>
               <div className="mt-8 border-t border-gray-400 pt-1 inline-block">
                 <p className="font-medium">{currentUserName}</p>
               </div>
@@ -408,7 +415,7 @@ const SuratIzinDisplay: React.FC<SuratIzinDisplayProps> = ({
       <BuktiPendukungModal
         isOpen={buktiModalOpen}
         onClose={() => setBuktiModalOpen(false)}
-        buktiName={buktiInfo.fileName || surat.bukti || 'Bukti Pendukung'}
+        buktiName={buktiInfo.fileName || surat.bukti || t('suratIzinDisplay.buktiPendukungLabel')}
         buktiData={buktiInfo.base64}
         buktiId={surat.bukti}
         mimeType={buktiInfo.mimeType}

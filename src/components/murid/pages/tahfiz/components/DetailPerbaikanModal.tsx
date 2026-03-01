@@ -43,7 +43,7 @@ const DetailPerbaikanModal: React.FC<DetailPerbaikanModalProps> = ({
   progress,
 }) => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [surahData, setSurahData] = useState<SurahData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -237,7 +237,7 @@ const DetailPerbaikanModal: React.FC<DetailPerbaikanModalProps> = ({
                 <div className="flex items-center gap-2 bg-white/20 rounded-lg px-4 py-2 border border-white/30">
                   <Calendar className="w-4 h-4 text-white" />
                   <span className="text-sm text-white font-medium">
-                    {new Date().toLocaleDateString('id-ID', { 
+                    {new Date().toLocaleDateString((language === 'ms' ? 'ms-MY' : 'id-ID'), { 
                       weekday: 'long', 
                       year: 'numeric', 
                       month: 'long', 
@@ -272,7 +272,7 @@ const DetailPerbaikanModal: React.FC<DetailPerbaikanModalProps> = ({
                     </p>
                     {progress.tanggalTes && (
                       <p className={`text-xs ${hasilTesInfo.textColor} mt-3 opacity-75`}>
-                        {t('tahfiz.muridTahfiz.detailPerbaikanModal.tanggalTes')}: {new Date(progress.tanggalTes).toLocaleDateString('id-ID', {
+                        {t('tahfiz.muridTahfiz.detailPerbaikanModal.tanggalTes')}: {new Date(progress.tanggalTes).toLocaleDateString(language === 'ms' ? 'ms-MY' : 'id-ID', {
                           day: 'numeric',
                           month: 'long',
                           year: 'numeric'

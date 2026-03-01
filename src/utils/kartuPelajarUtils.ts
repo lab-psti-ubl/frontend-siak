@@ -10,13 +10,16 @@ export interface KartuPelajarOptions {
   jurusan?: Jurusan;
 }
 
+type Language = 'id' | 'ms';
+
 export function generateMuridKartuPelajar(
   murid: User,
   kelas: Kelas,
   jurusan?: Jurusan,
   backgroundDepan?: string,
   backgroundBelakang?: string,
-  orientation: 'potrait' | 'landscape' = 'potrait'
+  orientation: 'potrait' | 'landscape' = 'potrait',
+  language: Language = 'id'
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
@@ -26,8 +29,8 @@ export function generateMuridKartuPelajar(
       
       // Create both front and back cards
       Promise.all([
-        generateKartuPelajarCard(murid, 'front', frontBackground, kelas, jurusan, orientation),
-        generateKartuPelajarCard(murid, 'back', backBackground, kelas, jurusan, orientation)
+        generateKartuPelajarCard(murid, 'front', frontBackground, kelas, jurusan, orientation, language),
+        generateKartuPelajarCard(murid, 'back', backBackground, kelas, jurusan, orientation, language)
       ]).then(([frontBlob, backBlob]) => {
         // Create ZIP file
         createZipFile(murid, frontBlob, backBlob).then(() => {
@@ -46,7 +49,8 @@ function generateKartuPelajarCard(
   backgroundImage: string | undefined,
   kelas: Kelas,
   jurusan?: Jurusan,
-  orientation: 'potrait' | 'landscape' = 'potrait'
+  orientation: 'potrait' | 'landscape' = 'potrait',
+  language: Language = 'id'
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     try {
@@ -116,7 +120,7 @@ function generateKartuPelajarCard(
         }
       } else {
         // Back side shows rules and regulations
-        generateKartuPelajarBackInfoSekolahCanvas(ctx, width, height, backgroundImage, orientation).then(() => {
+          generateKartuPelajarBackInfoSekolahCanvas(ctx, width, height, backgroundImage, orientation, language).then(() => {
           canvas.toBlob((blob) => {
             if (blob) {
               resolve(blob);
@@ -475,7 +479,8 @@ function generateKartuPelajarBackInfoSekolahCanvas(
   width: number,
   height: number,
   backgroundImage: string | undefined,
-  orientation: 'potrait' | 'landscape' = 'potrait'
+  orientation: 'potrait' | 'landscape' = 'potrait',
+  language: Language = 'id'
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     // Load background image if provided
@@ -538,6 +543,23 @@ function generateKartuPelajarBackInfoSekolahCanvas(
       // Padding for content
       const padding = width * 0.06;
 
+      const isMs = language === 'ms';
+      const titleText = isMs
+        ? 'PERATURAN & SYARAT PENGGUNAAN KAD'
+        : 'TATA TERTIB & KETENTUAN PENGGUNAAN KARTU';
+      const rule1 = isMs
+        ? 'Kad ini adalah milik rasmi sekolah dan hanya sah untuk pelajar yang masih aktif.'
+        : 'Kartu ini adalah milik resmi sekolah dan hanya berlaku untuk siswa aktif.';
+      const rule2 = isMs
+        ? 'Pelajar wajib membawa kad ini setiap hari sepanjang berada di kawasan sekolah.'
+        : 'Siswa wajib membawa kartu ini setiap hari selama berada di lingkungan sekolah';
+      const rule3 = isMs
+        ? 'Kad ini disepadukan dengan sistem pengurusan sekolah (iSchola).'
+        : 'Kartu ini terintegrasi dengan sistem manajemen sekolah (iSchola)';
+      const rule4 = isMs
+        ? 'Jika kad ini hilang atau rosak, pelajar wajib segera melapor ke bahagian Tata Usaha (TU).'
+        : 'Apabila kartu ini hilang atau rusak, siswa wajib segera melapor ke bagian Tata Usaha (TU)';
+
       // Title
       ctx.fillStyle = 'white';
       ctx.font = `bold ${width * 0.045}px Arial, sans-serif`;
@@ -546,7 +568,7 @@ function generateKartuPelajarBackInfoSekolahCanvas(
       const titleY = padding + (height * 0.08);
       
       // Wrap title if needed
-      const titleLines = wrapText(ctx, 'TATA TERTIB & KETENTUAN PENGGUNAAN KARTU', width - (padding * 2));
+      const titleLines = wrapText(ctx, titleText, width - (padding * 2));
       titleLines.forEach((line, index) => {
         ctx.fillText(line, width / 2, titleY + (index * (width * 0.04)));
       });
@@ -562,7 +584,6 @@ function generateKartuPelajarBackInfoSekolahCanvas(
       let currentY = contentStartY;
 
       // Rule 1
-      const rule1 = 'Kartu ini adalah milik resmi sekolah dan hanya berlaku untuk siswa aktif.';
       const rule1Lines = wrapText(ctx, '1. ' + rule1, width - (padding * 2));
       rule1Lines.forEach((line) => {
         ctx.fillText(line, padding, currentY);
@@ -571,7 +592,6 @@ function generateKartuPelajarBackInfoSekolahCanvas(
       currentY += lineHeight * 0.3;
 
       // Rule 2
-      const rule2 = 'Siswa wajib membawa kartu ini setiap hari selama berada di lingkungan sekolah';
       const rule2Lines = wrapText(ctx, '2. ' + rule2, width - (padding * 2));
       rule2Lines.forEach((line) => {
         ctx.fillText(line, padding, currentY);
@@ -580,7 +600,6 @@ function generateKartuPelajarBackInfoSekolahCanvas(
       currentY += lineHeight * 0.3;
 
       // Rule 3
-      const rule3 = 'Kartu ini terintegrasi dengan sistem manajemen sekolah (iSchola)';
       const rule3Lines = wrapText(ctx, '3. ' + rule3, width - (padding * 2));
       rule3Lines.forEach((line) => {
         ctx.fillText(line, padding, currentY);
@@ -589,7 +608,6 @@ function generateKartuPelajarBackInfoSekolahCanvas(
       currentY += lineHeight * 0.3;
 
       // Rule 4
-      const rule4 = 'Apabila kartu ini hilang atau rusak, siswa wajib segera melapor ke bagian Tata Usaha (TU)';
       const rule4Lines = wrapText(ctx, '4. ' + rule4, width - (padding * 2));
       rule4Lines.forEach((line) => {
         ctx.fillText(line, padding, currentY);

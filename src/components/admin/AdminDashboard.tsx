@@ -23,7 +23,7 @@ import { getTeacherTerm, getStudentTerm } from '../../utils/terminologyUtils';
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { systemType } = usePengaturanSistem();
   const { gurus } = useGurus();
   const { murid } = useMurid();
@@ -162,7 +162,7 @@ const AdminDashboard: React.FC = () => {
 
   const mainStats = [
     {
-      title: isTahfiz ? `Jumlah ${teacherTerm === 'ustadz' ? 'Ustadz' : 'Guru'}` : t('dashboardKepalaSekolah.totalGuru'),
+      title: isTahfiz ? (teacherTerm === 'ustadz' ? t('adminDashboard.jumlahUstadz') : t('dashboardKepalaSekolah.totalGuru')) : t('dashboardKepalaSekolah.totalGuru'),
       value: totalGuru,
       icon: Users,
       color: 'from-blue-500 to-blue-600',
@@ -171,7 +171,7 @@ const AdminDashboard: React.FC = () => {
       onClick: () => navigate(isTahfiz ? '/dashboard/data-ustadz' : '/dashboard/guru')
     },
     {
-      title: isTahfiz ? `Jumlah ${studentTerm === 'santri' ? 'Santri' : 'Murid'}` : t('dashboardKepalaSekolah.totalMurid'),
+      title: isTahfiz ? (studentTerm === 'santri' ? t('adminDashboard.jumlahSantri') : t('dashboardKepalaSekolah.totalMurid')) : t('dashboardKepalaSekolah.totalMurid'),
       value: totalMurid,
       icon: UserCheck,
       color: 'from-emerald-500 to-emerald-600',
@@ -180,7 +180,7 @@ const AdminDashboard: React.FC = () => {
       onClick: () => navigate(isTahfiz ? '/dashboard/data-santri' : '/dashboard/kelola-data-murid')
     },
     {
-      title: isTahfiz ? 'Jumlah Kelas/Bilik' : t('dashboardKepalaSekolah.totalKelas'),
+      title: isTahfiz ? t('adminDashboard.jumlahKelasBilik') : t('dashboardKepalaSekolah.totalKelas'),
       value: totalKelas,
       icon: School,
       color: 'from-purple-500 to-purple-600',
@@ -189,7 +189,7 @@ const AdminDashboard: React.FC = () => {
       onClick: () => navigate(isTahfiz ? '/dashboard/data-kelas-tahfiz' : '/dashboard/kelas')
     },
     {
-      title: 'Sesi Hari Ini',
+      title: t('adminDashboard.sesiHariIni'),
       value: todaySessions.length,
       icon: ClipboardList,
       color: 'from-orange-500 to-orange-600',
@@ -215,9 +215,9 @@ const AdminDashboard: React.FC = () => {
     if (!isTahfiz && pendingIzinGuru.length > 0) {
       activities.push({
         id: 'izin-guru-pending',
-        title: `${pendingIzinGuru.length} ${t('common.language') === 'ms' ? 'permohonan izin' : 'pengajuan izin'} ${teacherTerm === 'ustadz' ? 'ustadz' : 'guru'} ${t('common.language') === 'ms' ? 'menunggu pengesahan' : 'menunggu verifikasi'}`,
+        title: `${pendingIzinGuru.length} ${t('adminDashboard.izinGuruPengajuan')} ${t('adminDashboard.izinGuruMenungguVerifikasi')}`,
         subtitle: pendingIzinGuru.slice(0, 2).map(i => getGuruName(i.guruId)).join(', '),
-        time: t('common.language') === 'ms' ? 'Perlu ditinjau' : 'Perlu ditinjau',
+        time: t('adminDashboard.perluDitinjau'),
         type: 'warning' as const,
         icon: FileText,
       });
@@ -227,9 +227,9 @@ const AdminDashboard: React.FC = () => {
     if (pendingSuratIzin.length > 0) {
       activities.push({
         id: 'surat-izin-pending',
-        title: `${pendingSuratIzin.length} ${t('common.language') === 'ms' ? 'surat izin' : 'surat izin'} ${studentTerm === 'santri' ? 'santri' : 'murid'} ${t('common.language') === 'ms' ? 'menunggu pengesahan' : 'menunggu verifikasi'}`,
-        subtitle: t('common.language') === 'ms' ? 'Perlu ditinjau wali kelas' : 'Perlu ditinjau wali kelas',
-        time: t('common.language') === 'ms' ? 'Perlu ditinjau' : 'Perlu ditinjau',
+        title: `${pendingSuratIzin.length} ${studentTerm === 'santri' ? t('adminDashboard.suratIzinSantriMenungguVerifikasi') : t('adminDashboard.suratIzinMuridMenungguVerifikasi')}`,
+        subtitle: t('adminDashboard.perluDitinjauWaliKelas'),
+        time: t('adminDashboard.perluDitinjau'),
         type: 'info' as const,
         icon: AlertCircle,
       });
@@ -244,9 +244,9 @@ const AdminDashboard: React.FC = () => {
       
       activities.push({
         id: 'session-active',
-        title: `Sesi absensi aktif`,
+        title: t('adminDashboard.sesiAbsensiAktif'),
         subtitle: `${sessionKelas?.name} - ${sessionGuru?.name}`,
-        time: `Dibuka ${latestSession.jamBuka}`,
+        time: `${t('adminDashboard.dibuka')} ${latestSession.jamBuka}`,
         type: 'success' as const,
         icon: Clock,
       });
@@ -264,9 +264,9 @@ const AdminDashboard: React.FC = () => {
         if (guru) {
           activities.push({
             id: `guru-absen-${absen.id}`,
-            title: `${guru.name} ${t('common.language') === 'ms' ? 'telah melakukan kehadiran masuk' : 'telah absen masuk'}`,
-            subtitle: `${absen.jamMasuk} - ${absen.statusMasuk === 'tepat_waktu' ? (t('common.language') === 'ms' ? 'Tepat waktu' : 'Tepat waktu') : (t('common.language') === 'ms' ? 'Terlambat' : 'Terlambat')}`,
-            time: t('common.language') === 'ms' ? 'Hari ini' : 'Hari ini',
+            title: `${guru.name} ${t('adminDashboard.guruTelahAbsenMasuk')}`,
+            subtitle: `${absen.jamMasuk} - ${absen.statusMasuk === 'tepat_waktu' ? t('adminDashboard.tepatWaktu') : t('adminDashboard.terlambat')}`,
+            time: t('adminDashboard.hariIni'),
             type: absen.statusMasuk === 'tepat_waktu' ? 'success' as const : 'warning' as const,
             icon: UserCheck,
           });
@@ -280,7 +280,7 @@ const AdminDashboard: React.FC = () => {
         id: 'tahun-ajaran-aktif',
         title: `${t('dashboardKepalaSekolah.tahunAjaran')} ${activeTahunAjaran.tahun} ${t('dashboardKepalaSekolah.aktif')}`,
         subtitle: `${t('dashboardKepalaSekolah.semester')} ${activeTahunAjaran.semester} (${activeTahunAjaran.semester === 1 ? t('dashboardKepalaSekolah.ganjil') : t('dashboardKepalaSekolah.genap')})`,
-        time: t('common.language') === 'ms' ? 'Sistem' : 'Sistem',
+        time: t('adminDashboard.sistem'),
         type: 'info' as const,
         icon: Calendar,
       });
@@ -302,7 +302,7 @@ const AdminDashboard: React.FC = () => {
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">
-            {isCheckingActivation ? 'Memeriksa status aktivasi...' : 'Memuat data dashboard...'}
+            {isCheckingActivation ? t('adminDashboard.memeriksaStatusAktivasi') : t('adminDashboard.memuatDataDashboard')}
           </p>
         </div>
       </div>
@@ -326,9 +326,9 @@ const AdminDashboard: React.FC = () => {
       <div className="bg-gradient-to-r from-blue-600 to-cyan-700 rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 text-white">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1 sm:mb-2">{t('sidebar.dashboard') === 'Papan Pemuka' ? 'Selamat Datang, Admin!' : 'Selamat Datang, Admin!'}</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1 sm:mb-2">{t('adminDashboard.welcome')}</h1>
             <p className="text-blue-100 text-sm sm:text-base lg:text-lg">
-              {new Date().toLocaleDateString(t('common.language') === 'ms' ? 'ms-MY' : 'id-ID', { 
+              {new Date().toLocaleDateString(language === 'ms' ? 'ms-MY' : 'id-ID', { 
                 weekday: 'long', 
                 year: 'numeric', 
                 month: 'long', 
@@ -387,7 +387,7 @@ const AdminDashboard: React.FC = () => {
           <div className="p-4 sm:p-6">
             <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6 flex items-center">
               <div className="w-2 h-5 sm:h-6 bg-orange-500 rounded-full mr-2 sm:mr-3"></div>
-              <span className="text-sm sm:text-base lg:text-xl">{t('common.language') === 'ms' ? 'Menunggu Persetujuan' : 'Menunggu Persetujuan'}</span>
+              <span className="text-sm sm:text-base lg:text-xl">{t('adminDashboard.menungguPersetujuan')}</span>
             </h3>
             
             {((!isTahfiz && pendingIzinGuru.length > 0) || pendingSuratIzin.length > 0) ? (
@@ -400,9 +400,9 @@ const AdminDashboard: React.FC = () => {
                     <div className="flex items-center justify-between mb-2 sm:mb-3">
                       <div className="flex items-center min-w-0 flex-1">
                         <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 mr-2 flex-shrink-0" />
-                        <span className="font-medium text-yellow-900 text-sm sm:text-base truncate">{t('common.language') === 'ms' ? 'Izin Guru' : 'Izin Guru'}</span>
+                        <span className="font-medium text-yellow-900 text-sm sm:text-base truncate">{t('adminDashboard.izinGuru')}</span>
                       </div>
-                      <Badge variant="warning" className="flex-shrink-0 ml-2 text-xs">{pendingIzinGuru.length} {t('common.language') === 'ms' ? 'menunggu' : 'pending'}</Badge>
+                      <Badge variant="warning" className="flex-shrink-0 ml-2 text-xs">{pendingIzinGuru.length} {t('adminDashboard.pending')}</Badge>
                     </div>
                     <div className="space-y-2 max-h-32 overflow-y-auto">
                       {pendingIzinGuru.slice(0, 3).map((izin) => (
@@ -428,9 +428,9 @@ const AdminDashboard: React.FC = () => {
                     <div className="flex items-center justify-between mb-2 sm:mb-3">
                       <div className="flex items-center min-w-0 flex-1">
                         <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mr-2 flex-shrink-0" />
-                        <span className="font-medium text-blue-900 text-sm sm:text-base truncate">{t('common.language') === 'ms' ? 'Surat Izin' : 'Surat Izin'} {studentTerm === 'santri' ? (t('common.language') === 'ms' ? 'Santri' : 'Santri') : (t('common.language') === 'ms' ? 'Murid' : 'Murid')}</span>
+                        <span className="font-medium text-blue-900 text-sm sm:text-base truncate">{studentTerm === 'santri' ? t('adminDashboard.suratIzinSantri') : t('adminDashboard.suratIzinMurid')}</span>
                       </div>
-                      <Badge variant="info" className="flex-shrink-0 ml-2 text-xs">{pendingSuratIzin.length} {t('common.language') === 'ms' ? 'menunggu' : 'pending'}</Badge>
+                      <Badge variant="info" className="flex-shrink-0 ml-2 text-xs">{pendingSuratIzin.length} {t('adminDashboard.menunggu')}</Badge>
                     </div>
                     <div className="space-y-2 max-h-32 overflow-y-auto">
                       {pendingSuratIzin.slice(0, 3).map((surat) => (
@@ -438,19 +438,19 @@ const AdminDashboard: React.FC = () => {
                           <p className="font-medium text-gray-900 truncate">{getMuridName(surat.muridId)}</p>
                           <p className="text-gray-600 text-xs truncate">
                             {surat.jenis.charAt(0).toUpperCase() + surat.jenis.slice(1)} • {' '}
-                            {new Date(surat.tanggalMulai).toLocaleDateString(t('common.language') === 'ms' ? 'ms-MY' : 'id-ID')}
+                            {new Date(surat.tanggalMulai).toLocaleDateString(language === 'ms' ? 'ms-MY' : 'id-ID')}
                           </p>
                         </div>
                       ))}
                       {pendingSuratIzin.length > 3 && (
                         <p className="text-xs text-gray-500">
-                          +{pendingSuratIzin.length - 3} {t('common.language') === 'ms' ? 'lainnya' : 'lainnya'}
+                          +{pendingSuratIzin.length - 3} {t('adminDashboard.lainnya')}
                         </p>
                       )}
                     </div>
                     {!isTahfiz && (
                       <p className="text-xs text-blue-600 mt-2">
-                        {t('common.language') === 'ms' ? 'Perlu ditinjau oleh wali kelas masing-masing' : 'Perlu ditinjau oleh wali kelas masing-masing'}
+                        {t('adminDashboard.perluDitinjauWaliKelas')}
                       </p>
                     )}
                   </div>
@@ -459,8 +459,8 @@ const AdminDashboard: React.FC = () => {
             ) : (
               <div className="text-center py-6 sm:py-8">
                 <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 text-emerald-300" />
-                <h4 className="text-base sm:text-lg font-medium text-gray-900 mb-1 sm:mb-2">{t('common.language') === 'ms' ? 'Semua Terverifikasi' : 'Semua Terverifikasi'}</h4>
-                <p className="text-sm sm:text-base text-gray-600">{t('common.language') === 'ms' ? 'Tidak ada pengajuan yang menunggu persetujuan' : 'Tidak ada pengajuan yang menunggu persetujuan'}</p>
+                <h4 className="text-base sm:text-lg font-medium text-gray-900 mb-1 sm:mb-2">{t('adminDashboard.semuaTerverifikasi')}</h4>
+                <p className="text-sm sm:text-base text-gray-600">{t('adminDashboard.tidakAdaPengajuan')}</p>
               </div>
             )}
           </div>
@@ -472,7 +472,7 @@ const AdminDashboard: React.FC = () => {
           <div className="p-4 sm:p-6">
             <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6 flex items-center">
               <div className="w-2 h-5 sm:h-6 bg-emerald-500 rounded-full mr-2 sm:mr-3"></div>
-              <span className="text-sm sm:text-base lg:text-xl">{t('common.language') === 'ms' ? 'Aktivitas Terbaru' : 'Aktivitas Terbaru'}</span>
+              <span className="text-sm sm:text-base lg:text-xl">{t('adminDashboard.aktivitasTerbaru')}</span>
             </h3>
             <div className="space-y-2 sm:space-y-3">
               {recentActivities.length > 0 ? (
@@ -503,8 +503,8 @@ const AdminDashboard: React.FC = () => {
               ) : (
                 <div className="text-center py-6 sm:py-8">
                   <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 text-emerald-300" />
-                  <h4 className="text-base sm:text-lg font-medium text-gray-900 mb-1 sm:mb-2">{t('common.language') === 'ms' ? 'Semua Berjalan Lancar' : 'Semua Berjalan Lancar'}</h4>
-                  <p className="text-sm sm:text-base text-gray-600">{t('common.language') === 'ms' ? 'Tidak ada aktivitas yang memerlukan perhatian khusus' : 'Tidak ada aktivitas yang memerlukan perhatian khusus'}</p>
+                  <h4 className="text-base sm:text-lg font-medium text-gray-900 mb-1 sm:mb-2">{t('adminDashboard.semuaBerjalanLancar')}</h4>
+                  <p className="text-sm sm:text-base text-gray-600">{t('adminDashboard.tidakAdaAktivitasPerhatian')}</p>
                 </div>
               )}
             </div>
@@ -514,15 +514,15 @@ const AdminDashboard: React.FC = () => {
 
       {/* System Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
-        {/* System Status */}
-        <Card className="border-0 shadow-lg">
-          <div className="p-4 sm:p-6">
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6 flex items-center">
-              <div className="w-2 h-5 sm:h-6 bg-purple-500 rounded-full mr-2 sm:mr-3"></div>
-              <span className="text-sm sm:text-base lg:text-xl">{t('dashboardKepalaSekolah.statusSistem')}</span>
-            </h3>
-            <div className="space-y-3 sm:space-y-4">
-              {!isTahfiz && (
+        {/* System Status - tidak ditampilkan untuk sistem tahfiz */}
+        {!isTahfiz && (
+          <Card className="border-0 shadow-lg">
+            <div className="p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6 flex items-center">
+                <div className="w-2 h-5 sm:h-6 bg-purple-500 rounded-full mr-2 sm:mr-3"></div>
+                <span className="text-sm sm:text-base lg:text-xl">{t('dashboardKepalaSekolah.statusSistem')}</span>
+              </h3>
+              <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-lg sm:rounded-xl">
                   <div className="flex items-center min-w-0 flex-1">
                     <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 mr-2 sm:mr-3 flex-shrink-0" />
@@ -542,9 +542,7 @@ const AdminDashboard: React.FC = () => {
                     {activeTahunAjaran ? t('dashboardKepalaSekolah.aktif') : t('dashboardKepalaSekolah.tidakAktif')}
                   </Badge>
                 </div>
-              )}
 
-              {!isTahfiz && (
                 <div className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg sm:rounded-xl">
                   <div className="flex items-center min-w-0 flex-1">
                     <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 mr-2 sm:mr-3 flex-shrink-0" />
@@ -560,9 +558,7 @@ const AdminDashboard: React.FC = () => {
                   </div>
                   <span className="text-xl sm:text-2xl font-bold text-blue-600 flex-shrink-0 ml-2">{attendanceRate}%</span>
                 </div>
-              )}
 
-              {!isTahfiz && (
                 <div className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg sm:rounded-xl">
                   <div className="flex items-center min-w-0 flex-1">
                     <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 mr-2 sm:mr-3 flex-shrink-0" />
@@ -585,9 +581,7 @@ const AdminDashboard: React.FC = () => {
                     }
                   </span>
                 </div>
-              )}
 
-              {!isTahfiz && (
                 <div className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg sm:rounded-xl">
                   <div className="flex items-center min-w-0 flex-1">
                     <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 mr-2 sm:mr-3 flex-shrink-0" />
@@ -605,16 +599,16 @@ const AdminDashboard: React.FC = () => {
                     {activePengaturan ? t('dashboardKepalaSekolah.aktif') : t('dashboardKepalaSekolah.perluSetup')}
                   </Badge>
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        </Card>
-{/* Quick Actions */}
+          </Card>
+        )}
+        {/* Quick Actions */}
         <Card className="border-0 shadow-lg">
           <div className="p-4 sm:p-6">
             <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6 flex items-center">
               <div className="w-2 h-5 sm:h-6 bg-blue-500 rounded-full mr-2 sm:mr-3"></div>
-              <span className="text-sm sm:text-base lg:text-xl">{t('common.language') === 'ms' ? 'Aksi Cepat' : 'Aksi Cepat'}</span>
+              <span className="text-sm sm:text-base lg:text-xl">{t('adminDashboard.aksiCepat')}</span>
             </h3>
             <div className="space-y-2 sm:space-y-3">
               {isTahfiz ? (
@@ -630,8 +624,8 @@ const AdminDashboard: React.FC = () => {
                         <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('common.language') === 'ms' ? 'Urus Ustadz' : 'Kelola Ustadz'}</p>
-                        <p className="text-xs text-gray-500 truncate">{t('common.language') === 'ms' ? 'Tambah & edit data ustadz' : 'Tambah & edit data ustadz'}</p>
+                        <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('adminDashboard.urusUstadz')}</p>
+                        <p className="text-xs text-gray-500 truncate">{t('adminDashboard.tambahEditDataUstadz')}</p>
                       </div>
                       <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0 ml-2" />
                     </div>
@@ -648,8 +642,8 @@ const AdminDashboard: React.FC = () => {
                         <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('common.language') === 'ms' ? 'Urus Santri' : 'Kelola Santri'}</p>
-                        <p className="text-xs text-gray-500 truncate">{t('common.language') === 'ms' ? 'Tambah & edit data santri' : 'Tambah & edit data santri'}</p>
+                        <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('adminDashboard.urusSantri')}</p>
+                        <p className="text-xs text-gray-500 truncate">{t('adminDashboard.tambahEditDataSantri')}</p>
                       </div>
                       <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 group-hover:text-emerald-600 transition-colors flex-shrink-0 ml-2" />
                     </div>
@@ -666,8 +660,8 @@ const AdminDashboard: React.FC = () => {
                         <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('sidebar.dataJadwalTahfiz')}</p>
-                        <p className="text-xs text-gray-500 truncate">{t('common.language') === 'ms' ? 'Atur jadwal tahfiz' : 'Atur jadwal tahfiz'}</p>
+                        <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('adminDashboard.dataJadwalTahfiz')}</p>
+                        <p className="text-xs text-gray-500 truncate">{t('adminDashboard.aturJadwalTahfiz')}</p>
                       </div>
                       <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 group-hover:text-purple-600 transition-colors flex-shrink-0 ml-2" />
                     </div>
@@ -686,8 +680,8 @@ const AdminDashboard: React.FC = () => {
                         <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('common.language') === 'ms' ? 'Urus Guru' : 'Kelola Guru'}</p>
-                        <p className="text-xs text-gray-500 truncate">{t('common.language') === 'ms' ? 'Tambah & edit data guru' : 'Tambah & edit data guru'}</p>
+                        <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('adminDashboard.kelolaGuru')}</p>
+                        <p className="text-xs text-gray-500 truncate">{t('adminDashboard.tambahEditDataGuru')}</p>
                       </div>
                       <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0 ml-2" />
                     </div>
@@ -704,8 +698,8 @@ const AdminDashboard: React.FC = () => {
                         <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('common.language') === 'ms' ? 'Urus Murid' : 'Kelola Murid'}</p>
-                        <p className="text-xs text-gray-500 truncate">{t('common.language') === 'ms' ? 'Tambah & edit data murid' : 'Tambah & edit data murid'}</p>
+                        <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('adminDashboard.kelolaMurid')}</p>
+                        <p className="text-xs text-gray-500 truncate">{t('adminDashboard.tambahEditDataMurid')}</p>
                       </div>
                       <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 group-hover:text-emerald-600 transition-colors flex-shrink-0 ml-2" />
                     </div>
@@ -723,7 +717,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('sidebar.jadwalPelajaran')}</p>
-                        <p className="text-xs text-gray-500 truncate">{t('common.language') === 'ms' ? 'Atur jadwal mengajar' : 'Atur jadwal mengajar'}</p>
+                        <p className="text-xs text-gray-500 truncate">{t('adminDashboard.aturJadwalMengajar')}</p>
                       </div>
                       <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 group-hover:text-purple-600 transition-colors flex-shrink-0 ml-2" />
                     </div>
@@ -741,7 +735,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('sidebar.qrAdmin')}</p>
-                        <p className="text-xs text-gray-500 truncate">{t('common.language') === 'ms' ? `Pantau kehadiran ${teacherTerm === 'ustadz' ? 'ustadz' : 'guru'}` : `Pantau absen ${teacherTerm === 'ustadz' ? 'ustadz' : 'guru'}`}</p>
+                        <p className="text-xs text-gray-500 truncate">{t('adminDashboard.pantauKehadiranGuru', { role: teacherTerm === 'ustadz' ? 'ustadz' : 'guru' })}</p>
                       </div>
                       <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 group-hover:text-orange-600 transition-colors flex-shrink-0 ml-2" />
                     </div>
@@ -759,7 +753,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-xs sm:text-sm lg:text-base">{t('sidebar.monitoringKelas')}</p>
-                        <p className="text-xs text-gray-500 truncate">{t('common.language') === 'ms' ? `Monitor ${teacherTerm === 'ustadz' ? 'ustadz' : 'guru'} mengajar real-time` : `Monitor ${teacherTerm === 'ustadz' ? 'ustadz' : 'guru'} mengajar real-time`}</p>
+                        <p className="text-xs text-gray-500 truncate">{t('adminDashboard.monitorMengajarRealtime', { role: teacherTerm === 'ustadz' ? 'ustadz' : 'guru' })}</p>
                       </div>
                       <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 group-hover:text-teal-600 transition-colors flex-shrink-0 ml-2" />
                     </div>
@@ -823,7 +817,7 @@ const AdminDashboard: React.FC = () => {
               >
                 <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-orange-600 mx-auto mb-1 sm:mb-2 lg:mb-3" />
                 <p className="text-lg sm:text-xl lg:text-2xl font-bold text-orange-900">{activeSessions.length}</p>
-                <p className="text-xs text-orange-700">{t('common.language') === 'ms' ? 'Sesi Aktif' : 'Sesi Aktif'}</p>
+                <p className="text-xs text-orange-700">{t('adminDashboard.sesiAktif')}</p>
               </div>
             </div>
           </div>
@@ -857,10 +851,10 @@ const AdminDashboard: React.FC = () => {
               <div className="p-3 sm:p-4 bg-emerald-50 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm text-emerald-600">{t('common.language') === 'ms' ? 'Sesi Kehadiran' : 'Sesi Absensi'}</p>
+                    <p className="text-xs sm:text-sm text-emerald-600">{t('adminDashboard.sesiKehadiran')}</p>
                     <p className="text-xl sm:text-2xl font-bold text-emerald-900">{todaySessions.length}</p>
                     <p className="text-xs text-emerald-700 truncate">
-                      {activeSessions.length} {t('common.language') === 'ms' ? 'sesi masih aktif' : 'sesi masih aktif'}
+                      {activeSessions.length} {t('adminDashboard.sesiMasihAktif')}
                     </p>
                   </div>
                   <ClipboardList className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-600 flex-shrink-0 ml-2" />
@@ -870,12 +864,12 @@ const AdminDashboard: React.FC = () => {
               <div className="p-3 sm:p-4 bg-purple-50 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm text-purple-600">{t('common.language') === 'ms' ? 'Pengajuan Menunggu' : 'Pengajuan Pending'}</p>
+                    <p className="text-xs sm:text-sm text-purple-600">{t('adminDashboard.pengajuanMenunggu')}</p>
                     <p className="text-xl sm:text-2xl font-bold text-purple-900">
                       {pendingIzinGuru.length + pendingSuratIzin.length}
                     </p>
                     <p className="text-xs text-purple-700 truncate">
-                      {pendingIzinGuru.length} {t('common.language') === 'ms' ? 'izin guru' : 'izin guru'}, {pendingSuratIzin.length} {t('common.language') === 'ms' ? 'izin murid' : 'izin murid'}
+                      {pendingIzinGuru.length} {t('adminDashboard.izinGuruLabel')}, {pendingSuratIzin.length} {t('adminDashboard.izinMuridLabel')}
                     </p>
                   </div>
                   <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 flex-shrink-0 ml-2" />

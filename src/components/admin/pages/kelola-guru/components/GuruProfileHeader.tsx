@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 import Card from '../../../../ui/Card';
 import Badge from '../../../../ui/Badge';
 import { User } from '../../../../../types';
@@ -13,6 +14,7 @@ const GuruProfileHeader: React.FC<GuruProfileHeaderProps> = ({
   guru,
   getKelasName
 }) => {
+  const { t } = useLanguage();
   return (
     
       
@@ -29,9 +31,9 @@ const GuruProfileHeader: React.FC<GuruProfileHeaderProps> = ({
     {/* Data Guru di Kanan */}
     <div className="flex flex-col flex-1">
       <h3 className="text-base sm:text-2xl font-bold text-gray-900">{guru.name}</h3>
-      <p className="text-xs sm:text-sm text-blue-600 font-medium">NIP: {guru.nip}</p>
+      <p className="text-xs sm:text-sm text-blue-600 font-medium">{t('detailAbsensiModal.nip')}: {guru.nip}</p>
        {guru.isWaliKelas && (
-        <p className="text-xs sm:text-sm text-blue-600 font-medium">Wali Kelas {getKelasName(guru.kelasWali || '')}</p>
+        <p className="text-xs sm:text-sm text-blue-600 font-medium">{t('detailAbsensiModal.waliKelas')} {getKelasName(guru.kelasWali || '')}</p>
          
         )}
     </div>

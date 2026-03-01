@@ -20,7 +20,8 @@ const AttendanceHistoryTableTahfiz: React.FC<AttendanceHistoryTableTahfizProps> 
   getJadwalInfo,
   getAttendanceStatus
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   
   if (filteredSessions.length === 0) {
     return (
@@ -30,7 +31,7 @@ const AttendanceHistoryTableTahfiz: React.FC<AttendanceHistoryTableTahfizProps> 
         </div>
         <p className="text-sm sm:text-base font-medium text-slate-500">{t('tahfiz.muridTahfiz.attendanceHistory.tidakAdaRiwayatAbsensi')}</p>
         <p className="text-xs sm:text-sm text-slate-400 mt-1">
-          {t('tahfiz.muridTahfiz.attendanceHistory.tidakAdaDataUntuk')} {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+          {t('tahfiz.muridTahfiz.attendanceHistory.tidakAdaDataUntuk')} {new Date(selectedYear, selectedMonth - 1).toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' })}
         </p>
       </div>
     );
@@ -59,7 +60,7 @@ const AttendanceHistoryTableTahfiz: React.FC<AttendanceHistoryTableTahfizProps> 
               <TableRow key={sesi.id}>
                 <TableCell>
                   <div className="font-medium text-slate-900">
-                    {new Date(sesi.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    {new Date(sesi.tanggal).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })}
                   </div>
                   <div className="text-xs text-slate-500 sm:hidden mt-0.5">
                     {waktu}

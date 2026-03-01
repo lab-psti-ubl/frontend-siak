@@ -34,7 +34,7 @@ export const useUstadz = () => {
           setLoading(false);
         })
         .catch(err => {
-          setError(err.message || 'Terjadi kesalahan saat mengambil data ustadz');
+          setError(err.message || 'Terjadi kesalahan saat mengambil data Ustaz/ah');
           setLoading(false);
         });
       return;
@@ -56,10 +56,10 @@ export const useUstadz = () => {
           setLoading(false);
           return response.ustadz;
         } else {
-          throw new Error(response.message || 'Gagal mengambil data ustadz');
+          throw new Error(response.message || 'Gagal mengambil data Ustaz/ah');
         }
       } catch (err: any) {
-        setError(err.message || 'Terjadi kesalahan saat mengambil data ustadz');
+        setError(err.message || 'Terjadi kesalahan saat mengambil data Ustaz/ah');
         console.error('Error fetching ustadz:', err);
         setLoading(false);
         throw err;
@@ -85,10 +85,10 @@ export const useUstadz = () => {
         globalUstadzCacheTime = Date.now();
         setUstadz(response.ustadz);
       } else {
-        setError(response.message || 'Gagal mengambil data ustadz');
+        setError(response.message || 'Gagal mengambil data Ustaz/ah');
       }
     } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat mengambil data ustadz');
+      setError(err.message || 'Terjadi kesalahan saat mengambil data Ustaz/ah');
       console.error('Error fetching ustadz:', err);
     } finally {
       setLoading(false);

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Calendar } from 'lucide-react';
+import { getMonthNames, type DateLocaleLanguage } from '../../../../utils/dateLocaleUtils';
 
 interface MonthYearPickerKehadiranProps {
   selectedMonth: number;
@@ -13,6 +14,8 @@ interface MonthYearPickerKehadiranProps {
   availableMonths: number[];
   availableYears: number[];
   monthsYears: Array<{month: number; year: number}>;
+  /** When 'ms', month names use Malay (Mac, Julai, Ogos, Disember, dll.) */
+  language?: DateLocaleLanguage;
 }
 
 const MonthYearPickerKehadiran: React.FC<MonthYearPickerKehadiranProps> = ({
@@ -27,11 +30,9 @@ const MonthYearPickerKehadiran: React.FC<MonthYearPickerKehadiranProps> = ({
   availableMonths,
   availableYears,
   monthsYears,
+  language = 'id',
 }) => {
-  const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
+  const monthNames = getMonthNames(language);
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);

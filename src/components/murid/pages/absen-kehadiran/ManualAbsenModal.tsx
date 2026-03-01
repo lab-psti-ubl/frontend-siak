@@ -4,6 +4,7 @@ import Modal from '../../../ui/Modal';
 import Button from '../../../ui/Button';
 import { Absensi, SesiAbsensi, User } from '../../../../types';
 import { apiService } from '../../../../services/apiService';
+import { getTodayIndonesia } from '../../../../utils/absensiUtils';
 
 interface ManualAbsenModalProps {
   isOpen: boolean;
@@ -26,7 +27,7 @@ const ManualAbsenModal: React.FC<ManualAbsenModalProps> = ({
   useEffect(() => {
     const fetchTodayAbsensi = async () => {
       if (isOpen) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayIndonesia();
         try {
           const response = await apiService.getAbsensiByMuridIdAndTanggal(muridId, today);
           if (response.success && response.absensi) {

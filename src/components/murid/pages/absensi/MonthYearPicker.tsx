@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
+import { getMonthNames, type DateLocaleLanguage } from '../../../../utils/dateLocaleUtils';
 
 interface MonthYearPickerProps {
   selectedMonth: number;
@@ -13,7 +14,12 @@ interface MonthYearPickerProps {
   availableMonths?: number[];
   availableYears?: number[];
   monthsYears?: Array<{ month: number; year: number }>;
+  /** When provided (e.g. from tahfiz pages), month names use this language (Malay: Mac, Julai, Ogos, Disember, etc.) */
+  language?: DateLocaleLanguage;
 }
+
+const ID_MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+const MS_MONTH_SHORT = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogos', 'Sep', 'Okt', 'Nov', 'Dis'];
 
 const MonthYearPicker: React.FC<MonthYearPickerProps> = ({
   selectedMonth,
@@ -26,27 +32,16 @@ const MonthYearPicker: React.FC<MonthYearPickerProps> = ({
   onClear,
   availableMonths = [],
   availableYears = [],
-  monthsYears = []
+  monthsYears = [],
+  language = 'id'
 }) => {
-  const allMonths = [
-    { short: 'Jan', full: 'Januari', value: 1 },
-    { short: 'Feb', full: 'Februari', value: 2 },
-    { short: 'Mar', full: 'Maret', value: 3 },
-    { short: 'Apr', full: 'April', value: 4 },
-    { short: 'May', full: 'Mei', value: 5 },
-    { short: 'Jun', full: 'Juni', value: 6 },
-    { short: 'Jul', full: 'Juli', value: 7 },
-    { short: 'Aug', full: 'Agustus', value: 8 },
-    { short: 'Sep', full: 'September', value: 9 },
-    { short: 'Oct', full: 'Oktober', value: 10 },
-    { short: 'Nov', full: 'November', value: 11 },
-    { short: 'Dec', full: 'Desember', value: 12 }
-  ];
-
-  const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
+  const monthNames = getMonthNames(language);
+  const shortNames = language === 'ms' ? MS_MONTH_SHORT : ID_MONTH_SHORT;
+  const allMonths = monthNames.map((full, i) => ({
+    short: shortNames[i],
+    full,
+    value: i + 1
+  }));
 
   // Get available months for the selected year
   const availableMonthsForYear = monthsYears

@@ -26,6 +26,8 @@ interface AbsensiManualModalProps {
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   mataPelajaran: MataPelajaran[];
   markAllPresent: () => void;
+  loadingMuridIds?: Set<string>;
+  isBulkLoading: boolean;
 }
 
 const AbsensiManualModal: React.FC<AbsensiManualModalProps> = ({
@@ -48,6 +50,8 @@ const AbsensiManualModal: React.FC<AbsensiManualModalProps> = ({
   scrollContainerRef,
   mataPelajaran,
   markAllPresent,
+  loadingMuridIds,
+  isBulkLoading,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobile, setIsMobile] = useState(false);
@@ -204,10 +208,20 @@ const AbsensiManualModal: React.FC<AbsensiManualModalProps> = ({
               size="sm"
               variant="success"
               onClick={markAllPresent}
+              disabled={isBulkLoading}
               className="bg-emerald-600 hover:bg-emerald-700 text-xs sm:text-sm py-2 sm:py-2.5 flex-1 lg:flex-none flex items-center justify-center"
             >
-              <CheckCircle2 size={14} className="mr-1.5" />
-              Hadir Semua
+              {isBulkLoading ? (
+                <>
+                  <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={14} className="mr-1.5" />
+                  Hadir Semua
+                </>
+              )}
             </Button>
             <Button
               size="sm"
@@ -269,69 +283,80 @@ const AbsensiManualModal: React.FC<AbsensiManualModalProps> = ({
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="grid grid-cols-4 gap-1">
-                          {suratAktif ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => handleViewSuratDetail(suratAktif)}
-                                className="text-xs py-1 px-2"
-                              >
-                                <Eye size={12} className="mr-0.5" />
-                                Lihat
-                              </Button>
-                              {!attendance ? (
+                        {loadingMuridIds?.has(murid.id) ? (
+                          <div className="flex items-center justify-center gap-2 text-blue-600">
+                            <div className="h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs">Menyimpan...</span>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-4 gap-1">
+                            {suratAktif ? (
+                              <>
                                 <Button
                                   size="sm"
-                                  variant={suratAktif.jenis === 'izin' || suratAktif.jenis === 'izin_dispen' ? 'warning' : 'primary'}
-                                  onClick={() => handleMarkWithSurat(murid.id, suratAktif)}
-                                  disabled={selectedSesi.status !== 'dibuka'}
-                                  className="text-xs py-1 px-2 col-span-3"
+                                  variant="secondary"
+                                  onClick={() => handleViewSuratDetail(suratAktif)}
+                                  className="text-xs py-1 px-2"
                                 >
-                                  {suratAktif.jenis === 'izin_dispen' ? 'Dispen' : suratAktif.jenis === 'izin' ? 'Izin' : 'Sakit'}
+                                  <Eye size={12} className="mr-0.5" />
+                                  Lihat
                                 </Button>
-                              ) : (
-                                <div className="col-span-3"></div>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="success"
-                                onClick={() => markAttendance(murid.id, 'hadir', 'Absen masuk manual oleh wali kelas - hadir')}
-                                className={`text-xs py-1 px-2 ${attendance?.status === 'hadir' ? 'ring-2 ring-green-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
-                              >
-                                Hadir
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="warning"
-                                onClick={() => markAttendance(murid.id, 'izin', 'Absen masuk manual oleh wali kelas - izin')}
-                                className={`text-xs py-1 px-2 ${attendance?.status === 'izin' ? 'ring-2 ring-yellow-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
-                              >
-                                Izin
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                onClick={() => markAttendance(murid.id, 'sakit', 'Absen masuk manual oleh wali kelas - sakit')}
-                                className={`text-xs py-1 px-2 ${attendance?.status === 'sakit' ? 'ring-2 ring-blue-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
-                              >
-                                Sakit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                onClick={() => markAttendance(murid.id, 'alfa', 'Absen masuk manual oleh wali kelas - alfa')}
-                                className={`text-xs py-1 px-2 ${attendance?.status === 'alfa' ? 'ring-2 ring-red-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
-                              >
-                                Alfa
-                              </Button>
-                            </>
-                          )}
-                        </div>
+                                {!attendance ? (
+                                  <Button
+                                    size="sm"
+                                    variant={suratAktif.jenis === 'izin' || suratAktif.jenis === 'izin_dispen' ? 'warning' : 'primary'}
+                                    onClick={() => handleMarkWithSurat(murid.id, suratAktif)}
+                                    disabled={selectedSesi.status !== 'dibuka'}
+                                    className="text-xs py-1 px-2 col-span-3"
+                                  >
+                                    {suratAktif.jenis === 'izin_dispen' ? 'Dispen' : suratAktif.jenis === 'izin' ? 'Izin' : 'Sakit'}
+                                  </Button>
+                                ) : (
+                                  <div className="col-span-3"></div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="success"
+                                  onClick={() => markAttendance(murid.id, 'hadir', 'Absen masuk manual oleh wali kelas - hadir')}
+                                  disabled={loadingMuridIds?.has(murid.id)}
+                                  className={`text-xs py-1 px-2 ${attendance?.status === 'hadir' ? 'ring-2 ring-green-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
+                                >
+                                  Hadir
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="warning"
+                                  onClick={() => markAttendance(murid.id, 'izin', 'Absen masuk manual oleh wali kelas - izin')}
+                                  disabled={loadingMuridIds?.has(murid.id)}
+                                  className={`text-xs py-1 px-2 ${attendance?.status === 'izin' ? 'ring-2 ring-yellow-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
+                                >
+                                  Izin
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  onClick={() => markAttendance(murid.id, 'sakit', 'Absen masuk manual oleh wali kelas - sakit')}
+                                  disabled={loadingMuridIds?.has(murid.id)}
+                                  className={`text-xs py-1 px-2 ${attendance?.status === 'sakit' ? 'ring-2 ring-blue-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
+                                >
+                                  Sakit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => markAttendance(murid.id, 'alfa', 'Absen masuk manual oleh wali kelas - alfa')}
+                                  disabled={loadingMuridIds?.has(murid.id)}
+                                  className={`text-xs py-1 px-2 ${attendance?.status === 'alfa' ? 'ring-2 ring-red-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
+                                >
+                                  Alfa
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Button
@@ -420,64 +445,75 @@ const AbsensiManualModal: React.FC<AbsensiManualModalProps> = ({
 
                         <div className="space-y-2">
                           <p className="text-xs font-semibold text-slate-600 uppercase mb-2">Aksi</p>
-                          {suratAktif ? (
-                            <div className="space-y-2">
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => handleViewSuratDetail(suratAktif)}
-                                className="w-full text-xs py-2 flex items-center justify-center"
-                              >
-                                <Eye size={14} className="mr-2" />
-                                Lihat Surat
-                              </Button>
-                              {!attendance && (
-                                <Button
-                                  size="sm"
-                                  variant={suratAktif.jenis === 'izin' || suratAktif.jenis === 'izin_dispen' ? 'warning' : 'info'}
-                                  onClick={() => handleMarkWithSurat(murid.id, suratAktif)}
-                                  disabled={selectedSesi.status !== 'dibuka'}
-                                  className="w-full text-xs py-2"
-                                >
-                                  {suratAktif.jenis === 'izin_dispen' ? 'Izin Dispen' : suratAktif.jenis === 'izin' ? 'Izin' : 'Sakit'}
-                                </Button>
-                              )}
+                          {loadingMuridIds?.has(murid.id) ? (
+                            <div className="flex items-center justify-center gap-2 text-blue-600 py-2">
+                              <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                              <span className="text-xs">Menyimpan...</span>
                             </div>
                           ) : (
-                            <div className="grid grid-cols-4 gap-2">
-                              <Button
-                                size="sm"
-                                variant="success"
-                                onClick={() => markAttendance(murid.id, 'hadir', 'Absen masuk manual oleh wali kelas - hadir')}
-                                className={`text-xs py-2 ${attendance?.status === 'hadir' ? 'ring-2 ring-green-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
-                              >
-                                Hadir
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="warning"
-                                onClick={() => markAttendance(murid.id, 'izin', 'Absen masuk manual oleh wali kelas - izin')}
-                                className={`text-xs py-2 ${attendance?.status === 'izin' ? 'ring-2 ring-yellow-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
-                              >
-                                Izin
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                onClick={() => markAttendance(murid.id, 'sakit', 'Absen masuk manual oleh wali kelas - sakit')}
-                                className={`text-xs py-2 ${attendance?.status === 'sakit' ? 'ring-2 ring-blue-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
-                              >
-                                Sakit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                onClick={() => markAttendance(murid.id, 'alfa', 'Absen masuk manual oleh wali kelas - alfa')}
-                                className={`text-xs py-2 ${attendance?.status === 'alfa' ? 'ring-2 ring-red-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
-                              >
-                                Alfa
-                              </Button>
-                            </div>
+                            suratAktif ? (
+                              <div className="space-y-2">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleViewSuratDetail(suratAktif)}
+                                  className="w-full text-xs py-2 flex items-center justify-center"
+                                >
+                                  <Eye size={14} className="mr-2" />
+                                  Lihat Surat
+                                </Button>
+                                {!attendance && (
+                                  <Button
+                                    size="sm"
+                                    variant={suratAktif.jenis === 'izin' || suratAktif.jenis === 'izin_dispen' ? 'warning' : 'info'}
+                                    onClick={() => handleMarkWithSurat(murid.id, suratAktif)}
+                                    disabled={selectedSesi.status !== 'dibuka'}
+                                    className="w-full text-xs py-2"
+                                  >
+                                    {suratAktif.jenis === 'izin_dispen' ? 'Izin Dispen' : suratAktif.jenis === 'izin' ? 'Izin' : 'Sakit'}
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-4 gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="success"
+                                  onClick={() => markAttendance(murid.id, 'hadir', 'Absen masuk manual oleh wali kelas - hadir')}
+                                  disabled={loadingMuridIds?.has(murid.id)}
+                                  className={`text-xs py-2 ${attendance?.status === 'hadir' ? 'ring-2 ring-green-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
+                                >
+                                  Hadir
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="warning"
+                                  onClick={() => markAttendance(murid.id, 'izin', 'Absen masuk manual oleh wali kelas - izin')}
+                                  disabled={loadingMuridIds?.has(murid.id)}
+                                  className={`text-xs py-2 ${attendance?.status === 'izin' ? 'ring-2 ring-yellow-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
+                                >
+                                  Izin
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  onClick={() => markAttendance(murid.id, 'sakit', 'Absen masuk manual oleh wali kelas - sakit')}
+                                  disabled={loadingMuridIds?.has(murid.id)}
+                                  className={`text-xs py-2 ${attendance?.status === 'sakit' ? 'ring-2 ring-blue-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
+                                >
+                                  Sakit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => markAttendance(murid.id, 'alfa', 'Absen masuk manual oleh wali kelas - alfa')}
+                                  disabled={loadingMuridIds?.has(murid.id)}
+                                  className={`text-xs py-2 ${attendance?.status === 'alfa' ? 'ring-2 ring-red-400' : attendance && attendance.status !== 'alfa' ? 'opacity-50' : ''}`}
+                                >
+                                  Alfa
+                                </Button>
+                              </div>
+                            )
                           )}
                         </div>
 

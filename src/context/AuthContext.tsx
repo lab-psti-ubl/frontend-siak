@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User } from '../types';
 import { apiService } from '../services/apiService';
 import { isSystemActive } from '../utils/systemActivationUtils';
+import { warmupFaceRecognitionCache } from '../hooks/useFaceRecognitionCache';
+import { prewarmPengaturanCache } from '../hooks/usePengaturanSistem';
 
 export interface LoginResult {
   success: boolean;
@@ -54,21 +56,77 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // Check if user is logged in from localStorage (for backward compatibility during migration)
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-
-        // Check if admin needs to activate system
-        checkActivationStatus(parsedUser);
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
-        setIsLoading(false);
+    // Check if user is logged in from localStorage and validate/refresh token
+    const initializeAuth = async () => {
+      const savedUser = localStorage.getItem('currentUser');
+      const savedToken = localStorage.getItem('authToken');
+      
+      if (savedUser && savedToken) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          
+          // Validate token by trying to refresh it (this handles expired tokens too)
+          try {
+            const refreshResult = await apiService.refreshToken();
+            if (refreshResult.success && refreshResult.token) {
+              // Token refreshed successfully, user is still logged in
+              setUser(parsedUser);
+              checkActivationStatus(parsedUser);
+              
+              // Pre-warm face recognition cache untuk admin di background
+              if (parsedUser.role === 'admin') {
+                warmupFaceRecognitionCache().catch((error) => {
+                  console.error('[Auth] Error warming up face recognition cache on init:', error);
+                });
+              }
+              
+              setIsLoading(false);
+              return;
+            }
+          } catch (refreshError) {
+            console.error('Token refresh failed on init:', refreshError);
+          }
+          
+          // If refresh failed, try to validate token by getting current user
+          try {
+            const currentUserResult = await apiService.getCurrentUser();
+            if (currentUserResult.success && currentUserResult.user) {
+              // Token is valid, update user data
+              const updatedUser = currentUserResult.user;
+              setUser(updatedUser);
+              localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+              checkActivationStatus(updatedUser);
+              
+              // Pre-warm face recognition cache untuk admin di background
+              if (updatedUser.role === 'admin') {
+                warmupFaceRecognitionCache().catch((error) => {
+                  console.error('[Auth] Error warming up face recognition cache on init:', error);
+                });
+              }
+              
+              setIsLoading(false);
+              return;
+            }
+          } catch (validateError) {
+            console.error('Token validation failed on init:', validateError);
+          }
+          
+          // If both refresh and validation failed, clear auth data
+          localStorage.removeItem('currentUser');
+          apiService.removeToken();
+          setUser(null);
+        } catch (error) {
+          console.error('Error parsing saved user:', error);
+          localStorage.removeItem('currentUser');
+          apiService.removeToken();
+          setUser(null);
+        }
       }
-    }
-    setIsLoading(false);
+      
+      setIsLoading(false);
+    };
+    
+    initializeAuth();
 
     // Listen for localStorage changes to update user (e.g., after profile update)
     const handleStorageChange = (e: CustomEvent) => {
@@ -126,23 +184,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Token is already stored by apiService.login()
         // No need to store it again here
 
-        // Check if admin needs activation - always check from API
+        // Pre-fetch systemType from server and populate cache
+        // so Dashboard/Sidebar render the correct menu immediately.
+        const systemTypeFetch = apiService.getSystemType().then((res) => {
+          if (res.success && res.systemType) {
+            prewarmPengaturanCache(res.systemType);
+          }
+        }).catch(() => { /* non-blocking */ });
+
         if (user.role === 'admin') {
           try {
             const isActive = await isSystemActive();
-            if (!isActive) {
-              setRequiresActivation(true);
-            } else {
-              setRequiresActivation(false);
-            }
+            setRequiresActivation(!isActive);
           } catch (error) {
             console.error('Error checking activation after login:', error);
-            // On error, assume activation is required
             setRequiresActivation(true);
           }
+
+          warmupFaceRecognitionCache().then((success) => {
+            if (success) {
+              console.log('[Auth] Face recognition cache warmed up successfully');
+            } else {
+              console.warn('[Auth] Failed to warm up face recognition cache');
+            }
+          }).catch((error) => {
+            console.error('[Auth] Error warming up face recognition cache:', error);
+          });
         } else {
           setRequiresActivation(false);
         }
+
+        // Wait for systemType to be cached before completing login
+        await systemTypeFetch;
 
         setIsLoading(false);
         return { success: true };

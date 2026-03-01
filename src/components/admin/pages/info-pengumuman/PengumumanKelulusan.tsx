@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { GraduationCap, ArrowUp, Calendar, School } from 'lucide-react';
+import { GraduationCap, ArrowUp, Calendar, School, Check, ChevronRight } from 'lucide-react';
 import Card from '../../../ui/Card';
 import Button from '../../../ui/Button';
 import Badge from '../../../ui/Badge';
@@ -74,6 +74,7 @@ const PengumumanKelulusanComponent: React.FC = () => {
   const [selectedMurid, setSelectedMurid] = useState<User | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
+  const [selectedStep, setSelectedStep] = useState<1 | 2 | 3 | null>(null);
   const [processResults, setProcessResults] = useState<{
     success: boolean,
     kenaikanResults: any[],
@@ -314,6 +315,16 @@ const PengumumanKelulusanComponent: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
+  // Status alur untuk stepper: mengikuti data aktual (dari Beri Info atau dari tombol di halaman ini)
+  // Step 1: selesai jika pengumuman kelulusan ada (dibuat di Beri Info jenis kelulusan ATAU tombol "Buat Pengumuman Kelulusan")
+  const step1Done = !!activePengumuman;
+  // Step 2: selesai jika info kenaikan kelas sudah diberi (dari Beri Info jenis kenaikan_kelas ATAU tombol "Beri Info Kenaikan Kelas")
+  const step2Done = hasGivenKenaikanKelasInfo || !!statusKenaikanKelas.find(
+    s => s.tahunAjaran === activeTahunAjaran?.tahun && s.semester === activeTahunAjaran?.semester
+  );
+  // Step 3: selesai jika proses kenaikan & kelulusan sudah dijalankan (hanya dari tombol di halaman ini)
+  const step3Done = !!activePengumuman?.isProcessed;
+
   const handleExportKelulusanData = () => {
     const minimalSettings = getNilaiMinimalSettings();
     const data = kelulusanData.map((item, index) => {
@@ -351,6 +362,78 @@ const PengumumanKelulusanComponent: React.FC = () => {
 
   return (
     <div className="space-y-4 sm:space-y-5 lg:space-y-6">
+      {/* Alur proses: stepper di atas header */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-3 py-4 sm:px-6 sm:py-5">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Alur Proses</p>
+          <p className="text-xs text-gray-500 mb-4">Langkah 1 dan 2 dapat diselesaikan dari menu <strong>Beri Info</strong> atau tombol di halaman ini. Status mengikuti data yang ada.</p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0">
+            {/* Step 1 */}
+            <button
+              type="button"
+              onClick={() => setSelectedStep(selectedStep === 1 ? null : 1)}
+              className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                selectedStep === 1 ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : 'hover:bg-gray-50'
+              } ${step1Done ? 'text-green-700' : 'text-gray-600'}`}
+            >
+              <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                step1Done ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+              }`}>
+                {step1Done ? <Check size={18} /> : '1'}
+              </span>
+              <span className="font-medium text-sm sm:text-base">Pengumuman kelulusan</span>
+              {selectedStep === 1 && (
+                <span className="text-xs sm:text-sm ml-auto text-gray-500">
+                  {step1Done ? 'Selesai' : 'Belum selesai'}
+                </span>
+              )}
+            </button>
+            <ChevronRight className="flex-shrink-0 w-5 h-5 text-gray-300 hidden sm:block mx-1" />
+            {/* Step 2 */}
+            <button
+              type="button"
+              onClick={() => setSelectedStep(selectedStep === 2 ? null : 2)}
+              className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                selectedStep === 2 ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : 'hover:bg-gray-50'
+              } ${step2Done ? 'text-green-700' : 'text-gray-600'}`}
+            >
+              <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                step2Done ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+              }`}>
+                {step2Done ? <Check size={18} /> : '2'}
+              </span>
+              <span className="font-medium text-sm sm:text-base">Pengumuman kenaikan kelas</span>
+              {selectedStep === 2 && (
+                <span className="text-xs sm:text-sm ml-auto text-gray-500">
+                  {step2Done ? 'Selesai' : 'Belum selesai'}
+                </span>
+              )}
+            </button>
+            <ChevronRight className="flex-shrink-0 w-5 h-5 text-gray-300 hidden sm:block mx-1" />
+            {/* Step 3 */}
+            <button
+              type="button"
+              onClick={() => setSelectedStep(selectedStep === 3 ? null : 3)}
+              className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                selectedStep === 3 ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : 'hover:bg-gray-50'
+              } ${step3Done ? 'text-green-700' : 'text-gray-600'}`}
+            >
+              <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                step3Done ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+              }`}>
+                {step3Done ? <Check size={18} /> : '3'}
+              </span>
+              <span className="font-medium text-sm sm:text-base">Proses kelulusan dan kenaikan kelas</span>
+              {selectedStep === 3 && (
+                <span className="text-xs sm:text-sm ml-auto text-gray-500">
+                  {step3Done ? 'Selesai' : 'Belum selesai'}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-gradient-to-br from-blue-50 to-cyan-100  rounded-xl sm:rounded-2xl shadow-lg overflow-hidden">
   <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
 

@@ -47,12 +47,23 @@ export const isAttendanceDayAllowed = (
   return true; // Default allow
 };
 
+const DAY_NAMES_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+const DAY_NAMES_MS = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'];
+
 /**
  * Get day name in Indonesian
  */
 export const getDayNameInIndonesian = (dateString: string): string => {
-  const daysInIndonesian = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const date = new Date(dateString + 'T00:00:00');
-  return daysInIndonesian[date.getDay()];
+  return DAY_NAMES_ID[date.getDay()];
+};
+
+/**
+ * Get day name by language (id = Indonesian, ms = Malay)
+ */
+export const getDayName = (dateString: string, language: 'id' | 'ms' = 'id'): string => {
+  const date = new Date(dateString + 'T00:00:00');
+  const names = language === 'ms' ? DAY_NAMES_MS : DAY_NAMES_ID;
+  return names[date.getDay()];
 };
 

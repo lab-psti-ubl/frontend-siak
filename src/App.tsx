@@ -9,10 +9,12 @@ import Dashboard from './components/Dashboard';
 import ToastContainer from './components/ui/ToastContainer';
 import ConfirmationContainer from './components/ui/ConfirmationContainer';
 import RFIDMonitoringPage from './pages/RFIDMonitoringPage';
+import AktivasiIscholaPage from './pages/AktivasiIscholaPage';
 import VerificationPage from './components/shared/VerificationPage';
 import VerificationDocumentContent from './components/shared/VerificationDocumentContent';
 import JenjangPendidikanSetupModal from './components/admin/JenjangPendidikanSetupModal';
 import SystemTypeSetupModal from './components/admin/SystemTypeSetupModal';
+import ServerUnavailablePage from './components/ServerUnavailablePage';
 import { initializeData, initializeMinimalData, initializeAdminUser } from './utils/seedData';
 import { isAppFreshLoad, setupAppCleanup, resetToSeedData } from './utils/dataReset';
 import { migrateAbsensiData, shouldMigrateAbsensiData } from './utils/migrateAbsensiData';
@@ -23,6 +25,11 @@ import ScrollToTop from "./components/ui/ScrollToTop";
 import { getActiveJenjang } from './utils/jenjangPendidikanUtils';
 import { initializeSystemActivation } from './utils/systemActivationUtils';
 import { apiService } from './services/apiService';
+import { prewarmPengaturanCache } from './hooks/usePengaturanSistem';
+import InstallPWAButton from './components/pwa/InstallPWAButton';
+import SpmbRegistrationPage from './pages/SpmbRegistrationPage';
+import UjianCBTAksesPage from './pages/UjianCBTAksesPage';
+import KerjakanUjianCBT from './components/murid/pages/cbt/KerjakanUjianCBT';
 
 
 const VerificationPageRoute: React.FC = () => {
@@ -216,8 +223,27 @@ const VerificationPageRoute: React.FC = () => {
   };
 
   const userInfo = getUserInfo();
+
+  // Determine language for proper day name on verification page
+  let language: 'id' | 'ms' = 'id';
+  const langFromQuery = (searchParams.get('lang') || '').toLowerCase();
+  if (langFromQuery === 'ms' || langFromQuery === 'id') {
+    language = langFromQuery as 'id' | 'ms';
+  } else {
+    try {
+      const storedLanguage = (localStorage.getItem('language') || '').toLowerCase();
+      if (storedLanguage === 'ms' || storedLanguage === 'id') {
+        language = storedLanguage as 'id' | 'ms';
+      }
+    } catch {
+      // ignore and keep default
+    }
+  }
+
+  const locale = language === 'ms' ? 'ms-MY' : 'id-ID';
+
   const timestamp = documentData?.verifiedAt 
-    ? new Date(documentData.verifiedAt).toLocaleDateString('id-ID', {
+    ? new Date(documentData.verifiedAt).toLocaleDateString(locale, {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -226,7 +252,7 @@ const VerificationPageRoute: React.FC = () => {
         minute: '2-digit',
         second: '2-digit'
       })
-    : new Date().toLocaleDateString('id-ID', {
+    : new Date().toLocaleDateString(locale, {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -261,10 +287,31 @@ const VerificationPageRoute: React.FC = () => {
   );
 };
 
+/** Deteksi apakah error disebabkan oleh server/koneksi tidak tersedia (bukan karena sistem belum di-set). */
+function isServerConnectionError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes('failed to fetch') ||
+    lower.includes('network request failed') ||
+    lower.includes('networkerror') ||
+    lower.includes('load failed') ||
+    lower.includes('connection refused') ||
+    lower.includes('econnrefused') ||
+    lower.includes('econnreset') ||
+    lower.includes('err_connection') ||
+    lower.includes('err_connection_refused') ||
+    lower.includes('err_connection_reset') ||
+    lower.includes('timeout') ||
+    lower.includes('etimedout')
+  );
+}
+
 const AppContent: React.FC = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showSystemTypeSetup, setShowSystemTypeSetup] = useState(false);
+  const [serverUnavailable, setServerUnavailable] = useState(false);
   const [showJenjangSetup, setShowJenjangSetup] = useState(false);
   const [jenjangInitialized, setJenjangInitialized] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -278,25 +325,34 @@ const AppContent: React.FC = () => {
         // Always ensure admin user exists on app start
         initializeAdminUser();
 
-        // Check if jenjang has been selected first
+        const { apiService } = await import('./services/apiService');
+        const systemTypeResponse = await apiService.getSystemType();
+        
+        if (!systemTypeResponse.success || !systemTypeResponse.systemType) {
+          setShowSystemTypeSetup(true);
+          setInitialLoading(false);
+          return;
+        }
+
+        const systemType = systemTypeResponse.systemType;
+
+        // Pre-populate global cache so Dashboard/Sidebar render
+        // the correct menu items immediately without flash.
+        prewarmPengaturanCache(systemType);
+
+        // Check if jenjang has been selected
         const activeJenjang = await getActiveJenjang();
 
-        // If jenjang is not set, we need to go through initial setup
-        // On first run, we need to set system type before jenjang
-        if (!activeJenjang) {
-          // Check if system type was set via the initial setup modal
-          // We use a flag in localStorage to track if system type was set via modal
-          const systemTypeWasSetViaModal = localStorage.getItem('systemTypeWasSet') === 'true';
-          
-          // If system type was not set via the initial modal, show system type modal first
-          // This ensures users go through the proper setup flow: system type -> jenjang
-          if (!systemTypeWasSetViaModal) {
-            setShowSystemTypeSetup(true);
-            setInitialLoading(false);
-            return;
-          }
+        // For tahfiz system, jenjang is not required
+        if (systemType === 'tahfiz') {
+          setJenjangInitialized(true);
+          setInitialLoading(false);
+          return;
+        }
 
-          // System type is set via modal, now show jenjang setup modal
+        // For non-tahfiz systems, jenjang is required
+        if (!activeJenjang) {
+          // Show jenjang setup modal
           setShowJenjangSetup(true);
           setInitialLoading(false);
           return;
@@ -318,6 +374,11 @@ const AppContent: React.FC = () => {
         setJenjangInitialized(true);
       } catch (error) {
         console.error('Error initializing app:', error);
+        if (isServerConnectionError(error)) {
+          setServerUnavailable(true);
+        } else {
+          setShowSystemTypeSetup(true);
+        }
       } finally {
         setInitialLoading(false);
       }
@@ -378,27 +439,23 @@ const AppContent: React.FC = () => {
   const handleSystemTypeSelected = async (systemType: 'sekolah_umum' | 'sekolah_umum_tahfiz' | 'tahfiz') => {
     setShowSystemTypeSetup(false);
     
-    // Mark that system type was explicitly set
-    localStorage.setItem('systemTypeWasSet', 'true');
+    // Clear all caches and logout user after system type is selected
+    // This ensures fresh start after system type selection
+    const { clearAllCaches } = await import('./utils/clearAllCaches');
+    const { clearPengaturanCache } = await import('./hooks/usePengaturanSistem');
     
-    // If system type is 'tahfiz', skip jenjang setup and proceed to login
-    if (systemType === 'tahfiz') {
-      setJenjangInitialized(true);
-      navigate('/login', { replace: true });
-      return;
-    }
+    // Clear all caches
+    clearAllCaches();
+    clearPengaturanCache();
     
-    // After system type is selected, check for jenjang
-    const activeJenjang = await getActiveJenjang();
+    // Logout user if logged in (clears user state, token, localStorage)
+    logout();
     
-    if (!activeJenjang) {
-      // No jenjang selected yet - show jenjang setup modal
-      setShowJenjangSetup(true);
-    } else {
-      // Jenjang already exists, proceed normally
-      setJenjangInitialized(true);
-      navigate('/login', { replace: true });
-    }
+    // Clear localStorage flags
+    localStorage.removeItem('systemTypeWasSet');
+    
+    // Reload the app to start fresh
+    window.location.href = '/';
   };
 
   const handleJenjangSelected = async (jenjang: 'SD' | 'SMP' | 'SMA/SMK') => {
@@ -417,6 +474,10 @@ const AppContent: React.FC = () => {
     // Use navigate instead of window.location to avoid reload
     navigate('/login', { replace: true });
   };
+
+  if (serverUnavailable) {
+    return <ServerUnavailablePage />;
+  }
 
   if (showSystemTypeSetup) {
     return <SystemTypeSetupModal onSystemTypeSelected={handleSystemTypeSelected} />;
@@ -442,8 +503,13 @@ const AppContent: React.FC = () => {
   return (
       <Routes>
         <Route path="/login" element={!user ? <LoginForm /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/aktivasi-ischola" element={<AktivasiIscholaPage />} />
         <Route path="/rfid-monitoring" element={<RFIDMonitoringPage />} />
+        <Route path="/ujian-cbt" element={<UjianCBTAksesPage />} />
+        <Route path="/ujian-cbt/:nisnMurid" element={<UjianCBTAksesPage />} />
+        <Route path="/ujian-cbt/:nisnMurid/kerjakan/:ujianId" element={<KerjakanUjianCBT />} />
         <Route path="/verification" element={<VerificationPageRoute />} />
+        <Route path="/spmb" element={<SpmbRegistrationPage />} />
         <Route
           path="/dashboard/*"
           element={
@@ -471,6 +537,7 @@ function App() {
             <AppContent />
             <ToastContainer />
             <ConfirmationContainer />
+            <InstallPWAButton />
           </QRScannerProvider>
         </LanguageProvider>
       </AuthProvider>

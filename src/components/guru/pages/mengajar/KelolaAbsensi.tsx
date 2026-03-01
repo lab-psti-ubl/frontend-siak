@@ -38,7 +38,7 @@ const KelolaAbsensi: React.FC = () => {
   const location = useLocation();
   const jadwalRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const { jadwalPelajaran } = useJadwalPelajaran();
-  const { sesiAbsensi, refreshSesiAbsensi, createSesiAbsensi: createSesiAbsensiAPI, updateSesiAbsensi: updateSesiAbsensiAPI } = useSesiAbsensi();
+  const { sesiAbsensi, refreshSesiAbsensi, createSesiAbsensi: createSesiAbsensiAPI, updateSesiAbsensi: updateSesiAbsensiAPI, addAbsensiToSesi: addAbsensiToSesiAPI, bulkAddAbsensiToSesi: bulkAddAbsensiToSesiAPI } = useSesiAbsensi();
   const { absensi, refreshAbsensi, createAbsensi: createAbsensiAPI, updateAbsensi: updateAbsensiAPI } = useAbsensi();
   const { gurus } = useGurus();
   const { murid: allMurid } = useMurid();
@@ -155,6 +155,8 @@ const KelolaAbsensi: React.FC = () => {
     refreshSesiAbsensi,
     createSesiAbsensiAPI,
     updateSesiAbsensiAPI,
+    addAbsensiToSesiAPI,
+    bulkAddAbsensiToSesiAPI,
     absensi,
     refreshAbsensi,
     createAbsensiAPI,
@@ -532,6 +534,8 @@ const KelolaAbsensi: React.FC = () => {
         scrollContainerRef={handlers.scrollContainerRef}
         mataPelajaran={mataPelajaran}
         markAllPresent={handlers.markAllPresent}
+        loadingMuridIds={handlers.loadingMuridIds}
+        isBulkLoading={handlers.isBulkLoading}
       />
 
       <SubjectQRModal
@@ -549,13 +553,16 @@ const KelolaAbsensi: React.FC = () => {
       <KeteranganModal
         isOpen={handlers.isKeteranganModalOpen}
         onClose={() => {
-          handlers.setIsKeteranganModalOpen(false);
-          handlers.setKeteranganInput('');
+          if (!handlers.loadingMuridIds.has(handlers.selectedMuridForKeterangan?.id || '')) {
+            handlers.setIsKeteranganModalOpen(false);
+            handlers.setKeteranganInput('');
+          }
         }}
         selectedMurid={handlers.selectedMuridForKeterangan}
         keteranganInput={handlers.keteranganInput}
         setKeteranganInput={handlers.setKeteranganInput}
         onSave={() => handlers.handleSaveKeteranganInput(getAttendanceStatus)}
+        isSaving={handlers.selectedMuridForKeterangan ? handlers.loadingMuridIds.has(handlers.selectedMuridForKeterangan.id) : false}
       />
 
       <SuratDetailModal
@@ -607,14 +614,17 @@ const KelolaAbsensi: React.FC = () => {
         onEditAbsensi={handlers.handleEditAbsensi}
         users={users}
         refreshAbsensiGuru={refreshAbsensiGuru}
+        loadingMuridIds={handlers.loadingMuridIds}
       />
 
       <EditAbsensiModal
         isOpen={!!handlers.editingAbsensi}
         onClose={() => {
-          handlers.setEditingAbsensi(null);
-          handlers.setEditStatus('hadir');
-          handlers.setEditKeterangan('');
+          if (!handlers.isEditingAbsensi) {
+            handlers.setEditingAbsensi(null);
+            handlers.setEditStatus('hadir');
+            handlers.setEditKeterangan('');
+          }
         }}
         editingAbsensi={handlers.editingAbsensi}
         editStatus={handlers.editStatus}
@@ -623,6 +633,7 @@ const KelolaAbsensi: React.FC = () => {
         setEditKeterangan={handlers.setEditKeterangan}
         onSave={handlers.handleSaveEditAbsensi}
         users={users}
+        isSaving={handlers.isEditingAbsensi}
       />
 
       <QRScanner

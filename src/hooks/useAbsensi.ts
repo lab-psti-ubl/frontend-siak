@@ -21,13 +21,44 @@ interface AbsensiParams {
   semester?: number;
 }
 
+export type AbsensiRefreshOptions = {
+  waitForWorker?: {
+    muridId?: string;
+    tanggal?: string;
+  };
+  maxAttempts?: number;
+  delayMs?: number;
+};
+
+type RefreshOptions = AbsensiRefreshOptions;
+
 export const useAbsensi = (params?: AbsensiParams) => {
   const [absensi, setAbsensi] = useState<Absensi[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSyncingWithWorker, setIsSyncingWithWorker] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   
   // Store current params for refresh function
   const currentParamsRef = React.useRef(params);
+  
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const waitForWorkerPersistence = async (opts: RefreshOptions['waitForWorker'], attempts = 8, delayMs = 1200) => {
+    if (!opts?.muridId || !opts?.tanggal) return;
+
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const response = await apiService.getAbsensiByMuridIdAndTanggal(opts.muridId, opts.tanggal);
+        if (response.success && response.absensi && response.absensi.length > 0) {
+          return response.absensi;
+        }
+      } catch (err) {
+        console.warn('Waiting for worker persistence failed, retrying...', err);
+      }
+      await sleep(delayMs);
+    }
+  };
 
   useEffect(() => {
     currentParamsRef.current = params;
@@ -128,7 +159,19 @@ export const useAbsensi = (params?: AbsensiParams) => {
     params?.semester
   ]);
 
-  const refreshAbsensi = useCallback(async () => {
+  const refreshAbsensi = useCallback(async (options?: RefreshOptions) => {
+    const shouldWaitForWorker = !!options?.waitForWorker?.muridId && !!options?.waitForWorker?.tanggal;
+    if (shouldWaitForWorker) {
+      setIsSyncingWithWorker(true);
+      setSyncMessage('Menunggu worker menyimpan data absensi...');
+      await waitForWorkerPersistence(
+        options?.waitForWorker,
+        options?.maxAttempts,
+        options?.delayMs,
+      );
+      setSyncMessage('Memuat ulang data absensi...');
+    }
+
     // Clear cache and force refresh
     globalAbsensiCache = null;
     globalAbsensiCacheTime = 0;
@@ -162,6 +205,10 @@ export const useAbsensi = (params?: AbsensiParams) => {
       console.error('Error fetching absensi:', err);
     } finally {
       setLoading(false);
+      if (shouldWaitForWorker) {
+        setIsSyncingWithWorker(false);
+        setSyncMessage(null);
+      }
     }
   }, []);
 
@@ -180,21 +227,25 @@ export const useAbsensi = (params?: AbsensiParams) => {
 
   const createAbsensi = async (absensiData: Partial<Absensi>) => {
     try {
-      const response = await apiService.createAbsensi(absensiData);
-      if (response.success && response.absensi) {
-        // Invalidate global cache immediately
+      const response = await apiService.submitAbsensiMuridWithFallback(absensiData as any);
+      // Worker path returns 202 without absensi payload; we treat it as success and refresh later.
+      if (response.success) {
+        // Invalidate cache
         globalAbsensiCache = null;
         globalAbsensiCacheTime = 0;
         globalAbsensiLoadingPromise = null;
-        
-        // Refresh data after creation
-        await refreshAbsensi();
+        await refreshAbsensi({
+          waitForWorker: {
+            muridId: absensiData.muridId as string | undefined,
+            tanggal: absensiData.tanggal as string | undefined,
+          },
+        });
         return response.absensi;
       } else {
         throw new Error(response.message || 'Gagal membuat absensi');
       }
     } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat membuat absensi');
+      console.error('Error creating absensi:', err);
       throw err;
     }
   };
@@ -203,19 +254,19 @@ export const useAbsensi = (params?: AbsensiParams) => {
     try {
       const response = await apiService.updateAbsensi(id, absensiData);
       if (response.success && response.absensi) {
-        // Invalidate global cache immediately
+        // Invalidate cache
         globalAbsensiCache = null;
         globalAbsensiCacheTime = 0;
         globalAbsensiLoadingPromise = null;
         
-        // Refresh data after update
+        // Refresh data after update (usually direct to server, no worker)
         await refreshAbsensi();
         return response.absensi;
       } else {
         throw new Error(response.message || 'Gagal memperbarui absensi');
       }
     } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat memperbarui absensi');
+      console.error('Error updating absensi:', err);
       throw err;
     }
   };
@@ -243,6 +294,8 @@ export const useAbsensi = (params?: AbsensiParams) => {
     createAbsensi,
     updateAbsensi,
     deleteAbsensi,
+    isSyncingWithWorker,
+    syncMessage,
   };
 };
 

@@ -12,12 +12,14 @@ import { clearAbsensiCache } from '../../../../hooks/useAbsensi';
 import { parseQRCodeData } from '../../../../utils/qrCodeGenerator';
 import { apiService } from '../../../../services/apiService';
 import { isAttendanceDayAllowed, getDayNameInIndonesian } from '../../../../utils/attendanceDayValidation';
-import { getLocalTimeISOString } from '../../../../utils/absensiUtils';
+import { getLocalTimeISOString, getTodayIndonesia, getCurrentTimeIndonesia } from '../../../../utils/absensiUtils';
 import { showSuccessNotification, showErrorNotification, showWarningNotification } from '../../../../utils/notificationUtils';
+import { useLanguage } from '../../../../context/LanguageContext';
 import { Absensi, User } from '../../../../types';
 
 const AbsenSiswa: React.FC = () => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
@@ -44,11 +46,11 @@ const AbsenSiswa: React.FC = () => {
   }, [murid, santri]);
 
   const activePengaturanAbsen = pengaturanAbsen.find(p => p.isActive) || pengaturanAbsen[0];
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayIndonesia();
 
   const handleQRScan = async (qrData: string) => {
     const currentTime = Date.now();
-    const currentTime24 = new Date().toLocaleTimeString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    const currentTime24 = getCurrentTimeIndonesia();
 
     // Check for duplicate scan
     if (lastProcessedScan && 
@@ -65,13 +67,13 @@ const AbsenSiswa: React.FC = () => {
 
     if (!parsed.isValid) {
       const result: ScanResult = {
-        statusMessage: 'QR Code tidak valid! Pastikan QR Code adalah milik siswa.',
+        statusMessage: t('absenSiswaGuru.qrInvalidMessage'),
         isError: true,
         errorType: 'not_registered'
       };
       setScanResult(result);
       setShowResultModal(true);
-      showErrorNotification('QR Code Tidak Valid', 'QR Code tidak valid! Pastikan QR Code adalah milik siswa.');
+      showErrorNotification(t('absenSiswaGuru.qrInvalidTitle'), t('absenSiswaGuru.qrInvalidMessage'));
       return;
     }
 
@@ -81,13 +83,13 @@ const AbsenSiswa: React.FC = () => {
 
     if (!student) {
       const result: ScanResult = {
-        statusMessage: 'Siswa tidak ditemukan dalam sistem!',
+        statusMessage: t('absenSiswaGuru.studentNotFoundMessage'),
         isError: true,
         errorType: 'not_registered'
       };
       setScanResult(result);
       setShowResultModal(true);
-      showErrorNotification('Siswa Tidak Ditemukan', 'Siswa tidak ditemukan dalam sistem!');
+      showErrorNotification(t('absenSiswaGuru.studentNotFoundTitle'), t('absenSiswaGuru.studentNotFoundMessage'));
       return;
     }
 
@@ -97,13 +99,13 @@ const AbsenSiswa: React.FC = () => {
         user: student,
         role: 'murid',
         timestamp: currentTime24,
-        statusMessage: 'Siswa tidak aktif dalam sistem!',
+        statusMessage: t('absenSiswaGuru.studentInactiveMessage'),
         isError: true,
         errorType: 'not_registered'
       };
       setScanResult(result);
       setShowResultModal(true);
-      showErrorNotification('Siswa Tidak Aktif', 'Siswa tidak aktif dalam sistem!');
+      showErrorNotification(t('absenSiswaGuru.studentInactiveTitle'), t('absenSiswaGuru.studentInactiveMessage'));
       return;
     }
 
@@ -114,15 +116,15 @@ const AbsenSiswa: React.FC = () => {
         user: student,
         role: 'murid',
         timestamp: currentTime24,
-        statusMessage: `Absensi tidak diizinkan pada hari ${dayName}. Silakan absen pada hari sekolah yang telah ditentukan.`,
+        statusMessage: t('absenSiswaGuru.notAllowedTodayMessage', { dayName }),
         isError: true,
         errorType: 'not_registered'
       };
       setScanResult(result);
       setShowResultModal(true);
       showErrorNotification(
-        'Absensi Tidak Diizinkan',
-        `Absensi tidak diizinkan pada hari ${dayName}. Silakan absen pada hari sekolah yang telah ditentukan.`
+        t('absenSiswaGuru.notAllowedTodayTitle'),
+        t('absenSiswaGuru.notAllowedTodayMessage', { dayName })
       );
       return;
     }
@@ -134,13 +136,13 @@ const AbsenSiswa: React.FC = () => {
         user: student,
         role: 'murid',
         timestamp: currentTime24,
-        statusMessage: 'Tidak ada tahun ajaran aktif',
+        statusMessage: t('absenSiswaGuru.noActiveYearMessage'),
         isError: true,
         errorType: 'not_registered'
       };
       setScanResult(result);
       setShowResultModal(true);
-      showErrorNotification('Error', 'Tidak ada tahun ajaran aktif');
+      showErrorNotification(t('absenSiswaGuru.noActiveYearTitle'), t('absenSiswaGuru.noActiveYearMessage'));
       return;
     }
 
@@ -155,13 +157,13 @@ const AbsenSiswa: React.FC = () => {
         user: student,
         role: 'murid',
         timestamp: currentTime24,
-        statusMessage: 'Kelas siswa tidak ditemukan di sistem!',
+        statusMessage: t('absenSiswaGuru.classNotFoundMessage'),
         isError: true,
         errorType: 'not_registered'
       };
       setScanResult(result);
       setShowResultModal(true);
-      showErrorNotification('Kelas Tidak Ditemukan', 'Kelas siswa tidak ditemukan di sistem!');
+      showErrorNotification(t('absenSiswaGuru.classNotFoundTitle'), t('absenSiswaGuru.classNotFoundMessage'));
       return;
     }
 
@@ -236,21 +238,19 @@ const AbsenSiswa: React.FC = () => {
         role: 'murid',
         tipeAbsen: 'Sudah Terpenuhi',
         timestamp: currentTime24,
-        statusMessage: `${student.name} sudah melakukan absen masuk dan pulang hari ini!`,
+        statusMessage: t('absenSiswaGuru.alreadyCompletedMessage', { name: student.name }),
         isError: false,
         status: 'sudah_terpenuhi'
       };
       setScanResult(result);
       setShowResultModal(true);
-      showWarningNotification('Sudah Absen', `${student.name} sudah melakukan absen masuk dan pulang hari ini!`);
+      showWarningNotification(t('absenSiswaGuru.alreadyCompletedTitle'), t('absenSiswaGuru.alreadyCompletedMessage', { name: student.name }));
       return;
     }
 
     // Check if trying to absen masuk but current time has passed jam pulang
     if (tipeAbsen === 'masuk' && activePengaturanAbsen) {
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+      const [currentHour, currentMinute] = getCurrentTimeIndonesia().split(':').map(Number);
       const [jamPulangHour, jamPulangMinute] = activePengaturanAbsen.jamPulang.split(':').map(Number);
       
       const currentTimeMinutes = currentHour * 60 + currentMinute;
@@ -261,15 +261,15 @@ const AbsenSiswa: React.FC = () => {
           user: student,
           role: 'murid',
           timestamp: currentTime24,
-          statusMessage: `Waktu absen masuk sudah melewati jam pulang (${activePengaturanAbsen.jamPulang}). Tidak dapat melakukan absen masuk.`,
+          statusMessage: t('absenSiswaGuru.cannotCheckInAfterOutMessage', { jamPulang: activePengaturanAbsen.jamPulang }),
           isError: true,
           errorType: 'not_registered'
         };
         setScanResult(result);
         setShowResultModal(true);
         showErrorNotification(
-          'Tidak Dapat Absen Masuk', 
-          `Waktu absen masuk sudah melewati jam pulang (${activePengaturanAbsen.jamPulang}).`
+          t('absenSiswaGuru.cannotCheckInAfterOutTitle'), 
+          t('absenSiswaGuru.cannotCheckInAfterOutMessage', { jamPulang: activePengaturanAbsen.jamPulang })
         );
         return;
       }
@@ -304,30 +304,33 @@ const AbsenSiswa: React.FC = () => {
       newAbsensi.waktu = nowISO;
     }
 
-    // Create or update attendance
+    // Create or update attendance via worker (with fallback to server)
     try {
-      const response = await apiService.createAbsensi(newAbsensi);
+      const response = await apiService.submitAbsensiMuridWithFallback(newAbsensi);
       
       if (response.success) {
         // Clear cache to refresh data
         clearAbsensiCache();
         
-        const tipeLabel = tipeAbsen === 'masuk' ? 'Masuk' : 'Pulang';
+        const tipeLabel = tipeAbsen === 'masuk' ? t('absenSiswaPage.masuk') : t('absenSiswaPage.pulang');
         const result: ScanResult = {
           user: student,
           role: 'murid',
           tipeAbsen: tipeLabel,
           status: 'tepat_waktu',
           timestamp: currentTime24,
-          statusMessage: `Absen ${tipeLabel} berhasil untuk ${student.name}. Status: Tepat Waktu`,
+          statusMessage: t('absenSiswaPage.successStatusMessage', { tipe: tipeLabel, name: student.name }),
           isError: false
         };
         
         setScanResult(result);
         setShowResultModal(true);
         showSuccessNotification(
-          `Absen ${tipeLabel} Berhasil!`, 
-          `${student.name} - ${new Date().toLocaleTimeString('id-ID')}`
+          tipeAbsen === 'masuk' ? t('absenSiswaPage.successMasukTitle') : t('absenSiswaPage.successPulangTitle'),
+          t('absenSiswaPage.successMessage', {
+            name: student.name,
+            time: new Date().toLocaleTimeString(language === 'ms' ? 'ms-MY' : 'id-ID'),
+          })
         );
 
         // Close scanner after successful scan (unless already fulfilled)
@@ -335,22 +338,22 @@ const AbsenSiswa: React.FC = () => {
           setIsQRScannerOpen(false);
         }, 1500);
       } else {
-        throw new Error(response.message || 'Gagal menyimpan absensi');
+        throw new Error(response.message || t('absenSiswaPage.saveFailedMessage'));
       }
     } catch (error: any) {
       console.error('Error creating absensi:', error);
       const result: ScanResult = {
         user: student,
         role: 'murid',
-        tipeAbsen: tipeAbsen === 'masuk' ? 'Masuk' : 'Pulang',
+        tipeAbsen: tipeAbsen === 'masuk' ? t('absenSiswaPage.masuk') : t('absenSiswaPage.pulang'),
         timestamp: currentTime24,
-        statusMessage: error.message || 'Gagal menyimpan absensi',
+        statusMessage: error.message || t('absenSiswaPage.saveFailedMessage'),
         isError: true,
         errorType: 'absen_failed'
       };
       setScanResult(result);
       setShowResultModal(true);
-      showErrorNotification('Error', 'Gagal menyimpan absensi');
+      showErrorNotification(t('absenSiswaPage.saveFailedTitle'), t('absenSiswaPage.saveFailedMessage'));
     }
   };
 
@@ -358,12 +361,16 @@ const AbsenSiswa: React.FC = () => {
     <div className="space-y-5 lg:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">Absen Siswa</h2>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">Scan QR Code siswa untuk melakukan absensi kehadiran</p>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">
+            {t('absenSiswaPage.title')}
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
+            {t('absenSiswaPage.subtitle')}
+          </p>
         </div>
         <div className="flex-shrink-0">
           <Badge variant="info" className="inline-block">
-            {new Date().toLocaleDateString('id-ID', {
+            {new Date().toLocaleDateString(language === 'ms' ? 'ms-MY' : 'id-ID', {
               weekday: 'short',
               year: 'numeric',
               month: 'short',
@@ -379,28 +386,28 @@ const AbsenSiswa: React.FC = () => {
           <QrCode className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
             <h3 className="text-base sm:text-lg font-semibold text-blue-900 mb-2">
-              Cara Menggunakan Fitur Absen Siswa
+              {t('absenSiswaPage.instructionTitle')}
             </h3>
             <ul className="space-y-2 text-sm sm:text-base text-blue-800">
               <li className="flex items-start">
                 <span className="mr-2">•</span>
-                <span>Klik tombol <strong>"Scan QR Code"</strong> di bawah untuk membuka scanner</span>
+                <span>{t('absenSiswaPage.step1')}</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2">•</span>
-                <span>Posisikan QR Code siswa di depan kamera</span>
+                <span>{t('absenSiswaPage.step2')}</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2">•</span>
-                <span>Sistem akan otomatis menentukan apakah absen <strong>Masuk</strong> atau <strong>Pulang</strong></span>
+                <span>{t('absenSiswaPage.step3')}</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2">•</span>
-                <span>Absen masuk akan dicatat jika siswa belum absen hari ini</span>
+                <span>{t('absenSiswaPage.step4')}</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2">•</span>
-                <span>Absen pulang akan dicatat jika siswa sudah absen masuk</span>
+                <span>{t('absenSiswaPage.step5')}</span>
               </li>
             </ul>
           </div>
@@ -415,10 +422,10 @@ const AbsenSiswa: React.FC = () => {
           </div>
           <div>
             <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
-              Siap untuk Scan QR Code Siswa
+              {t('absenSiswaPage.readyTitle')}
             </h3>
             <p className="text-sm sm:text-base text-gray-600 mb-4">
-              Klik tombol di bawah untuk membuka scanner QR Code
+              {t('absenSiswaPage.readySubtitle')}
             </p>
           </div>
           <button
@@ -426,7 +433,7 @@ const AbsenSiswa: React.FC = () => {
             className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             <QrCode className="w-5 h-5 mr-2" />
-            <span>Scan QR Code</span>
+            <span>{t('absenSiswaPage.scanButton')}</span>
           </button>
         </div>
       </div>

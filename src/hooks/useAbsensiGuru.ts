@@ -10,13 +10,44 @@ let globalAbsensiGuruLoadingPromise: Promise<AbsensiGuru[]> | null = null;
 
 const CACHE_DURATION = 2000000; // 10 menit (600000 ms) - shorter cache for attendance data
 
+export type AbsensiGuruRefreshOptions = {
+  waitForWorker?: {
+    guruId?: string;
+    tanggal?: string;
+  };
+  maxAttempts?: number;
+  delayMs?: number;
+};
+
+type RefreshOptions = AbsensiGuruRefreshOptions;
+
 export const useAbsensiGuru = (guruId?: string, bulan?: number, tahun?: number) => {
   const [absensiGuru, setAbsensiGuru] = useState<AbsensiGuru[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSyncingWithWorker, setIsSyncingWithWorker] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   
   // Store current params for refresh function
   const currentParamsRef = React.useRef({ guruId, bulan, tahun });
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const waitForWorkerPersistence = async (opts: RefreshOptions['waitForWorker'], attempts = 8, delayMs = 1200) => {
+    if (!opts?.guruId || !opts?.tanggal) return;
+
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const response = await apiService.getAbsensiGuruByGuruIdAndTanggal(opts.guruId, opts.tanggal);
+        if (response.success && response.absensiGuru) {
+          return response.absensiGuru;
+        }
+      } catch (err) {
+        console.warn('Waiting for worker persistence failed, retrying...', err);
+      }
+      await sleep(delayMs);
+    }
+  };
 
   useEffect(() => {
     currentParamsRef.current = { guruId, bulan, tahun };
@@ -94,7 +125,19 @@ export const useAbsensiGuru = (guruId?: string, bulan?: number, tahun?: number) 
     fetchData();
   }, [guruId, bulan, tahun]);
 
-  const refreshAbsensiGuru = async () => {
+  const refreshAbsensiGuru = async (options?: RefreshOptions) => {
+    const shouldWaitForWorker = !!options?.waitForWorker?.guruId && !!options?.waitForWorker?.tanggal;
+    if (shouldWaitForWorker) {
+      setIsSyncingWithWorker(true);
+      setSyncMessage('Menunggu worker menyimpan data absensi...');
+      await waitForWorkerPersistence(
+        options?.waitForWorker,
+        options?.maxAttempts,
+        options?.delayMs,
+      );
+      setSyncMessage('Memuat ulang data absensi guru...');
+    }
+
     // Clear cache and force refresh
     globalAbsensiGuruCache = null;
     globalAbsensiGuruCacheTime = 0;
@@ -127,18 +170,29 @@ export const useAbsensiGuru = (guruId?: string, bulan?: number, tahun?: number) 
       console.error('Error fetching absensi guru:', err);
     } finally {
       setLoading(false);
+      if (shouldWaitForWorker) {
+        setIsSyncingWithWorker(false);
+        setSyncMessage(null);
+      }
     }
   };
 
   const createAbsensiGuru = async (data: Partial<AbsensiGuru>) => {
     try {
-      const response = await apiService.createAbsensiGuru(data);
-      if (response.success && response.absensiGuru) {
+      const response = await apiService.submitAbsensiGuruWithFallback(data);
+      // Worker path returns 202 without absensiGuru payload; we treat it as success and refresh later.
+      if (response.success) {
         // Invalidate cache
         globalAbsensiGuruCache = null;
         globalAbsensiGuruCacheTime = 0;
         globalAbsensiGuruLoadingPromise = null;
-        return response.absensiGuru;
+        await refreshAbsensiGuru({
+          waitForWorker: {
+            guruId: data.guruId,
+            tanggal: data.tanggal as string | undefined,
+          },
+        });
+        return response;
       } else {
         throw new Error(response.message || 'Gagal membuat absensi guru');
       }
@@ -150,13 +204,19 @@ export const useAbsensiGuru = (guruId?: string, bulan?: number, tahun?: number) 
 
   const updateAbsensiGuru = async (id: string, data: Partial<AbsensiGuru>) => {
     try {
-      const response = await apiService.updateAbsensiGuru(id, data);
-      if (response.success && response.absensiGuru) {
+      const response = await apiService.submitAbsensiGuruUpdateWithFallback(id, data);
+      if (response.success) {
         // Invalidate cache
         globalAbsensiGuruCache = null;
         globalAbsensiGuruCacheTime = 0;
         globalAbsensiGuruLoadingPromise = null;
-        return response.absensiGuru;
+        await refreshAbsensiGuru({
+          waitForWorker: {
+            guruId: data.guruId,
+            tanggal: data.tanggal as string | undefined,
+          },
+        });
+        return response;
       } else {
         throw new Error(response.message || 'Gagal memperbarui absensi guru');
       }
@@ -166,7 +226,7 @@ export const useAbsensiGuru = (guruId?: string, bulan?: number, tahun?: number) 
     }
   };
 
-  return { absensiGuru, loading, error, refreshAbsensiGuru, createAbsensiGuru, updateAbsensiGuru };
+  return { absensiGuru, loading, error, refreshAbsensiGuru, createAbsensiGuru, updateAbsensiGuru, isSyncingWithWorker, syncMessage };
 };
 
 // Export function to clear all cache (useful when logging out)

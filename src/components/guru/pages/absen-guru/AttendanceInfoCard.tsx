@@ -32,6 +32,29 @@ const AttendanceInfoCard: React.FC<AttendanceInfoCardProps> = ({
     }
   };
 
+  // Helper: dapatkan display text dan style berdasarkan status
+  const getStatusDisplay = (status: string | undefined) => {
+    const s = (status || '').toLowerCase();
+    if (s === 'alfa') return { text: 'ALFA', isStatus: true };
+    if (s === 'sakit') return { text: 'SAKIT', isStatus: true };
+    if (s === 'izin') return { text: 'IZIN', isStatus: true };
+    return { text: '', isStatus: false };
+  };
+
+  const getRowStyles = (status: string | undefined, hasTime: boolean) => {
+    const s = (status || '').toLowerCase();
+    if (s === 'alfa') return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'text-red-600' };
+    if (s === 'sakit') return { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'text-blue-600' };
+    if (s === 'izin') return { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', icon: 'text-amber-600' };
+    if (hasTime) return { bg: 'bg-white/50', border: 'border-emerald-100', text: 'text-emerald-700', icon: 'text-emerald-600' };
+    return { bg: 'bg-white/50', border: 'border-red-100', text: 'text-red-600', icon: 'text-red-500' };
+  };
+
+  const statusMasukDisplay = getStatusDisplay(todayAttendance?.statusMasuk);
+  const statusKeluarDisplay = getStatusDisplay(todayAttendance?.statusKeluar);
+  const stylesMasuk = getRowStyles(todayAttendance?.statusMasuk, !!todayAttendance?.jamMasuk);
+  const stylesKeluar = getRowStyles(todayAttendance?.statusKeluar, !!todayAttendance?.jamKeluar);
+
   return (
     <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-5 sm:px-6 lg:px-8 py-4 sm:py-5 border-b border-blue-200">
@@ -90,30 +113,40 @@ const AttendanceInfoCard: React.FC<AttendanceInfoCardProps> = ({
           </div>
 
           <div className="space-y-2.5 sm:space-y-3">
-            <div className="flex items-center justify-between p-3 sm:p-3.5 bg-white/50 rounded-lg border border-emerald-100">
+            <div className={`flex items-center justify-between p-3 sm:p-3.5 rounded-lg border ${stylesMasuk.bg} ${stylesMasuk.border}`}>
               <div className="flex items-center gap-2.5">
-                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-700 flex-shrink-0" />
-                <span className="text-xs sm:text-sm font-medium text-emerald-900">{t('absenGuruPage.absenMasuk')}</span>
+                <Clock className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${stylesMasuk.icon}`} />
+                <span className="text-xs sm:text-sm font-medium text-slate-800">{t('absenGuruPage.absenMasuk')}</span>
               </div>
-              {todayAttendance?.jamMasuk ? (
+              {statusMasukDisplay.isStatus ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs sm:text-sm font-semibold text-emerald-700">{formatTimeWithDot(todayAttendance.jamMasuk)}</span>
-                  <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
+                  <span className={`text-xs sm:text-sm font-semibold ${stylesMasuk.text}`}>{statusMasukDisplay.text}</span>
+                  <AlertCircle size={18} className={`${stylesMasuk.icon} flex-shrink-0`} />
+                </div>
+              ) : todayAttendance?.jamMasuk ? (
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs sm:text-sm font-semibold ${stylesMasuk.text}`}>{formatTimeWithDot(todayAttendance.jamMasuk)}</span>
+                  <CheckCircle2 size={18} className={`${stylesMasuk.icon} flex-shrink-0`} />
                 </div>
               ) : (
                 <AlertCircle size={18} className="text-red-500 flex-shrink-0" />
               )}
             </div>
 
-            <div className="flex items-center justify-between p-3 sm:p-3.5 bg-white/50 rounded-lg border border-emerald-100">
+            <div className={`flex items-center justify-between p-3 sm:p-3.5 rounded-lg border ${stylesKeluar.bg} ${stylesKeluar.border}`}>
               <div className="flex items-center gap-2.5">
-                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-700 flex-shrink-0" />
-                <span className="text-xs sm:text-sm font-medium text-emerald-900">{t('absenGuruPage.absenKeluar')}</span>
+                <Clock className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${stylesKeluar.icon}`} />
+                <span className="text-xs sm:text-sm font-medium text-slate-800">{t('absenGuruPage.absenKeluar')}</span>
               </div>
-              {todayAttendance?.jamKeluar ? (
+              {statusKeluarDisplay.isStatus ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs sm:text-sm font-semibold text-emerald-700">{formatTimeWithDot(todayAttendance.jamKeluar)}</span>
-                  <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
+                  <span className={`text-xs sm:text-sm font-semibold ${stylesKeluar.text}`}>{statusKeluarDisplay.text}</span>
+                  <AlertCircle size={18} className={`${stylesKeluar.icon} flex-shrink-0`} />
+                </div>
+              ) : todayAttendance?.jamKeluar ? (
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs sm:text-sm font-semibold ${stylesKeluar.text}`}>{formatTimeWithDot(todayAttendance.jamKeluar)}</span>
+                  <CheckCircle2 size={18} className={`${stylesKeluar.icon} flex-shrink-0`} />
                 </div>
               ) : (
                 <AlertCircle size={18} className="text-red-500 flex-shrink-0" />

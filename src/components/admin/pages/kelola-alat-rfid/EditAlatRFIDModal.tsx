@@ -2,18 +2,22 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../../../ui/Modal';
 import Button from '../../../ui/Button';
 import { AlatRFID } from '../../../../types';
+import { useLanguage } from '../../../../context/LanguageContext';
+import type { JenisAbsenAlat } from './TambahAlatRFIDModal';
 
 interface EditAlatRFIDModalProps {
   isOpen: boolean;
   onClose: () => void;
   alat: AlatRFID | null;
-  onSubmit: (id: string, namaAlat: string, lokasi: string) => void;
+  onSubmit: (id: string, namaAlat: string, lokasi: string, jenisAbsen: JenisAbsenAlat) => void;
 }
 
 const EditAlatRFIDModal: React.FC<EditAlatRFIDModalProps> = ({ isOpen, onClose, alat, onSubmit }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     namaAlat: '',
     lokasi: '',
+    jenisAbsen: 'rfid' as JenisAbsenAlat,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -22,16 +26,17 @@ const EditAlatRFIDModal: React.FC<EditAlatRFIDModalProps> = ({ isOpen, onClose, 
       setFormData({
         namaAlat: alat.namaAlat || '',
         lokasi: alat.lokasi || '',
+        jenisAbsen: (alat.jenisAbsen as JenisAbsenAlat) || ('rfid' as JenisAbsenAlat),
       });
       setErrors({});
     }
   }, [alat]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value,
+      [name]: name === 'jenisAbsen' ? (value as JenisAbsenAlat) : value,
     }));
     if (errors[name]) {
       setErrors(prev => ({
@@ -45,10 +50,10 @@ const EditAlatRFIDModal: React.FC<EditAlatRFIDModalProps> = ({ isOpen, onClose, 
     const newErrors: Record<string, string> = {};
 
     if (!formData.namaAlat.trim()) {
-      newErrors.namaAlat = 'Nama alat harus diisi';
+      newErrors.namaAlat = t('manajemenAlatRFID.namaAlatRequired');
     }
     if (!formData.lokasi.trim()) {
-      newErrors.lokasi = 'Lokasi harus diisi';
+      newErrors.lokasi = t('manajemenAlatRFID.lokasiRequired');
     }
 
     setErrors(newErrors);
@@ -58,25 +63,25 @@ const EditAlatRFIDModal: React.FC<EditAlatRFIDModalProps> = ({ isOpen, onClose, 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validate() && alat) {
-      onSubmit(alat.id, formData.namaAlat.trim(), formData.lokasi.trim());
+      onSubmit(alat.id, formData.namaAlat.trim(), formData.lokasi.trim(), formData.jenisAbsen);
     }
   };
 
   if (!isOpen || !alat) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Edit Alat RFID - ${alat.namaAlat}`}>
+    <Modal isOpen={isOpen} onClose={onClose} title={`${t('manajemenAlatRFID.editAlatTitle')} - ${alat.namaAlat}`}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Nama Alat
+            {t('manajemenAlatRFID.namaAlat')}
           </label>
           <input
             type="text"
             name="namaAlat"
             value={formData.namaAlat}
             onChange={handleChange}
-            placeholder="Contoh: RFID Reader Pintu Masuk"
+            placeholder={t('manajemenAlatRFID.namaAlatPlaceholderContoh')}
             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.namaAlat ? 'border-red-500' : 'border-gray-300'
             }`}
@@ -88,14 +93,29 @@ const EditAlatRFIDModal: React.FC<EditAlatRFIDModalProps> = ({ isOpen, onClose, 
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Lokasi
+            {t('manajemenAlatRFID.jenisAbsen')}
+          </label>
+          <select
+            name="jenisAbsen"
+            value={formData.jenisAbsen}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="rfid">{t('manajemenAlatRFID.rfidOption')}</option>
+            <option value="facerecognition">{t('manajemenAlatRFID.faceRecognitionOption')}</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {t('manajemenAlatRFID.lokasi')}
           </label>
           <input
             type="text"
             name="lokasi"
             value={formData.lokasi}
             onChange={handleChange}
-            placeholder="Contoh: Ruang Guru Lantai 1"
+            placeholder={t('manajemenAlatRFID.lokasiPlaceholderContoh')}
             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.lokasi ? 'border-red-500' : 'border-gray-300'
             }`}
@@ -107,7 +127,7 @@ const EditAlatRFIDModal: React.FC<EditAlatRFIDModalProps> = ({ isOpen, onClose, 
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-900">
-            Token tidak dapat diubah karena merupakan identifier unik untuk alat ini.
+            {t('manajemenAlatRFID.tokenCannotChange')}
           </p>
         </div>
 
@@ -118,13 +138,13 @@ const EditAlatRFIDModal: React.FC<EditAlatRFIDModalProps> = ({ isOpen, onClose, 
             fullWidth
             onClick={onClose}
           >
-            Batal
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"
             fullWidth
           >
-            Simpan Perubahan
+            {t('manajemenAlatRFID.simpanPerubahan')}
           </Button>
         </div>
       </form>

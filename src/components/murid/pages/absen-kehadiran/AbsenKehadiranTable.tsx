@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Absensi } from '../../../../types';
 import { usePengaturanAbsen } from '../../../../hooks/usePengaturanAbsen';
+import { useLanguage } from '../../../../context/LanguageContext';
 import { getAbsenMasukStatus, getAbsenPulangStatus, determineKeterangan } from './absenKehadiranIntegratedUtils';
 import AbsenDetailModal from './AbsenDetailModal';
 
@@ -20,6 +21,8 @@ const AbsenKehadiranTable: React.FC<AbsenKehadiranTableProps> = ({
   const { activePengaturanAbsen } = usePengaturanAbsen();
   const [selectedDateDetail, setSelectedDateDetail] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const { language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
 
   // Helper untuk mendapatkan absensi per hari dari data absensi langsung
   // Menggunakan logika yang sama seperti DataMuridKelasDetailModal.tsx
@@ -197,7 +200,10 @@ const AbsenKehadiranTable: React.FC<AbsenKehadiranTableProps> = ({
     days.push(day);
   }
 
-  const weekDays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+  const weekDays =
+    language === 'ms'
+      ? ['Ahd', 'Isn', 'Sel', 'Rab', 'Kha', 'Jum', 'Sab']
+      : ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
   return (
     <div className="space-y-4">
@@ -384,7 +390,12 @@ const AbsenKehadiranTable: React.FC<AbsenKehadiranTableProps> = ({
                   return (
                     <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 text-sm text-slate-700 font-medium">
-                        {date.toLocaleDateString('id-ID', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                        {date.toLocaleDateString(dateLocale, {
+                          weekday: 'short',
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getMasukColor()}`}>

@@ -8,12 +8,14 @@ import { useKelas } from '../../hooks/useKelas';
 import { useSantri } from '../../hooks/useSantri';
 import { useKelasTahfiz } from '../../hooks/useKelasTahfiz';
 import { generateQRCodeData, generateQRCodeURL, downloadQRCode } from '../../utils/qrCodeGenerator';
+import { useLanguage } from '../../context/LanguageContext';
 
 const QRCodeMurid: React.FC = () => {
   const { user } = useAuth();
   const { kelas } = useKelas();
   const { santri } = useSantri();
   const { kelasTahfiz } = useKelasTahfiz();
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [qrCodeURL, setQrCodeURL] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -117,7 +119,7 @@ const QRCodeMurid: React.FC = () => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>QR Code - ${user.name}</title>
+          <title>${t('muridQRCodePage.printHeaderTitle') || 'QR Code Absensi'} - ${user.name}</title>
           <style>
             * {
               margin: 0;
@@ -192,17 +194,17 @@ const QRCodeMurid: React.FC = () => {
           <div class="print-container">
             <div class="qr-container">
               <div class="student-info">
-                <h2>QR Code Absensi</h2>
-                <p><strong>Nama:</strong> ${user.name}</p>
-                <p><strong>NISN:</strong> ${user.nisn}</p>
-                <p><strong>Kelas:</strong> ${displayKelasName}</p>
+                <h2>${t('muridQRCodePage.printHeaderTitle') || 'QR Code Absensi'}</h2>
+                <p><strong>${t('muridQRCodePage.fullNameLabel') || 'Nama'}:</strong> ${user.name}</p>
+                <p><strong>${t('muridQRCodePage.nisnLabel') || 'NISN'}:</strong> ${user.nisn}</p>
+                <p><strong>${t('muridQRCodePage.kelasLabel') || 'Kelas'}:</strong> ${displayKelasName}</p>
               </div>
               <div class="qr-code">
                 <img src="${qrCodeURL}" alt="QR Code" />
               </div>
               <div class="footer">
-                <p>Sistem Absensi Sekolah</p>
-                <p>Generated: ${new Date().toLocaleDateString('id-ID', {
+                <p>${t('muridQRCodePage.printSystemName') || 'Sistem Absensi Sekolah'}</p>
+                <p>${t('muridQRCodePage.printGeneratedLabel') || 'Dibuat'}: ${new Date().toLocaleDateString('id-ID', {
                   weekday: 'long',
                   year: 'numeric',
                   month: 'long',
@@ -241,8 +243,12 @@ const QRCodeMurid: React.FC = () => {
               <div className="text-center space-y-6 p-6 sm:p-8">
                 {/* Title */}
                 <div className="space-y-2">
-                  <h3 className="text-xl sm:text-2xl font-bold text-slate-800">QR Code Absensi</h3>
-                  <p className="text-slate-600 text-sm">Scan untuk mencatat kehadiran Anda</p>
+                  <h3 className="text-xl sm:text-2xl font-bold text-slate-800">
+                    {t('muridQRCodePage.title') || 'QR Code Absensi Saya'}
+                  </h3>
+                  <p className="text-slate-600 text-sm">
+                    {t('muridQRCodePage.subtitle') || 'Tunjukkan QR code ini saat absensi'}
+                  </p>
                 </div>
 
                 {/* QR Code Display with Decorative Elements */}
@@ -286,7 +292,9 @@ const QRCodeMurid: React.FC = () => {
                       className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Download size={18} />
-                      <span className="hidden sm:inline">Download</span>
+                      <span className="hidden sm:inline">
+                        {t('muridQRCodePage.downloadButton') || 'Download QR Code'}
+                      </span>
                       <span className="sm:hidden">DL</span>
                     </Button>
                     <Button
@@ -297,7 +305,7 @@ const QRCodeMurid: React.FC = () => {
                       className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Print size={18} />
-                      <span>Print</span>
+                      <span>{t('muridQRCodePage.printButton') || 'Print'}</span>
                     </Button>
                   </div>
 
@@ -312,7 +320,11 @@ const QRCodeMurid: React.FC = () => {
                     }`}
                   >
                     <Copy size={18} />
-                    <span>{copied ? 'Tersalin!' : 'Copy QR Data'}</span>
+                    <span>
+                      {copied
+                        ? (t('muridQRCodePage.copied') || 'Tersalin!')
+                        : (t('muridQRCodePage.copyButton') || 'Copy QR Data')}
+                    </span>
                   </Button>
                 </div>
               </div>
@@ -327,7 +339,9 @@ const QRCodeMurid: React.FC = () => {
                   <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center">
                     <User className="w-5 h-5 text-white" />
                   </div>
-                  <h3 className="text-lg sm:text-xl font-bold text-slate-800">Informasi Identitas</h3>
+                  <h3 className="text-lg sm:text-xl font-bold text-slate-800">
+                    {t('muridQRCodePage.identityTitle') || 'Informasi Identitas'}
+                  </h3>
                 </div>
 
                 <div className="space-y-3">
@@ -337,7 +351,9 @@ const QRCodeMurid: React.FC = () => {
                         <User className="w-5 h-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-blue-700 mb-1">Nama Lengkap</p>
+                        <p className="text-xs font-medium text-blue-700 mb-1">
+                          {t('muridQRCodePage.fullNameLabel') || 'Nama Lengkap'}
+                        </p>
                         <p className="font-semibold text-blue-900 truncate">{user?.name}</p>
                       </div>
                     </div>
@@ -349,7 +365,9 @@ const QRCodeMurid: React.FC = () => {
                         <QrCode className="w-5 h-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-emerald-700 mb-1">NISN</p>
+                        <p className="text-xs font-medium text-emerald-700 mb-1">
+                          {t('muridQRCodePage.nisnLabel') || 'NISN'}
+                        </p>
                         <p className="font-semibold text-emerald-900 truncate">{user?.nisn}</p>
                       </div>
                     </div>
@@ -361,7 +379,9 @@ const QRCodeMurid: React.FC = () => {
                         <School className="w-5 h-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-amber-700 mb-1">Kelas</p>
+                        <p className="text-xs font-medium text-amber-700 mb-1">
+                          {t('muridQRCodePage.kelasLabel') || 'Kelas'}
+                        </p>
                         <p className="font-semibold text-amber-900 truncate">{displayKelasName}</p>
                       </div>
                     </div>
@@ -373,11 +393,15 @@ const QRCodeMurid: React.FC = () => {
                         <RefreshCw className={`w-5 h-5 text-white ${!qrCodeURL ? 'animate-spin' : ''}`} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-700 mb-1">Status QR Code</p>
+                        <p className="text-xs font-medium text-slate-700 mb-1">
+                          {t('muridQRCodePage.statusTitle') || 'Status QR Code'}
+                        </p>
                         <p className="font-semibold text-slate-900">
                           <span className={`inline-flex items-center gap-2 ${qrCodeURL ? 'text-green-600' : 'text-amber-600'}`}>
                             <span className={`w-2 h-2 rounded-full ${qrCodeURL ? 'bg-green-600 animate-pulse' : 'bg-amber-600'}`}></span>
-                            {qrCodeURL ? 'Aktif' : 'Generating...'}
+                            {qrCodeURL
+                              ? (t('muridQRCodePage.statusActive') || 'Aktif')
+                              : (t('muridQRCodePage.statusGenerating') || 'Sedang membuat...')}
                           </span>
                         </p>
                       </div>
@@ -391,28 +415,28 @@ const QRCodeMurid: React.FC = () => {
                     <div className="w-6 h-6 bg-amber-600 rounded-md flex items-center justify-center">
                       <span className="text-white text-xs">!</span>
                     </div>
-                    Cara Menggunakan
+                    {t('muridQRCodePage.instructionsTitle') || 'Cara Menggunakan'}
                   </h4>
                   <ul className="text-xs sm:text-sm text-amber-800 space-y-2">
                     <li className="flex items-start gap-2">
                       <span className="text-amber-600 font-bold">1.</span>
-                      <span>Tunjukkan QR Code saat guru membuka sesi absensi</span>
+                      <span>{t('muridQRCodePage.instruction1') || 'Buka sesi absensi tahfiz'}</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-amber-600 font-bold">2.</span>
-                      <span>Pastikan QR Code dalam kondisi jelas dan tidak rusak</span>
+                      <span>{t('muridQRCodePage.instruction2') || 'Tunjukkan QR code ini ke ustadz'}</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-amber-600 font-bold">3.</span>
-                      <span>QR Code hanya berlaku saat sesi absensi dibuka</span>
+                      <span>{t('muridQRCodePage.instruction3') || 'Tunggu konfirmasi absensi berhasil'}</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-amber-600 font-bold">4.</span>
-                      <span>Jangan berbagi QR Code dengan orang lain</span>
+                      <span>{t('muridQRCodePage.instruction4') || 'QR code bersifat unik untuk setiap santri'}</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-amber-600 font-bold">5.</span>
-                      <span>Download atau print QR Code untuk backup</span>
+                      <span>{t('muridQRCodePage.instruction5') || 'Download atau print QR code untuk cadangan'}</span>
                     </li>
                   </ul>
                 </div>

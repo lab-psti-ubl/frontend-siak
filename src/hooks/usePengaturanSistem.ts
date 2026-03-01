@@ -2,37 +2,60 @@ import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 
 // Global cache untuk pengaturan sistem
-let globalPengaturanCache: { enableEarlyDeparture: boolean; systemType: string } | null = null;
+let globalPengaturanCache: {
+  enableEarlyDeparture: boolean;
+  systemType: string | null;
+  cbtEnabled?: boolean;
+  spmbEnabled?: boolean;
+} | null = null;
 let globalPengaturanCacheTime: number = 0;
-let globalPengaturanLoadingPromise: Promise<{ enableEarlyDeparture: boolean; systemType: string }> | null = null;
+let globalPengaturanLoadingPromise: Promise<{
+  enableEarlyDeparture: boolean;
+  systemType: string | null;
+  cbtEnabled?: boolean;
+  spmbEnabled?: boolean;
+}> | null = null;
 
-const CACHE_DURATION = 2000000; // 1 menit
+const CACHE_DURATION = 2000000; // ~33 menit
+
+const isCacheValid = () =>
+  globalPengaturanCache != null && (Date.now() - globalPengaturanCacheTime) < CACHE_DURATION;
 
 export const usePengaturanSistem = () => {
-  const [enableEarlyDeparture, setEnableEarlyDeparture] = useState(false);
-  const [systemType, setSystemType] = useState<string>('sekolah_umum_tahfiz');
-  const [loading, setLoading] = useState(true);
+  const [enableEarlyDeparture, setEnableEarlyDeparture] = useState(
+    globalPengaturanCache?.enableEarlyDeparture ?? false
+  );
+  const [systemType, setSystemType] = useState<string | null>(
+    globalPengaturanCache?.systemType ?? null
+  );
+  const [cbtEnabled, setCbtEnabled] = useState<boolean | undefined>(
+    globalPengaturanCache?.cbtEnabled
+  );
+  const [spmbEnabled, setSpmbEnabled] = useState<boolean | undefined>(
+    globalPengaturanCache?.spmbEnabled
+  );
+  const [loading, setLoading] = useState(!isCacheValid());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Always fetch system type, even without token (for initial setup)
     // Check if token exists (user is logged in)
     const token = localStorage.getItem('authToken');
     if (!token) {
-      // If no token, set default and don't fetch
+      // If no token, still try to fetch system type (for initial setup)
+      // But set default values for other settings
       setEnableEarlyDeparture(false);
-      setSystemType('sekolah_umum_tahfiz');
-      setLoading(false);
-      return;
+      // Don't set default systemType - let it be null to trigger setup modal
     }
 
-    // Check cache validity
-    const cacheValid = globalPengaturanCache && 
-                      (Date.now() - globalPengaturanCacheTime) < CACHE_DURATION;
+    const cacheValid = token && isCacheValid();
 
     if (cacheValid && globalPengaturanCache) {
       // Use cached data
       setEnableEarlyDeparture(globalPengaturanCache.enableEarlyDeparture);
       setSystemType(globalPengaturanCache.systemType);
+      setCbtEnabled(globalPengaturanCache.cbtEnabled);
+      setSpmbEnabled(globalPengaturanCache.spmbEnabled);
       setLoading(false);
       return;
     }
@@ -43,12 +66,14 @@ export const usePengaturanSistem = () => {
         .then(data => {
           setEnableEarlyDeparture(data.enableEarlyDeparture);
           setSystemType(data.systemType);
+          setCbtEnabled(data.cbtEnabled);
+          setSpmbEnabled(data.spmbEnabled);
           setLoading(false);
         })
         .catch(() => {
-          // Silently fail and use default value
-          setEnableEarlyDeparture(false); // Default value
-          setSystemType('sekolah_umum_tahfiz');
+          // Jangan pakai default: hanya backend yang menentukan systemType
+          setEnableEarlyDeparture(false);
+          setSystemType(null);
           setLoading(false);
         });
       return;
@@ -60,38 +85,54 @@ export const usePengaturanSistem = () => {
     
     globalPengaturanLoadingPromise = (async () => {
       try {
-        const [earlyDepartureResponse, systemTypeResponse] = await Promise.all([
+        const [earlyDepartureResponse, systemTypeResponse, pengaturanResponse] = await Promise.all([
           apiService.getEnableEarlyDeparture(),
-          apiService.getSystemType()
+          apiService.getSystemType(),
+          apiService.getPengaturanSistem().catch(() => null),
         ]);
         
         if (earlyDepartureResponse.success && systemTypeResponse.success) {
+          const pengaturan = pengaturanResponse?.pengaturan;
+          const resolvedCbtEnabled = pengaturan?.cbtEnabled ?? true;
+          const resolvedSpmbEnabled = pengaturan?.spmbEnabled ?? true;
+
+          // systemType can be null if not set yet (for initial setup)
           const data = { 
             enableEarlyDeparture: earlyDepartureResponse.enableEarlyDeparture ?? false,
-            systemType: systemTypeResponse.systemType ?? 'sekolah_umum_tahfiz'
+            systemType: systemTypeResponse.systemType ?? null,
+            cbtEnabled: resolvedCbtEnabled,
+            spmbEnabled: resolvedSpmbEnabled,
           };
-          // Update cache
-          globalPengaturanCache = data;
-          globalPengaturanCacheTime = Date.now();
+          // Update cache only if systemType is set
+          if (data.systemType) {
+            globalPengaturanCache = data;
+            globalPengaturanCacheTime = Date.now();
+          }
           
           setEnableEarlyDeparture(data.enableEarlyDeparture);
           setSystemType(data.systemType);
+          setCbtEnabled(data.cbtEnabled);
+          setSpmbEnabled(data.spmbEnabled);
           setLoading(false);
           return data;
         } else {
-          // Set default value instead of throwing error
-          const data = { enableEarlyDeparture: false, systemType: 'sekolah_umum_tahfiz' };
+          // Set null for systemType to trigger setup modal
+          const data = { enableEarlyDeparture: false, systemType: null, cbtEnabled: true, spmbEnabled: true };
           setEnableEarlyDeparture(false);
-          setSystemType('sekolah_umum_tahfiz');
+          setSystemType(null);
+          setCbtEnabled(true);
+          setSpmbEnabled(true);
           setLoading(false);
           return data;
         }
       } catch (err: any) {
-        // Silently fail and use default value to prevent crash
-        setEnableEarlyDeparture(false); // Default value
-        setSystemType('sekolah_umum_tahfiz');
+        // Silently fail and use null for systemType to trigger setup modal
+        setEnableEarlyDeparture(false);
+        setSystemType(null);
+        setCbtEnabled(true);
+        setSpmbEnabled(true);
         setLoading(false);
-        const data = { enableEarlyDeparture: false, systemType: 'sekolah_umum_tahfiz' };
+        const data = { enableEarlyDeparture: false, systemType: null, cbtEnabled: true, spmbEnabled: true };
         return data;
       } finally {
         globalPengaturanLoadingPromise = null;
@@ -109,30 +150,44 @@ export const usePengaturanSistem = () => {
     setError(null);
     
     try {
-      const [earlyDepartureResponse, systemTypeResponse] = await Promise.all([
+      const [earlyDepartureResponse, systemTypeResponse, pengaturanResponse] = await Promise.all([
         apiService.getEnableEarlyDeparture(),
-        apiService.getSystemType()
+        apiService.getSystemType(),
+        apiService.getPengaturanSistem().catch(() => null),
       ]);
       
       if (earlyDepartureResponse.success && systemTypeResponse.success) {
+        const pengaturan = pengaturanResponse?.pengaturan;
+        const resolvedCbtEnabled = pengaturan?.cbtEnabled ?? true;
+        const resolvedSpmbEnabled = pengaturan?.spmbEnabled ?? true;
+
         const data = { 
           enableEarlyDeparture: earlyDepartureResponse.enableEarlyDeparture ?? false,
-          systemType: systemTypeResponse.systemType ?? 'sekolah_umum_tahfiz'
+          systemType: systemTypeResponse.systemType ?? null,
+          cbtEnabled: resolvedCbtEnabled,
+          spmbEnabled: resolvedSpmbEnabled,
         };
-        globalPengaturanCache = data;
-        globalPengaturanCacheTime = Date.now();
+        // Update cache only if systemType is set
+        if (data.systemType) {
+          globalPengaturanCache = data;
+          globalPengaturanCacheTime = Date.now();
+        }
         setEnableEarlyDeparture(data.enableEarlyDeparture);
         setSystemType(data.systemType);
+        setCbtEnabled(data.cbtEnabled);
+        setSpmbEnabled(data.spmbEnabled);
       } else {
         setError(earlyDepartureResponse.message || systemTypeResponse.message || 'Gagal mengambil pengaturan sistem');
-        setEnableEarlyDeparture(false); // Default value
-        setSystemType('sekolah_umum_tahfiz');
+        setEnableEarlyDeparture(false);
+        setSystemType(null);
+        setCbtEnabled(true);
+        setSpmbEnabled(true);
       }
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat mengambil pengaturan sistem');
-      console.error('Error fetching pengaturan sistem:', err);
-      setEnableEarlyDeparture(false); // Default value
-      setSystemType('sekolah_umum_tahfiz');
+      } catch (err: any) {
+        setError(err.message || 'Terjadi kesalahan saat mengambil pengaturan sistem');
+        console.error('Error fetching pengaturan sistem:', err);
+        setEnableEarlyDeparture(false);
+        setSystemType(null);
     } finally {
       setLoading(false);
     }
@@ -145,7 +200,9 @@ export const usePengaturanSistem = () => {
         // Update cache
         globalPengaturanCache = { 
           enableEarlyDeparture: value,
-          systemType: systemType
+          systemType: systemType,
+          cbtEnabled,
+          spmbEnabled,
         };
         globalPengaturanCacheTime = Date.now();
         setEnableEarlyDeparture(value);
@@ -170,7 +227,9 @@ export const usePengaturanSistem = () => {
         // Update cache
         globalPengaturanCache = { 
           enableEarlyDeparture: enableEarlyDeparture,
-          systemType: value
+          systemType: value,
+          cbtEnabled,
+          spmbEnabled,
         };
         globalPengaturanCacheTime = Date.now();
         setSystemType(value);
@@ -185,14 +244,64 @@ export const usePengaturanSistem = () => {
     }
   };
 
+  const updateCbtEnabled = async (value: boolean) => {
+    try {
+      const response = await apiService.updatePengaturanSistem({ cbtEnabled: value });
+      if (response.success) {
+        globalPengaturanCache = {
+          enableEarlyDeparture,
+          systemType,
+          cbtEnabled: value,
+          spmbEnabled,
+        };
+        globalPengaturanCacheTime = Date.now();
+        setCbtEnabled(value);
+        return true;
+      } else {
+        throw new Error(response.message || 'Gagal memperbarui pengaturan CBT');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Terjadi kesalahan saat memperbarui pengaturan CBT');
+      console.error('Error updating CBT pengaturan sistem:', err);
+      throw err;
+    }
+  };
+
+  const updateSpmbEnabled = async (value: boolean) => {
+    try {
+      const response = await apiService.updatePengaturanSistem({ spmbEnabled: value });
+      if (response.success) {
+        globalPengaturanCache = {
+          enableEarlyDeparture,
+          systemType,
+          cbtEnabled,
+          spmbEnabled: value,
+        };
+        globalPengaturanCacheTime = Date.now();
+        setSpmbEnabled(value);
+        return true;
+      } else {
+        throw new Error(response.message || 'Gagal memperbarui pengaturan SPMB');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Terjadi kesalahan saat memperbarui pengaturan SPMB');
+      console.error('Error updating SPMB pengaturan sistem:', err);
+      throw err;
+    }
+  };
+
   return { 
     enableEarlyDeparture, 
     systemType,
+    cbtEnabled,
+    spmbEnabled,
     loading, 
     error, 
     refreshPengaturanSistem, 
     updateEnableEarlyDeparture,
-    updateSystemType
+    updateSystemType,
+    updateCbtEnabled,
+    updateSpmbEnabled,
   };
 };
 
@@ -201,5 +310,17 @@ export const clearPengaturanCache = () => {
   globalPengaturanCache = null;
   globalPengaturanCacheTime = 0;
   globalPengaturanLoadingPromise = null;
+};
+
+// Pre-populate the cache so subsequent usePengaturanSistem() calls
+// initialize with the correct systemType on first render (no flash).
+export const prewarmPengaturanCache = (systemType: string | null, enableEarlyDeparture?: boolean) => {
+  if (systemType) {
+    globalPengaturanCache = {
+      enableEarlyDeparture: enableEarlyDeparture ?? globalPengaturanCache?.enableEarlyDeparture ?? false,
+      systemType,
+    };
+    globalPengaturanCacheTime = Date.now();
+  }
 };
 

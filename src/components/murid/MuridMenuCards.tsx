@@ -27,6 +27,7 @@ import { User as UserType, Kelas, PengumumanKelulusan, TahunAjaran, Alumni } fro
 import { isMaxTingkatSync } from '../../utils/jenjangPendidikanUtils';
 import { isMuridAlumni } from '../../utils/alumniStatusUtils';
 import { getStudentTerm } from '../../utils/terminologyUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface MenuCard {
   id: string;
@@ -47,12 +48,14 @@ const MuridMenuCards: React.FC = () => {
   const { alumni } = useAlumni();
   const { santri } = useSantri();
   const { kelasTahfiz } = useKelasTahfiz();
-  const { systemType } = usePengaturanSistem();
+  const { systemType, cbtEnabled } = usePengaturanSistem();
   const [showAllCards, setShowAllCards] = useState(false);
-  
+  const { t } = useLanguage();
+
   const studentTerm = getStudentTerm(systemType);
   const isTahfizSystem = systemType === 'tahfiz';
   const isSekolahUmumTahfiz = systemType === 'sekolah_umum_tahfiz';
+  const isCbtEnabled = cbtEnabled ?? true;
 
   const isAlumni = isMuridAlumni(user, alumni);
   
@@ -98,7 +101,7 @@ const MuridMenuCards: React.FC = () => {
     
     {
       id: 'qr-code',
-      label: 'QR Code Saya',
+      label: t('muridMenu.qrCodeSaya') || 'QR Code Saya',
       icon: QrCode,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-green-600 to-green-700',
@@ -106,7 +109,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'nilai',
-      label: 'Nilai Saya',
+      label: t('muridMenu.nilai') || 'Nilai Saya',
       icon: BarChart3,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-teal-600 to-teal-700',
@@ -114,7 +117,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'raport',
-      label: 'Laporan Hasil Belajar',
+      label: t('muridMenu.raport') || 'Laporan Hasil Belajar',
       icon: GraduationCap,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-indigo-600 to-indigo-700',
@@ -122,7 +125,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'e-raport',
-      label: 'E-Raport',
+      label: t('muridMenu.eRaport') || 'E-Raport',
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-violet-600 to-violet-700',
@@ -130,7 +133,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'profil',
-      label: 'Profil',
+      label: t('muridMenu.profil') || 'Profil',
       icon: User,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-amber-600 to-amber-700',
@@ -143,7 +146,7 @@ const MuridMenuCards: React.FC = () => {
     const baseCards: MenuCard[] = [
       {
         id: 'qr-code',
-        label: 'QR Code Saya',
+        label: t('muridMenu.qrCodeSaya') || 'QR Code Saya',
         icon: QrCode,
         color: 'text-white',
         bgColor: 'bg-gradient-to-br from-green-600 to-green-700',
@@ -156,7 +159,7 @@ const MuridMenuCards: React.FC = () => {
       baseCards.push(
         {
           id: 'jadwal-tahfiz',
-          label: 'Jadwal Tahfiz',
+          label: t('muridMenu.jadwalTahfiz') || 'Jadwal Tahfiz',
           icon: Calendar,
           color: 'text-white',
           bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
@@ -164,7 +167,7 @@ const MuridMenuCards: React.FC = () => {
         },
         {
           id: 'absensi-santri-tahfiz',
-          label: 'Absensi Santri',
+          label: t('muridMenu.absensiSantri') || 'Absensi Santri',
           icon: ClipboardList,
           color: 'text-white',
           bgColor: 'bg-gradient-to-br from-teal-600 to-teal-700',
@@ -172,7 +175,7 @@ const MuridMenuCards: React.FC = () => {
         },
         {
           id: 'absen-kehadiran',
-          label: 'Absen Kehadiran',
+          label: t('muridMenu.absenKehadiran') || 'Absen Kehadiran',
           icon: FileText,
           color: 'text-white',
           bgColor: 'bg-gradient-to-br from-blue-600 to-blue-700',
@@ -180,7 +183,7 @@ const MuridMenuCards: React.FC = () => {
         },
         {
           id: 'progress-hapalan',
-          label: 'Progress Hapalan',
+          label: t('muridMenu.progressHapalan') || 'Progress Hapalan',
           icon: BookMarked,
           color: 'text-white',
           bgColor: 'bg-gradient-to-br from-cyan-600 to-cyan-700',
@@ -193,7 +196,7 @@ const MuridMenuCards: React.FC = () => {
     baseCards.push(
       {
         id: 'izin',
-        label: 'Pengajuan Izin',
+        label: t('muridMenu.pengajuanIzin') || 'Pengajuan Izin',
         icon: FileText,
         color: 'text-white',
         bgColor: 'bg-gradient-to-br from-red-600 to-red-700',
@@ -201,7 +204,7 @@ const MuridMenuCards: React.FC = () => {
       },
       {
         id: 'profil',
-        label: 'Profil',
+        label: t('muridMenu.profil') || 'Profil',
         icon: User,
         color: 'text-white',
         bgColor: 'bg-gradient-to-br from-amber-600 to-amber-700',
@@ -216,7 +219,7 @@ const MuridMenuCards: React.FC = () => {
   const tahfizSystemMenuCards: MenuCard[] = [
     {
       id: 'qr-code',
-      label: 'QR Code Saya',
+      label: t('muridMenu.qrCodeSaya') || 'QR Code Saya',
       icon: QrCode,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-green-600 to-green-700',
@@ -224,7 +227,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'jadwal-tahfiz',
-      label: 'Jadwal Tahfiz',
+      label: t('muridMenu.jadwalTahfiz') || 'Jadwal Tahfiz',
       icon: Calendar,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
@@ -232,7 +235,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'absensi-santri-tahfiz',
-      label: 'Absensi Santri',
+      label: t('muridMenu.absensiSantri') || 'Absensi Santri',
       icon: ClipboardList,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-teal-600 to-teal-700',
@@ -240,7 +243,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'absen-kehadiran',
-      label: 'Absen Kehadiran',
+      label: t('muridMenu.absenKehadiran') || 'Absen Kehadiran',
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-blue-600 to-blue-700',
@@ -248,7 +251,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'progress-hapalan',
-      label: 'Progress Hapalan',
+      label: t('muridMenu.progressHapalan') || 'Progress Hapalan',
       icon: BookMarked,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-cyan-600 to-cyan-700',
@@ -256,7 +259,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'izin',
-      label: 'Pengajuan Izin',
+      label: t('muridMenu.pengajuanIzin') || 'Pengajuan Izin',
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-red-600 to-red-700',
@@ -264,7 +267,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'profil',
-      label: 'Profil',
+      label: t('muridMenu.profil') || 'Profil',
       icon: User,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-amber-600 to-amber-700',
@@ -276,7 +279,7 @@ const MuridMenuCards: React.FC = () => {
   const tahfizMenuCards: MenuCard[] = [
     {
       id: 'jadwal-tahfiz',
-      label: 'Jadwal Tahfiz',
+      label: t('muridMenu.jadwalTahfiz') || 'Jadwal Tahfiz',
       icon: Calendar,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
@@ -284,7 +287,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'absensi-santri-tahfiz',
-      label: 'Absensi Santri',
+      label: t('muridMenu.absensiSantri') || 'Absensi Santri',
       icon: ClipboardList,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-teal-600 to-teal-700',
@@ -292,7 +295,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'absen-kehadiran',
-      label: 'Absen Kehadiran',
+      label: t('muridMenu.absenKehadiran') || 'Absen Kehadiran',
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-blue-600 to-blue-700',
@@ -300,7 +303,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'progress-hapalan',
-      label: 'Progress Hapalan',
+      label: t('muridMenu.progressHapalan') || 'Progress Hapalan',
       icon: BookMarked,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-cyan-600 to-cyan-700',
@@ -312,7 +315,7 @@ const MuridMenuCards: React.FC = () => {
   const baseMenuCards: MenuCard[] = [
     {
       id: 'jadwal',
-      label: 'Jadwal',
+      label: t('muridMenu.jadwal') || 'Jadwal',
       icon: Calendar,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-purple-600 to-purple-700',
@@ -320,7 +323,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'absensi',
-      label: 'Absensi',
+      label: t('muridMenu.absensi') || 'Absensi',
       icon: ClipboardList,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-orange-600 to-orange-700',
@@ -328,7 +331,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'riwayat',
-      label: 'Kehadiran',
+      label: t('muridMenu.kehadiran') || 'Kehadiran',
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-blue-600 to-blue-700',
@@ -336,15 +339,23 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'nilai',
-      label: 'Nilai',
+      label: t('muridMenu.nilai') || 'Nilai',
       icon: BarChart3,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-teal-600 to-teal-700',
       route: '/dashboard/nilai-saya',
     },
+    ...(isCbtEnabled ? [{
+      id: 'cbt-ujian',
+      label: t('muridMenu.ujianCBT') || 'Ujian CBT',
+      icon: BookOpen,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
+      route: '/dashboard/cbt-ujian',
+    }] : []),
     {
       id: 'qr-code',
-      label: 'QR Code',
+      label: t('muridMenu.qrCodeSaya') || 'QR Code',
       icon: QrCode,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-green-600 to-green-700',
@@ -352,7 +363,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'mata-pelajaran',
-      label: 'Mata Pelajaran',
+      label: t('muridMenu.mataPelajaran') || 'Mata Pelajaran',
       icon: BookOpen,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-pink-600 to-pink-700',
@@ -360,7 +371,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'raport',
-      label: 'Laporan Hasil Belajar',
+      label: t('muridMenu.raport') || 'Laporan Hasil Belajar',
       icon: GraduationCap,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-indigo-600 to-indigo-700',
@@ -368,7 +379,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'e-raport',
-      label: 'E-Raport',
+      label: t('muridMenu.eRaport') || 'E-Raport',
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-violet-600 to-violet-700',
@@ -376,7 +387,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'izin',
-      label: 'Pengajuan Izin',
+      label: t('muridMenu.pengajuanIzin') || 'Pengajuan Izin',
       icon: FileText,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-red-600 to-red-700',
@@ -384,7 +395,7 @@ const MuridMenuCards: React.FC = () => {
     },
     {
       id: 'profil',
-      label: 'Profil',
+      label: t('muridMenu.profil') || 'Profil',
       icon: User,
       color: 'text-white',
       bgColor: 'bg-gradient-to-br from-amber-600 to-amber-700',
@@ -402,8 +413,12 @@ const MuridMenuCards: React.FC = () => {
       return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
-            <h3 className="text-lg font-bold text-slate-900">Menu Utama</h3>
-            <p className="text-sm text-slate-600 mt-0.5">Akses semua fitur dengan mudah</p>
+            <h3 className="text-lg font-bold text-slate-900">
+              {t('muridMenu.headerTitle') || 'Menu Utama'}
+            </h3>
+            <p className="text-sm text-slate-600 mt-0.5">
+              {t('muridMenu.headerSubtitle') || 'Akses semua fitur dengan mudah'}
+            </p>
           </div>
 
           <div className="p-6">
@@ -435,12 +450,12 @@ const MuridMenuCards: React.FC = () => {
                 >
                   {showAllCards ? (
                     <>
-                      Tampilkan Lebih Sedikit
+                      {t('muridMenu.showLess') || 'Tampilkan Lebih Sedikit'}
                       <ChevronUp size={20} />
                     </>
                   ) : (
                     <>
-                      Lihat Lainnya ({finalMenuCards.length - 8})
+                      {t('muridMenu.showMore') || 'Lihat Lainnya'} ({finalMenuCards.length - 8})
                       <ChevronDown size={20} />
                     </>
                   )}
@@ -455,11 +470,17 @@ const MuridMenuCards: React.FC = () => {
       return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
-            <h3 className="text-lg font-bold text-slate-900">Menu Utama</h3>
-            <p className="text-sm text-slate-600 mt-0.5">Akses semua fitur dengan mudah</p>
+            <h3 className="text-lg font-bold text-slate-900">
+              {t('muridMenu.headerTitle') || 'Menu Utama'}
+            </h3>
+            <p className="text-sm text-slate-600 mt-0.5">
+              {t('muridMenu.headerSubtitle') || 'Akses semua fitur dengan mudah'}
+            </p>
           </div>
           <div className="p-6">
-            <p className="text-center text-slate-500">Tidak ada menu yang tersedia</p>
+            <p className="text-center text-slate-500">
+              {t('muridMenu.noMenu') || 'Tidak ada menu yang tersedia'}
+            </p>
           </div>
         </div>
       );
@@ -475,8 +496,12 @@ const MuridMenuCards: React.FC = () => {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
-          <h3 className="text-lg font-bold text-slate-900">Menu Utama</h3>
-          <p className="text-sm text-slate-600 mt-0.5">Akses semua fitur dengan mudah</p>
+          <h3 className="text-lg font-bold text-slate-900">
+            {t('muridMenu.headerTitle') || 'Menu Utama'}
+          </h3>
+          <p className="text-sm text-slate-600 mt-0.5">
+            {t('muridMenu.headerSubtitle') || 'Akses semua fitur dengan mudah'}
+          </p>
         </div>
 
         <div className="p-6">
@@ -508,12 +533,12 @@ const MuridMenuCards: React.FC = () => {
               >
                 {showAllCards ? (
                   <>
-                    Tampilkan Lebih Sedikit
+                    {t('muridMenu.showLess') || 'Tampilkan Lebih Sedikit'}
                     <ChevronUp size={20} />
                   </>
                 ) : (
                   <>
-                    Lihat Lainnya ({finalMenuCards.length - 8})
+                    {t('muridMenu.showMore') || 'Lihat Lainnya'} ({finalMenuCards.length - 8})
                     <ChevronDown size={20} />
                   </>
                 )}
@@ -532,7 +557,7 @@ const MuridMenuCards: React.FC = () => {
           ...baseMenuCards,
           {
             id: 'info-kelulusan',
-            label: 'Info Kelulusan',
+            label: t('muridMenu.infoKelulusan') || 'Info Kelulusan',
             icon: Award,
             color: 'text-white',
             bgColor: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
@@ -557,8 +582,12 @@ const MuridMenuCards: React.FC = () => {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
-        <h3 className="text-lg font-bold text-slate-900">Menu Utama</h3>
-        <p className="text-sm text-slate-600 mt-0.5">Akses semua fitur dengan mudah</p>
+        <h3 className="text-lg font-bold text-slate-900">
+          {t('muridMenu.headerTitle') || 'Menu Utama'}
+        </h3>
+        <p className="text-sm text-slate-600 mt-0.5">
+          {t('muridMenu.headerSubtitle') || 'Akses semua fitur dengan mudah'}
+        </p>
       </div>
 
       <div className="p-6">
@@ -596,12 +625,12 @@ const MuridMenuCards: React.FC = () => {
             >
               {showAllCards ? (
                 <>
-                  Tampilkan Lebih Sedikit
+                  {t('muridMenu.showLess') || 'Tampilkan Lebih Sedikit'}
                   <ChevronUp size={20} />
                 </>
               ) : (
                 <>
-                  Lihat Lainnya ({finalMenuCards.length - 8})
+                  {t('muridMenu.showMore') || 'Lihat Lainnya'} ({finalMenuCards.length - 8})
                   <ChevronDown size={20} />
                 </>
               )}

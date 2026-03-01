@@ -23,6 +23,8 @@ import {
   Eye,
   BarChart3,
   Activity,
+  ScanFace,
+  CheckCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useIzinGuru } from '../../hooks/useIzinGuru';
@@ -40,6 +42,7 @@ import { useSantri } from '../../hooks/useSantri';
 import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
 import { Kelas, IzinGuru, Alumni } from '../../types';
 import { shouldShowJurusanSync, isMaxTingkatSync } from '../../utils/jenjangPendidikanUtils';
+import { getTodayIndonesia, getCurrentTimeIndonesia } from '../../utils/absensiUtils';
 import { isMuridAlumni } from '../../utils/alumniStatusUtils';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -73,9 +76,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
   const { ustadz } = useUstadz();
   const { kelasTahfiz } = useKelasTahfiz();
   const { santri } = useSantri();
-  const { systemType } = usePengaturanSistem();
+  const { systemType, cbtEnabled, spmbEnabled } = usePengaturanSistem();
   const [expandedMenus, setExpandedMenus] = React.useState<string[]>([]);
   const showJurusan = shouldShowJurusanSync();
+  const isCbtEnabled = cbtEnabled ?? true;
+  const isSpmbEnabled = spmbEnabled ?? true;
   
   // Combine gurus and murid into users array for compatibility
   const users = React.useMemo(() => [...gurus, ...murid], [gurus, murid]);
@@ -138,14 +143,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
           { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },
         ];
         
-        // Hide menu monitoring-kelas jika systemType adalah tahfiz
-        if (systemType !== 'tahfiz') {
-          kepalaSekolahMenuItems.push({ 
-            id: 'monitoring-kelas', 
-            label: t('sidebar.monitoringKelas'), 
-            icon: Eye 
-          });
-        }
+        // Menu monitoring kelas: untuk semua tipe sistem (umum menampilkan jadwal umum, tahfiz menampilkan jadwal tahfiz, umum+tahfiz keduanya)
+        kepalaSekolahMenuItems.push({ 
+          id: 'monitoring-kelas', 
+          label: t('sidebar.monitoringKelas'), 
+          icon: Eye 
+        });
         
         // Ubah label menu berdasarkan systemType
         if (systemType === 'tahfiz' || systemType === 'sekolah_umum_tahfiz') {
@@ -195,9 +198,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
         // Always show dashboard
         adminMenuItems.push({ id: 'dashboard', label: t('sidebar.dashboard'), icon: Home });
         
-        // For tahfiz system, show limited menus
+        // For tahfiz system, show limited menus (termasuk monitoring kelas tahfiz)
         if (systemType === 'tahfiz') {
           adminMenuItems.push(
+            { id: 'monitoring-kelas', label: t('sidebar.monitoringKelas'), icon: Eye },
             {
               id: 'kelola-guru',
               label: t('sidebar.kelolaAbsenGuru'),
@@ -205,6 +209,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
               subItems: [
                 { id: 'absen-guru', label: t('sidebar.absenGuru'), icon: ClipboardList },
                 { id: 'izin-guru-admin', label: t('sidebar.verifikasiIzinGuru'), icon: FileText },
+                { id: 'qr-admin', label: t('sidebar.qrAdmin'), icon: QrCode },
+              ]
+            },
+            {
+              id: 'kelola-data-guru',
+              label: t('sidebar.kelolaDataGuru'),
+              icon: Users,
+              subItems: [
+                { id: 'guru', label: t('sidebar.manajemenGuru'), icon: Users },
+                { id: 'data-face-recognition', label: t('sidebar.dataFaceRecognition'), icon: ScanFace },
               ]
             },
             {
@@ -239,7 +253,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
           return adminMenuItems;
         }
         
-        // For sekolah_umum and sekolah_umum_tahfiz, show general menus
+        // Monitoring kelas: tampilkan untuk sekolah_umum, sekolah_umum_tahfiz, dan tahfiz (isi halaman menyesuaikan systemType)
         adminMenuItems.push(
           { id: 'monitoring-kelas', label: t('sidebar.monitoringKelas'), icon: Eye },
           {
@@ -258,6 +272,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
             icon: Users,
             subItems: [
               { id: 'guru', label: t('sidebar.manajemenGuru'), icon: Users },
+              { id: 'data-face-recognition', label: t('sidebar.dataFaceRecognition'), icon: ScanFace },
             ]
           },
         );
@@ -303,15 +318,34 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
               { id: 'jadwal', label: t('sidebar.jadwalPelajaran'), icon: Calendar },
             ]
           },
+          ...(isSpmbEnabled ? [{
+            id: 'spmb',
+            label: 'SPMB',
+            icon: ClipboardList,
+            subItems: [
+              { id: 'spmb-pembukaan', label: 'Pembukaan SPMB', icon: Calendar },
+              { id: 'spmb-pendaftar', label: 'Data Pendaftar', icon: Users },
+              { id: 'spmb-diterima', label: 'Data Diterima', icon: CheckCircle },
+            ],
+          }] : []),
+          ...(isCbtEnabled ? [{
+            id: 'kelola-cbt-admin',
+            label: t('sidebar.kelolaCBT'),
+            icon: ClipboardList,
+            subItems: [
+              { id: 'cbt-monitoring', label: t('sidebar.monitoringCBT'), icon: Eye },
+              { id: 'cbt-bank-soal-admin', label: t('sidebar.bankSoalCBT'), icon: BookOpen },
+            ]
+          }] : []),
           {
             id: 'info-pengumuman',
             label: t('sidebar.infoPengumuman'),
             icon: FileText,
             subItems: [
               { id: 'beri-info', label: t('sidebar.beriInfo'), icon: FileText },
-              { id: 'pengumuman-kelulusan', label: t('sidebar.pengumumanKelulusan'), icon: GraduationCap },
             ]
           },
+          { id: 'pengumuman-kelulusan', label: t('sidebar.pengumumanKelulusan'), icon: GraduationCap },
           {
             id: 'rekap-raport',
             label: t('sidebar.rekapRaportMurid'),
@@ -400,6 +434,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
               { id: 'riwayat-absensi', label: t('sidebar.riwayatAbsensi'), icon: FileText },
             ]
           },
+          ...(isCbtEnabled ? [{
+            id: 'kelola-cbt',
+            label: t('sidebar.kelolaCBT'),
+            icon: ClipboardList,
+            subItems: [
+              { id: 'cbt-bank-soal', label: t('sidebar.bankSoalCBT'), icon: BookOpen },
+              { id: 'cbt-buat-ujian', label: t('sidebar.buatUjianCBT'), icon: FileText },
+            ]
+          }] : []),
           {
             id: 'absen-guru',
             label: t('sidebar.absen'),
@@ -433,8 +476,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
         }
 
         const activeIzinForSubstitute = (() => {
-          const today = new Date().toISOString().split('T')[0];
-          const currentTime = new Date().toTimeString().slice(0, 5);
+          const today = getTodayIndonesia();
+          const currentTime = getCurrentTimeIndonesia();
           
           return izinGuru.find(i => {
             // Check if user is assigned as substitute
@@ -628,6 +671,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
               { id: 'absen-kehadiran', label: t('sidebar.absenKehadiran'), icon: UserCheck },
             ]
           },
+          ...(isCbtEnabled ? [{
+            id: 'cbt-ujian',
+            label: t('sidebar.ujianCBT') || 'Ujian CBT',
+            icon: ClipboardList
+          }] : []),
           { id: 'qr-code', label: t('sidebar.qrCodeSaya'), icon: QrCode },
           {
             id: 'laporan-nilai',
@@ -752,7 +800,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
 
       {/* Sidebar */}
       <div className={`
-        w-80 bg-white shadow-lg h-screen fixed left-0 top-0 z-[70] transform transition-transform duration-300 ease-in-out
+        w-96 max-w-[28rem] bg-white shadow-lg h-screen fixed left-0 top-0 z-[70] transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:z-30
         flex flex-col
@@ -771,7 +819,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
   className="object-contain flex-shrink-0 max-h-14 max-w-14"
  />
 
-        <h1 className="text-md sm:text-lg font-bold text-gray-800 truncate">
+        <h1 className="text-md sm:text-lg font-bold text-gray-800 leading-snug line-clamp-2 break-words">
           {profilSekolah.namaSekolah || t('sidebar.absensiSekolah')}
         </h1>
       </div>

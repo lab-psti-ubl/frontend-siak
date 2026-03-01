@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Download, Calendar, Clock, CheckCircle, XCircle, AlertCircle, FileText, Eye } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 import Card from '../../../../ui/Card';
 import Button from '../../../../ui/Button';
 import Badge from '../../../../ui/Badge';
@@ -23,6 +24,17 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
   pengaturanAbsen,
   izinGuru
 }) => {
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
+  // Weekday short names localized (Min/Sen/... for ID, Ahd/Isn/... for MS)
+  const weekdayShortNames = useMemo(() => {
+    const base = new Date(2024, 0, 7); // Sunday
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      return d.toLocaleDateString(dateLocale, { weekday: 'short' });
+    });
+  }, [dateLocale]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [currentPage, setCurrentPage] = useState(1);
@@ -107,21 +119,21 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'tepat_waktu':
-        return <Badge variant="success">Tepat Waktu</Badge>;
+        return <Badge variant="success">{t('detailAbsensiModal.tepatWaktu')}</Badge>;
       case 'terlambat':
-        return <Badge variant="warning">Terlambat</Badge>;
+        return <Badge variant="warning">{t('detailAbsensiModal.terlambat')}</Badge>;
       case 'pulang_awal':
-        return <Badge variant="warning">Pulang Awal</Badge>;
+        return <Badge variant="warning">{t('detailAbsensiModal.pulangAwal')}</Badge>;
       case 'tidak_masuk':
-        return <Badge variant="danger">Tidak Masuk</Badge>;
+        return <Badge variant="danger">{t('detailAbsensiModal.tidakMasuk')}</Badge>;
       case 'tidak_keluar':
-        return <Badge variant="danger">Tidak Keluar</Badge>;
+        return <Badge variant="danger">{t('detailAbsensiModal.tidakKeluar')}</Badge>;
       case 'izin':
-        return <Badge variant="info">Izin</Badge>;
+        return <Badge variant="info">{t('detailAbsensiModal.izin')}</Badge>;
       case 'sakit':
-        return <Badge variant="secondary">Sakit</Badge>;
+        return <Badge variant="secondary">{t('detailAbsensiModal.sakit')}</Badge>;
       case 'alfa':
-        return <Badge variant="danger">Alfa</Badge>;
+        return <Badge variant="danger">{t('detailAbsensiModal.alfa')}</Badge>;
       default:
         return <Badge variant="default">{status.replace(/_/g, ' ')}</Badge>;
     }
@@ -195,7 +207,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
   const exportData = () => {
     const data = allDatesData.map((dateData, idx) => {
       const date = new Date(dateData.tanggal);
-      const hari = date.toLocaleDateString('id-ID', { weekday: 'long' });
+      const hari = date.toLocaleDateString(dateLocale, { weekday: 'long' });
       const absensi = dateData.absensi;
       const izin = dateData.izin;
 
@@ -228,8 +240,8 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
       { header: 'Keterangan', dataKey: 'keterangan', width: 20 }
     ];
 
-    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    const title = `LAPORAN KEHADIRAN GURU\nNama: ${guru.name}\nNIP: ${(guru as any).nip || '-'}\nBulan: ${monthNames[selectedMonth - 1]} ${selectedYear}`;
+    const monthName = new Date(2000, selectedMonth - 1).toLocaleDateString(dateLocale, { month: 'long' });
+    const title = `LAPORAN KEHADIRAN GURU\nNama: ${guru.name}\nNIP: ${(guru as any).nip || '-'}\nBulan: ${monthName} ${selectedYear}`;
     const filename = `kehadiran-${guru.name.replace(/\s/g, '-')}-${selectedYear}-${selectedMonth}`;
 
     exportToExcel(data, columns, title, filename);
@@ -238,7 +250,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
   const exportDataPDF = () => {
     const data = allDatesData.map((dateData, idx) => {
       const date = new Date(dateData.tanggal);
-      const hari = date.toLocaleDateString('id-ID', { weekday: 'long' });
+      const hari = date.toLocaleDateString(dateLocale, { weekday: 'long' });
       const absensi = dateData.absensi;
       const izin = dateData.izin;
 
@@ -271,8 +283,8 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
       { header: 'Keterangan', dataKey: 'keterangan', width: 25 }
     ];
 
-    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    const title = `LAPORAN KEHADIRAN GURU\nNama: ${guru.name}\nNIP: ${(guru as any).nip || '-'}\nBulan: ${monthNames[selectedMonth - 1]} ${selectedYear}`;
+    const monthName = new Date(2000, selectedMonth - 1).toLocaleDateString(dateLocale, { month: 'long' });
+    const title = `LAPORAN KEHADIRAN GURU\nNama: ${guru.name}\nNIP: ${(guru as any).nip || '-'}\nBulan: ${monthName} ${selectedYear}`;
     const filename = `kehadiran-${guru.name.replace(/\s/g, '-')}-${selectedYear}-${selectedMonth}`;
 
     exportToPDF(data, columns, title, filename);
@@ -377,13 +389,13 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
       <Card className="p-3 sm:p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div>
-            <h3 className="text-sm sm:text-lg font-semibold text-gray-900 mb-1">Data Kehadiran</h3>
-            <p className="text-xs sm:text-sm text-gray-600">Riwayat kehadiran masuk dan keluar guru</p>
+            <h3 className="text-sm sm:text-lg font-semibold text-gray-900 mb-1">{t('detailAbsensiModal.dataKehadiran')}</h3>
+            <p className="text-xs sm:text-sm text-gray-600">{t('detailAbsensiModal.riwayatKehadiranMasukKeluar')}</p>
           </div>
           <div className="flex flex-col gap-2 sm:gap-3">
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="flex items-center gap-2 flex-1 sm:flex-none">
-                <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Bulan:</label>
+                <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">{t('detailAbsensiModal.bulan')}:</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => {
@@ -394,13 +406,13 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
                 >
                   {Array.from({ length: 12 }, (_, i) => (
                     <option key={i + 1} value={i + 1}>
-                      {new Date(2000, i).toLocaleDateString('id-ID', { month: 'long' })}
+                      {new Date(2000, i).toLocaleDateString(dateLocale, { month: 'long' })}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="flex items-center gap-2 flex-1 sm:flex-none">
-                <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Tahun:</label>
+                <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">{t('detailAbsensiModal.tahun')}:</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => {
@@ -423,11 +435,11 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
             
               <Button onClick={exportData} variant="success" className="flex items-center justify-center text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2">
                 <Download size={14} className="mr-1 sm:mr-2" />
-                <span>Excel</span>
+                <span>{t('detailAbsensiModal.excel')}</span>
               </Button>
               <Button onClick={exportDataPDF} variant="secondary" className="flex items-center justify-center text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2">
                 <Download size={14} className="mr-1 sm:mr-2" />
-                <span>PDF</span>
+                <span>{t('detailAbsensiModal.pdf')}</span>
               </Button>
             </div>
           </div>
@@ -436,7 +448,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
         {activePengaturan && (
           <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-blue-50 rounded-lg border border-blue-200">
             <p className="text-xs sm:text-sm text-blue-900">
-              <strong>Jam Kerja:</strong> {activePengaturan.jamMasuk} - {activePengaturan.jamPulang}
+              <strong>{t('detailAbsensiModal.jamKerja')}:</strong> {activePengaturan.jamMasuk} - {activePengaturan.jamPulang}
             </p>
           </div>
         )}
@@ -447,35 +459,35 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
               <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             </div>
             <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.total}</p>
-            <p className="text-xs text-gray-600">Total Hari</p>
+            <p className="text-xs text-gray-600">{t('detailAbsensiModal.totalHari')}</p>
           </Card>
           <Card className="p-2 sm:p-4 text-center border-l-4 border-l-emerald-500">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2">
               <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
             </div>
             <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.hadir}</p>
-            <p className="text-xs text-gray-600">Hadir</p>
+            <p className="text-xs text-gray-600">{t('detailAbsensiModal.hadir')}</p>
           </Card>
           <Card className="p-2 sm:p-4 text-center border-l-4 border-l-orange-500">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2">
               <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
             </div>
             <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.terlambat}</p>
-            <p className="text-xs text-gray-600">Terlambat</p>
+            <p className="text-xs text-gray-600">{t('detailAbsensiModal.terlambat')}</p>
           </Card>
           <Card className="p-2 sm:p-4 text-center border-l-4 border-l-blue-400">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2">
               <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             </div>
             <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.izin}</p>
-            <p className="text-xs text-gray-600">Izin</p>
+            <p className="text-xs text-gray-600">{t('detailAbsensiModal.izin')}</p>
           </Card>
           <Card className="p-2 sm:p-4 text-center border-l-4 border-l-red-500 col-span-2 md:col-span-1">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2">
               <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
             </div>
             <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.tidakHadir}</p>
-            <p className="text-xs text-gray-600">Tidak Hadir</p>
+            <p className="text-xs text-gray-600">{t('detailAbsensiModal.tidakHadir')}</p>
           </Card>
         </div>
 
@@ -484,20 +496,20 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableCell header>No</TableCell>
-                <TableCell header>Hari</TableCell>
-                <TableCell header>Tanggal</TableCell>
-                <TableCell header>Jam Masuk</TableCell>
-                <TableCell header>Status Masuk</TableCell>
-                <TableCell header>Jam Keluar</TableCell>
-                <TableCell header>Status Keluar</TableCell>
-                <TableCell header>Keterangan</TableCell>
+                <TableCell header>{t('detailAbsensiModal.no')}</TableCell>
+                <TableCell header>{t('detailAbsensiModal.hari')}</TableCell>
+                <TableCell header>{t('detailAbsensiModal.tanggal')}</TableCell>
+                <TableCell header>{t('detailAbsensiModal.jamMasuk')}</TableCell>
+                <TableCell header>{t('detailAbsensiModal.statusMasuk')}</TableCell>
+                <TableCell header>{t('detailAbsensiModal.jamKeluar')}</TableCell>
+                <TableCell header>{t('detailAbsensiModal.statusKeluar')}</TableCell>
+                <TableCell header>{t('detailAbsensiModal.keterangan')}</TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedData.map((dateData, idx) => {
                 const date = new Date(dateData.tanggal);
-                const hari = date.toLocaleDateString('id-ID', { weekday: 'long' });
+                const hari = date.toLocaleDateString(dateLocale, { weekday: 'long' });
                 const absensi = dateData.absensi;
                 const izin = dateData.izin;
 
@@ -524,7 +536,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
                       {absensi?.statusMasuk ? (
                         getStatusBadge(absensi.statusMasuk)
                       ) : (
-                        <Badge variant="danger">Tidak Masuk</Badge>
+                        <Badge variant="danger">{t('detailAbsensiModal.tidakMasuk')}</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -543,7 +555,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
                       ) : absensi?.statusKeluar ? (
                         getStatusBadge(absensi.statusKeluar)
                       ) : absensi?.jamMasuk ? (
-                        <Badge variant="danger">Belum Keluar</Badge>
+                        <Badge variant="danger">{t('detailAbsensiModal.belumKeluar')}</Badge>
                       ) : (
                         <Badge variant="default">-</Badge>
                       )}
@@ -574,7 +586,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
                             className="flex items-center gap-1"
                           >
                             <Eye size={14} />
-                            Lihat
+                            {t('detailAbsensiModal.lihat')}
                           </Button>
                         )}
                       </div>
@@ -589,7 +601,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
         {/* Mobile Calendar View */}
         <div className="md:hidden">
           <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2">Keterangan Status:</h4>
+            <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2">{t('detailAbsensiModal.keteranganStatus')}:</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <div className="flex items-center gap-1.5">
                 <div className="w-5 h-5 rounded border border-emerald-300 bg-emerald-100"></div>
@@ -621,7 +633,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             {/* Weekday Headers */}
             <div className="grid grid-cols-7 gap-0 bg-gray-100 border-b border-gray-200">
-              {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map((day, idx) => {
+              {weekdayShortNames.map((day, idx) => {
                 const isWeekend = idx === 0 || idx === 6;
                 return (
                   <div
@@ -689,15 +701,15 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
         {allDatesData.length === 0 && (
           <div className="hidden md:block text-center py-12">
             <AlertCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Belum ada data</h3>
-            <p className="text-gray-600">Belum ada data kehadiran untuk periode ini</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('detailAbsensiModal.belumAdaData')}</h3>
+            <p className="text-gray-600">{t('detailAbsensiModal.belumAdaDataKehadiran')}</p>
           </div>
         )}
 
         {totalPages > 1 && (
           <div className="hidden md:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6 pt-4 border-t border-gray-200">
             <p className="text-xs md:text-sm text-gray-600 order-2 sm:order-1">
-              Menampilkan {startIndex + 1} - {Math.min(endIndex, allDatesData.length)} dari {allDatesData.length} data
+              {t('detailAbsensiModal.menampilkanData', { start: startIndex + 1, end: Math.min(endIndex, allDatesData.length), total: allDatesData.length })}
             </p>
             <div className="flex items-center justify-center sm:justify-end gap-2 order-1 sm:order-2">
               <Button
@@ -707,7 +719,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
                 size="sm"
                 className="text-xs md:text-sm px-2 md:px-4 py-1 md:py-2"
               >
-                Prev
+                {t('detailAbsensiModal.prev')}
               </Button>
               <span className="text-xs md:text-sm text-gray-600 px-2">
                 {currentPage} / {totalPages}
@@ -719,7 +731,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
                 size="sm"
                 className="text-xs md:text-sm px-2 md:px-4 py-1 md:py-2"
               >
-                Next
+                {t('detailAbsensiModal.next')}
               </Button>
             </div>
           </div>
@@ -734,19 +746,19 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
             setShowDateDetailModal(false);
             setSelectedDateDetail(null);
           }}
-          title={`Detail Absensi`}
+          title={t('detailAbsensiModal.detailAbsensi')}
         >
           <div className="space-y-5">
             {/* Header - Tanggal */}
             <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-blue-600 font-medium mb-1">Tanggal</p>
+                  <p className="text-xs text-blue-600 font-medium mb-1">{t('detailAbsensiModal.tanggal')}</p>
                   <p className="text-base font-bold text-gray-900">
                     {formatDateID(selectedDateDetail.tanggal)}
                   </p>
                   <p className="text-sm text-blue-700 mt-0.5">
-                    {new Date(selectedDateDetail.tanggal).toLocaleDateString('id-ID', { weekday: 'long' })}
+                    {new Date(selectedDateDetail.tanggal).toLocaleDateString(dateLocale, { weekday: 'long' })}
                   </p>
                 </div>
                 <Calendar className="w-10 h-10 text-blue-500 opacity-50" />
@@ -757,11 +769,11 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <CheckCircle size={16} className="text-gray-500" />
-                Informasi Masuk
+                {t('detailAbsensiModal.informasiMasuk')}
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Jam Masuk</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('detailAbsensiModal.jamMasuk')}</label>
                   {selectedDateDetail.absensi?.jamMasuk ? (
                     <div className="flex items-center gap-2">
                       <Clock size={16} className="text-gray-400" />
@@ -774,7 +786,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Status Masuk</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('detailAbsensiModal.statusMasuk')}</label>
                   <div>
                     {selectedDateDetail.absensi?.statusMasuk ? (
                       getStatusBadge(selectedDateDetail.absensi.statusMasuk)
@@ -790,11 +802,11 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <XCircle size={16} className="text-gray-500" />
-                Informasi Keluar
+                {t('detailAbsensiModal.informasiKeluar')}
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Jam Keluar</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('detailAbsensiModal.jamKeluar')}</label>
                   {selectedDateDetail.absensi?.jamKeluar ? (
                     <div className="flex items-center gap-2">
                       <Clock size={16} className="text-gray-400" />
@@ -807,7 +819,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Status Keluar</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('detailAbsensiModal.statusKeluar')}</label>
                   <div>
                     {selectedDateDetail.izin ? (
                       getStatusBadge(selectedDateDetail.izin.jenis === 'sakit' ? 'sakit' : 'izin')
@@ -825,7 +837,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
 
             {/* Keterangan */}
             <div className="bg-gradient-to-r from-slate-50 to-gray-50 rounded-lg p-4 border border-gray-200">
-              <label className="block text-xs text-gray-500 mb-2 font-medium">Keterangan</label>
+              <label className="block text-xs text-gray-500 mb-2 font-medium">{t('detailAbsensiModal.keterangan')}</label>
               <div>
                 <Badge variant={
                   (() => {
@@ -856,7 +868,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
                   className="w-full flex items-center justify-center gap-2 py-2.5"
                 >
                   <Eye size={18} />
-                  <span>Lihat Detail Izin/Sakit</span>
+                  <span>{t('detailAbsensiModal.lihatDetailIzinSakit')}</span>
                 </Button>
               </div>
             )}
@@ -871,7 +883,7 @@ const LihatKehadiranView: React.FC<LihatKehadiranViewProps> = ({
             setShowIzinModal(false);
             setSelectedIzin(null);
           }}
-          title={`Detail ${selectedIzin.jenis === 'izin' ? 'Izin' : 'Sakit'}`}
+          title={`${t('detailAbsensiModal.detailIzin')} ${selectedIzin.jenis === 'izin' ? t('detailAbsensiModal.izin') : t('detailAbsensiModal.sakit')}`}
         >
           <div className="space-y-4">
             <div>

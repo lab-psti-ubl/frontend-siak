@@ -4,7 +4,7 @@ import { showSuccessNotification, showErrorNotification, showWarningNotification
 import { apiService } from '../../../../services/apiService';
 import { isAttendanceDayAllowed, getDayNameInIndonesian } from '../../../../utils/attendanceDayValidation';
 import { ScanResult } from '../../../ui/QRScanner';
-import { getLocalTimeISOString } from '../../../../utils/absensiUtils';
+import { getLocalTimeISOString, getTodayIndonesia, getCurrentTimeIndonesia } from '../../../../utils/absensiUtils';
 
 interface QRScanHandlerParams {
   qrData: string;
@@ -44,7 +44,7 @@ export const handleAdminQRScanIntegrated = async ({
   kelasIdOverride
 }: QRScanHandlerParams): Promise<ScanResult | null> => {
   const currentTime = Date.now();
-  const currentTime24 = new Date().toLocaleTimeString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit' });
+  const currentTime24 = getCurrentTimeIndonesia();
   const effectiveKelasId = kelasIdOverride || user?.kelasId;
 
   if (lastProcessedScan &&
@@ -79,7 +79,7 @@ export const handleAdminQRScanIntegrated = async ({
     return result;
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayIndonesia();
 
   const parsedAdmin = parseAdminAttendanceQRCode(qrData);
   const parsedTeacher = parseTeacherAttendanceQRCode(qrData);
@@ -406,7 +406,7 @@ export const getTodayKehadiranStatsIntegrated = (
   absensi: Absensi[],
   muridId: string
 ): { isMasuk: boolean; isPulang: boolean; waktuMasuk?: string; waktuPulang?: string } => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayIndonesia();
 
   // Find today's absensi (one record per day in new structure)
   const todayAbsensi = absensi.find(a =>

@@ -128,7 +128,8 @@ const IzinDetailContent: React.FC<IzinDetailContentProps> = ({ izin, user, showV
         izin,
         user,
         qrDataUrl,
-        showVerificationStatus
+        showVerificationStatus,
+        language
       );
     } catch (error) {
       console.error('Error printing izin:', error);

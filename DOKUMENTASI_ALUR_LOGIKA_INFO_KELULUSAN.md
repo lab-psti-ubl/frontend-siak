@@ -16,7 +16,7 @@
 
 ### Lokasi File
 - **Komponen**: `src/components/admin/pages/info-pengumuman/BeriInfo.tsx`
-- **Path di Admin**: Info & Pengumuman > Beri Info
+- **Path di Admin**: Info & Pengumuman > Beri Infod
 
 ### Alur Logika
 

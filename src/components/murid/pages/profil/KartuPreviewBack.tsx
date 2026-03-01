@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User as UserType, Kelas, Jurusan } from '../../../../types';
 import { shouldShowJurusanSync } from '../../../../utils/jenjangPendidikanUtils';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 interface KartuPreviewBackProps {
   user: UserType;
@@ -13,6 +14,7 @@ interface KartuPreviewBackProps {
 const KartuPreviewBack: React.FC<KartuPreviewBackProps> = ({ user, myKelas, myJurusan, backgroundImage, orientation = 'potrait' }) => {
   const [scale, setScale] = useState(1);
   const showJurusan = shouldShowJurusanSync();
+  const { language } = useLanguage();
 
   useEffect(() => {
     const handleResize = () => {
@@ -59,6 +61,23 @@ const KartuPreviewBack: React.FC<KartuPreviewBackProps> = ({ user, myKelas, myJu
   const cardWidth = orientation === 'potrait' ? 285 * scale : 420 * scale;
   const cardHeight = orientation === 'potrait' ? 420 * scale : 285 * scale;
 
+  const isMs = language === 'ms';
+  const rulesTitle = isMs
+    ? 'PERATURAN & SYARAT PENGGUNAAN KAD'
+    : 'TATA TERTIB & KETENTUAN PENGGUNAAN KARTU';
+  const rule1 = isMs
+    ? 'Kad ini adalah milik rasmi sekolah dan hanya sah untuk pelajar yang masih aktif.'
+    : 'Kartu ini adalah milik resmi sekolah dan hanya berlaku untuk siswa aktif.';
+  const rule2 = isMs
+    ? 'Pelajar wajib membawa kad ini setiap hari sepanjang berada di kawasan sekolah.'
+    : 'Siswa wajib membawa kartu ini setiap hari selama berada di lingkungan sekolah';
+  const rule3 = isMs
+    ? 'Kad ini disepadukan dengan sistem pengurusan sekolah (iSchola).'
+    : 'Kartu ini terintegrasi dengan sistem manajemen sekolah (iSchola)';
+  const rule4 = isMs
+    ? 'Jika kad ini hilang atau rosak, pelajar wajib segera melapor ke bahagian Tata Usaha (TU).'
+    : 'Apabila kartu ini hilang atau rusak, siswa wajib segera melapor ke bagian Tata Usaha (TU)';
+
   // Show school information on the back
   return (
     <div className="text-center">
@@ -91,7 +110,7 @@ const KartuPreviewBack: React.FC<KartuPreviewBackProps> = ({ user, myKelas, myJu
               <h3 className={`font-bold ${values.titleSize as string} mb-2`} style={{
                 fontSize: values.textSize === 'text-xs' ? '16px' : values.textSize === 'text-[9px]' ? '12px' : '10px',
               }}>
-                TATA TERTIB & KETENTUAN PENGGUNAAN KARTU
+                {rulesTitle}
               </h3>
             </div>
 
@@ -101,22 +120,22 @@ const KartuPreviewBack: React.FC<KartuPreviewBackProps> = ({ user, myKelas, myJu
             }}>
               <div>
                 <span className="font-medium">1. </span>
-                <span>Kartu ini adalah milik resmi sekolah dan hanya berlaku untuk siswa aktif.</span>
+                <span>{rule1}</span>
               </div>
 
               <div>
                 <span className="font-medium">2. </span>
-                <span>Siswa wajib membawa kartu ini setiap hari selama berada di lingkungan sekolah</span>
+                <span>{rule2}</span>
               </div>
 
               <div>
                 <span className="font-medium">3. </span>
-                <span>Kartu ini terintegrasi dengan sistem manajemen sekolah (iSchola)</span>
+                <span>{rule3}</span>
               </div>
 
               <div>
                 <span className="font-medium">4. </span>
-                <span>Apabila kartu ini hilang atau rusak, siswa wajib segera melapor ke bagian Tata Usaha (TU)</span>
+                <span>{rule4}</span>
               </div>
             </div>
           </div>

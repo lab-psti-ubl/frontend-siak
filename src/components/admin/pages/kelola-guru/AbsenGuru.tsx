@@ -29,6 +29,7 @@ import { useAbsensi } from '../../../../hooks/useAbsensi';
 import { useLanguage } from '../../../../context/LanguageContext';
 import { usePengaturanSistem } from '../../../../hooks/usePengaturanSistem';
 import { getTerminology } from '../../../../utils/terminologyUtils';
+import { getTodayIndonesia } from '../../../../utils/absensiUtils';
 
 const AbsenGuru: React.FC = () => {
   const { t, language } = useLanguage();
@@ -60,10 +61,10 @@ const AbsenGuru: React.FC = () => {
     return allGurus; // For admin view, we mainly need gurus
   }, [allGurus]);
 
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getTodayIndonesia());
   const [selectedGuru, setSelectedGuru] = useState<User | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [detailDate, setDetailDate] = useState(new Date().toISOString().split('T')[0]);
+  const [detailDate, setDetailDate] = useState(getTodayIndonesia());
   const [detailView, setDetailView] = useState<'default' | 'kehadiran' | 'pertemuan'>('default');
   const [isRekapMengajarOpen, setIsRekapMengajarOpen] = useState(false);
   const [isLihatAbsenGuruOpen, setIsLihatAbsenGuruOpen] = useState(false);
@@ -204,9 +205,9 @@ const AbsenGuru: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 lg:gap-6">
         <div className="flex-1">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">
-            {systemType === 'tahfiz' ? t('absenGuru.absensiUstadz') : t('absenGuru.title')}
+            {systemType === 'tahfiz' ? t('kelolaAbsenGuru.titleTahfiz') : t('kelolaAbsenGuru.title')}
           </h1>
-          <p className="text-xs sm:text-sm text-gray-600">{t('absenGuru.subtitle')}</p>
+          <p className="text-xs sm:text-sm text-gray-600">{systemType === 'tahfiz' ? t('kelolaAbsenGuru.subtitleTahfiz') : t('kelolaAbsenGuru.subtitle')}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 lg:gap-3 w-full lg:w-auto">
           <input
@@ -276,7 +277,7 @@ const AbsenGuru: React.FC = () => {
         onClose={() => {
           setIsDetailModalOpen(false);
           setSelectedGuru(null);
-          setDetailDate(new Date().toISOString().split('T')[0]);
+          setDetailDate(getTodayIndonesia());
           setDetailView('default');
         }}
         selectedGuru={selectedGuru}

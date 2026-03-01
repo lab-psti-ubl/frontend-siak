@@ -226,10 +226,10 @@ const DataSantriKepalaSekolah: React.FC = () => {
           <div className="text-center py-12 px-6">
             <Users className="w-16 h-16 mx-auto mb-4 text-slate-300" />
             <h3 className="text-lg font-medium text-slate-900 mb-2">
-              {searchTerm ? 'Tidak ada hasil' : 'Belum ada data santri'}
+              {searchTerm ? t('tahfiz.tidakAdaHasilPencarian') : t('tahfiz.belumAdaDataSantri')}
             </h3>
             <p className="text-sm text-slate-600">
-              {searchTerm ? `Tidak ditemukan santri dengan kata kunci "${searchTerm}"` : 'Data santri akan ditampilkan di sini'}
+              {searchTerm ? t('tahfiz.tidakDitemukanSantriDenganKataKunci', { searchTerm }) : t('tahfiz.tambahSantriUntukMemulai')}
             </p>
           </div>
         )}
@@ -255,26 +255,26 @@ const DataSantriKepalaSekolah: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-slate-900 text-sm truncate">{santriItem.name}</p>
                       <p className="text-xs text-slate-500 truncate">{santriItem.email}</p>
-                      <p className="text-xs text-slate-600 mt-1">NISN: {(santriItem as any).nisn || '-'}</p>
+                      <p className="text-xs text-slate-600 mt-1">{t('tahfiz.nisn')}: {(santriItem as any).nisn || '-'}</p>
                     </div>
                   </div>
 
                   {/* Statistics */}
                   <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
                     <div className="text-center">
-                      <p className="text-xs text-slate-500 mb-1">Juz</p>
+                      <p className="text-xs text-slate-500 mb-1">{t('tahfiz.juz')}</p>
                       <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-blue-100 text-blue-800 font-semibold text-xs w-full">
                         {stats.juz}
                       </span>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs text-slate-500 mb-1">Surah</p>
+                      <p className="text-xs text-slate-500 mb-1">{t('tahfiz.surah')}</p>
                       <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-green-100 text-green-800 font-semibold text-xs w-full">
                         {stats.surah}
                       </span>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs text-slate-500 mb-1">Ayat</p>
+                      <p className="text-xs text-slate-500 mb-1">{t('tahfiz.ayat')}</p>
                       <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-purple-100 text-purple-800 font-semibold text-xs w-full">
                         {stats.ayat}
                       </span>
@@ -290,7 +290,7 @@ const DataSantriKepalaSekolah: React.FC = () => {
                       className="w-full text-xs flex items-center justify-center"
                     >
                       <Eye size={12} className="mr-1" />
-                      Lihat Progress
+                      {t('tahfiz.lihatProgress')}
                     </Button>
                   </div>
                 </div>
@@ -301,10 +301,10 @@ const DataSantriKepalaSekolah: React.FC = () => {
           <div className="text-center py-12 px-4">
             <Users className="w-12 h-12 mx-auto mb-4 text-slate-300" />
             <h3 className="text-base font-medium text-slate-900 mb-2">
-              {searchTerm ? 'Tidak ada hasil' : 'Belum ada data santri'}
+              {searchTerm ? t('tahfiz.tidakAdaHasilPencarian') : t('tahfiz.belumAdaDataSantri')}
             </h3>
             <p className="text-xs text-slate-600">
-              {searchTerm ? `Tidak ditemukan santri dengan kata kunci "${searchTerm}"` : 'Data santri akan ditampilkan di sini'}
+              {searchTerm ? t('tahfiz.tidakDitemukanSantriDenganKataKunci', { searchTerm }) : t('tahfiz.tambahSantriUntukMemulai')}
             </p>
           </div>
         )}

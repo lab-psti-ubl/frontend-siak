@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { ProfilSekolah } from '../../../../../types';
 import { apiService } from '../../../../../services/apiService';
+import { getMonthNames, getDateLocale, type DateLocaleLanguage } from '../../../../../utils/dateLocaleUtils';
 
 interface RekapGuruData {
   guru: any;
@@ -14,11 +15,6 @@ interface RekapGuruData {
   totalBolos: number;
   totalDispen: number;
 }
-
-const monthNames = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-];
 
 // Get school data from database
 async function getSchoolDataFromDatabase(): Promise<ProfilSekolah> {
@@ -85,8 +81,10 @@ export const generateRekapAbsenGuruPDF = async (
   rekapData: RekapGuruData[],
   namaSekolah: string,
   bulan: number,
-  tahun: number
+  tahun: number,
+  language: DateLocaleLanguage = 'id'
 ) => {
+  const monthNames = getMonthNames(language);
   const schoolData = await getSchoolDataFromDatabase();
   const doc = new jsPDF('l', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -257,8 +255,11 @@ export const generateRekapAbsenGuruExcel = async (
   rekapData: RekapGuruData[],
   namaSekolah: string,
   bulan: number,
-  tahun: number
+  tahun: number,
+  language: DateLocaleLanguage = 'id'
 ) => {
+  const monthNames = getMonthNames(language);
+  const dateLocale = getDateLocale(language);
   const schoolData = await getSchoolDataFromDatabase();
   const daysInMonthDate = new Date(tahun, bulan, 0).getDate();
   const headers = ['No', 'Nama Guru', 'NIP'];
@@ -299,7 +300,7 @@ export const generateRekapAbsenGuruExcel = async (
     [],
     ['REKAP ABSENSI GURU'],
     [`Bulan: ${monthNames[bulan - 1]} ${tahun}`],
-    [`Dicetak pada: ${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`],
+    [`Dicetak pada: ${new Date().toLocaleDateString(dateLocale)} ${new Date().toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`],
     [],
     headers,
     ...data

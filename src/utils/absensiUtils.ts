@@ -1,5 +1,56 @@
 import { PengaturanAbsen } from '../types';
 
+const TIMEZONE_INDONESIA = 'Asia/Jakarta';
+
+/**
+ * Get today's date in Indonesia timezone (WIB/UTC+7)
+ * PENTING: Jangan gunakan new Date().toISOString().split('T')[0] karena toISOString()
+ * selalu mengembalikan UTC. Saat jam 00:00-06:59 WIB, tanggal UTC masih hari sebelumnya,
+ * sehingga absensi sebelum jam 7 pagi terhitung di hari yang salah.
+ * @returns Tanggal hari ini dalam format YYYY-MM-DD sesuai waktu Indonesia
+ */
+export const getTodayIndonesia = (): string => {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIMEZONE_INDONESIA,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(now); // Returns YYYY-MM-DD
+};
+
+/**
+ * Get current time in Indonesia timezone (HH:MM format)
+ * @returns Waktu saat ini dalam format HH:MM sesuai waktu Indonesia
+ */
+export const getCurrentTimeIndonesia = (): string => {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIMEZONE_INDONESIA,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  return formatter.format(now);
+};
+
+/**
+ * Get current time in device local timezone (HH:MM format).
+ * Digunakan untuk nilai jamMasuk/jamKeluar yang disimpan ke database dari
+ * absen QR, RFID, manual, dan face recognition (guru & murid).
+ * @returns Waktu saat ini dalam format HH:MM sesuai jam lokal perangkat
+ */
+export const getCurrentTimeLocal = (): string => {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  return formatter.format(now);
+};
+
 /**
  * Convert local time to ISO string format with local timezone offset
  * This preserves the local time without converting to UTC

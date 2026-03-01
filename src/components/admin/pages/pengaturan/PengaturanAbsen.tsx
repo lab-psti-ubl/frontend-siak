@@ -16,6 +16,7 @@ import PengaturanJenjangPendidikanTab from './components/PengaturanJenjangPendid
 import PengaturanSistemTab from './components/PengaturanSistemTab';
 import PengaturanSettingsSummary from './components/PengaturanSettingsSummary';
 import PengaturanInfoSection from './components/PengaturanInfoSection';
+import PengaturanKelolaAkunTab from './components/PengaturanKelolaAkunTab';
 
 const PengaturanAbsenComponent: React.FC = () => {
   const { t } = useLanguage();
@@ -50,7 +51,18 @@ const PengaturanAbsenComponent: React.FC = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [sksMessage, setSksMessage] = useState({ type: '', text: '' });
   const [istirahatMessage, setIstirahatMessage] = useState({ type: '', text: '' });
-  const [activeTab, setActiveTab] = useState<'absen' | 'sks' | 'istirahat' | 'nilai' | 'kepsek' | 'profil_sekolah' | 'background_kta' | 'jenjang_pendidikan' | 'pengaturan_sistem'>('absen');
+  const [activeTab, setActiveTab] = useState<
+    'absen'
+    | 'sks'
+    | 'istirahat'
+    | 'nilai'
+    | 'kepsek'
+    | 'profil_sekolah'
+    | 'background_kta'
+    | 'jenjang_pendidikan'
+    | 'pengaturan_sistem'
+    | 'kelola_akun'
+  >('absen');
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
 
   const activePengaturan = pengaturanAbsen.find(p => p.isActive);
@@ -159,13 +171,14 @@ const PengaturanAbsenComponent: React.FC = () => {
     { id: 'background_kta', label: t('settings.background_kta'), icon: Image },
     { id: 'jenjang_pendidikan', label: t('settings.jenjang_pendidikan'), icon: GraduationCap },
     { id: 'pengaturan_sistem', label: t('settings.pengaturan_sistem'), icon: Cog },
+    { id: 'kelola_akun', label: t('settings.kelola_akun'), icon: User },
   ];
 
   // Filter tabs based on system type
-  // For tahfiz school, only show: absen, istirahat, kepsek, profil_sekolah, background_kta, pengaturan_sistem
+  // For tahfiz school, only show: absen, istirahat, kepsek, profil_sekolah, background_kta, pengaturan_sistem, kelola_akun
   const isTahfiz = systemType === 'tahfiz';
   const tabs = isTahfiz 
-    ? allTabs.filter(tab => ['absen', 'istirahat', 'kepsek', 'profil_sekolah', 'background_kta', 'pengaturan_sistem'].includes(tab.id))
+    ? allTabs.filter(tab => ['absen', 'istirahat', 'kepsek', 'profil_sekolah', 'background_kta', 'pengaturan_sistem', 'kelola_akun'].includes(tab.id))
     : allTabs;
 
   // Ensure activeTab is valid for current system type
@@ -181,7 +194,19 @@ const PengaturanAbsenComponent: React.FC = () => {
   };
 
   const handleMenuClick = (tabId: string) => {
-    setActiveTab(tabId as typeof activeTab);
+    setActiveTab(
+      tabId as
+        | 'absen'
+        | 'sks'
+        | 'istirahat'
+        | 'nilai'
+        | 'kepsek'
+        | 'profil_sekolah'
+        | 'background_kta'
+        | 'jenjang_pendidikan'
+        | 'pengaturan_sistem'
+        | 'kelola_akun'
+    );
     setIsMobileDetailView(true);
   };
 
@@ -263,7 +288,21 @@ const PengaturanAbsenComponent: React.FC = () => {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as 'absen' | 'sks' | 'istirahat' | 'nilai' | 'kepsek' | 'profil_sekolah' | 'background_kta' | 'jenjang_pendidikan' | 'pengaturan_sistem')}
+                    onClick={() =>
+                      setActiveTab(
+                        tab.id as
+                          | 'absen'
+                          | 'sks'
+                          | 'istirahat'
+                          | 'nilai'
+                          | 'kepsek'
+                          | 'profil_sekolah'
+                          | 'background_kta'
+                          | 'jenjang_pendidikan'
+                          | 'pengaturan_sistem'
+                          | 'kelola_akun'
+                      )
+                    }
                     className={`w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-3 sm:py-4 text-left transition-all duration-200 ${
                       isActive
                         ? 'bg-blue-50 border-l-4 border-blue-600'
@@ -376,6 +415,10 @@ const PengaturanAbsenComponent: React.FC = () => {
 
           {activeTab === 'pengaturan_sistem' && (
             <PengaturanSistemTab />
+          )}
+
+          {activeTab === 'kelola_akun' && (
+            <PengaturanKelolaAkunTab />
           )}
 
           {/* <PengaturanInfoSection

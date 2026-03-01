@@ -1,4 +1,5 @@
 import { Kelas, JadwalPelajaran, SesiAbsensi, User, MataPelajaran } from '../types';
+import { getTodayIndonesia, getCurrentTimeIndonesia } from './absensiUtils';
 
 export type MonitoringStatus = 'jadwal_kosong' | 'belum_ada_guru' | 'sudah_ada_guru' | 'sesi_ditutup';
 
@@ -38,10 +39,7 @@ function getCurrentDayInIndonesian(): string {
 }
 
 function getCurrentTimeString(): string {
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
+  return getCurrentTimeIndonesia();
 }
 
 function isTimeBetween(timeStr: string, startTime: string, endTime: string): boolean {
@@ -68,7 +66,7 @@ export function getKelasMonitoringStatus(
 ): KelasMonitoring {
   const currentDay = getCurrentDayInIndonesian();
   const currentTime = getCurrentTimeString();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayIndonesia();
 
   const kelasData = kelas.find(k => k.id === kelasId);
   const jadwalForDay = jadwal.filter(

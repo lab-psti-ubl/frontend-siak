@@ -7,6 +7,8 @@ import Badge from '../../../ui/Badge';
 import Modal from '../../../ui/Modal';
 import { Table, TableHeader, TableBody, TableRow, TableCell } from '../../../ui/Table';
 import { useAuth } from '../../../../context/AuthContext';
+import { useLanguage } from '../../../../context/LanguageContext';
+import { usePengaturanSistem } from '../../../../hooks/usePengaturanSistem';
 import { IzinGuru, User, AbsensiGuru } from '../../../../types';
 import { showSuccessNotification, showErrorNotification } from '../../../../utils/notificationUtils';
 import { showSuccessConfirmation, showDangerConfirmation } from '../../../../utils/confirmationUtils';
@@ -16,7 +18,11 @@ import { useGurus } from '../../../../hooks/useGurus';
 
 const IzinGuruAdmin: React.FC = () => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
+  const { systemType } = usePengaturanSistem();
   const { gurus: gurusData } = useGurus();
+  const isTahfiz = systemType === 'tahfiz';
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   
   const [izinGuru, setIzinGuru] = useState<IzinGuru[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -52,7 +58,7 @@ const IzinGuruAdmin: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching Izin Guru Admin data:', error);
-      showErrorNotification('Error', 'Gagal memuat data izin guru');
+      showErrorNotification('Error', t('verifikasiIzinGuru.memuatData'));
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +95,7 @@ const IzinGuruAdmin: React.FC = () => {
     
     confirmationFunction(
       `${status === 'diterima' ? 'Setujui' : 'Tolak'} Pengajuan ${izin.jenis.charAt(0).toUpperCase() + izin.jenis.slice(1)}`,
-      `Apakah Anda yakin ingin ${actionText} pengajuan ${izin.jenis} dari ${guru?.name}?\n\nPeriode: ${new Date(izin.tanggalMulai).toLocaleDateString('id-ID')} - ${new Date(izin.tanggalSelesai).toLocaleDateString('id-ID')}\nAlasan: ${izin.alasan}${status === 'diterima' ? '\n\n✓ Absensi guru akan otomatis diperbarui untuk periode ini' : ''}`,
+      `Apakah Anda yakin ingin ${actionText} pengajuan ${izin.jenis} dari ${guru?.name}?\n\nPeriode: ${new Date(izin.tanggalMulai).toLocaleDateString(dateLocale)} - ${new Date(izin.tanggalSelesai).toLocaleDateString(dateLocale)}\nAlasan: ${izin.alasan}${status === 'diterima' ? '\n\n✓ Absensi guru akan otomatis diperbarui untuk periode ini' : ''}`,
       async () => {
         try {
           // Update izin via API
@@ -218,7 +224,7 @@ const IzinGuruAdmin: React.FC = () => {
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat data verifikasi izin guru...</p>
+          <p className="text-gray-600">{t('verifikasiIzinGuru.memuatData')}</p>
         </div>
       </div>
     );
@@ -229,12 +235,12 @@ const IzinGuruAdmin: React.FC = () => {
       {/* Header Section */}
       <div className="flex flex-col gap-3 sm:gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Verifikasi Izin Guru</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Kelola pengajuan izin, sakit, dan cuti dari guru</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{isTahfiz ? t('verifikasiIzinGuru.titleTahfiz') : t('verifikasiIzinGuru.title')}</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">{isTahfiz ? t('verifikasiIzinGuru.subtitleTahfiz') : t('verifikasiIzinGuru.subtitle')}</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <div className="px-3 py-2 bg-orange-100 text-orange-800 rounded-full text-center sm:text-left text-sm font-medium">
-            {pendingCount} menunggu verifikasi
+            {pendingCount} {t('verifikasiIzinGuru.menungguVerifikasi')}
           </div>
           <Button 
             onClick={exportIzinReport} 
@@ -255,7 +261,7 @@ const IzinGuruAdmin: React.FC = () => {
             <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
           </div>
           <p className="text-xl sm:text-2xl font-bold text-gray-900">{pendingCount}</p>
-          <p className="text-xs sm:text-sm text-gray-600">Menunggu Verifikasi</p>
+          <p className="text-xs sm:text-sm text-gray-600">{t('verifikasiIzinGuru.menungguPengesahan')}</p>
         </Card>
 
         <Card className="p-4 sm:p-6 text-center border-l-4 border-l-emerald-500">
@@ -263,7 +269,7 @@ const IzinGuruAdmin: React.FC = () => {
             <Check className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
           </div>
           <p className="text-xl sm:text-2xl font-bold text-gray-900">{approvedCount}</p>
-          <p className="text-xs sm:text-sm text-gray-600">Disetujui</p>
+          <p className="text-xs sm:text-sm text-gray-600">{t('verifikasiIzinGuru.disetujui')}</p>
         </Card>
 
         <Card className="p-4 sm:p-6 text-center border-l-4 border-l-red-500">
@@ -271,7 +277,7 @@ const IzinGuruAdmin: React.FC = () => {
             <X className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
           </div>
           <p className="text-xl sm:text-2xl font-bold text-gray-900">{rejectedCount}</p>
-          <p className="text-xs sm:text-sm text-gray-600">Ditolak</p>
+          <p className="text-xs sm:text-sm text-gray-600">{t('verifikasiIzinGuru.ditolak')}</p>
         </Card>
       </div>
 
@@ -279,12 +285,12 @@ const IzinGuruAdmin: React.FC = () => {
       <Card className="p-4 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Cari Guru</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('verifikasiIzinGuru.cariGuru')}</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
-                placeholder="Nama atau NIP guru..."
+                placeholder={isTahfiz ? t('verifikasiIzinGuru.cariGuruPlaceholderTahfiz') : t('verifikasiIzinGuru.cariGuruPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
@@ -293,21 +299,21 @@ const IzinGuruAdmin: React.FC = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('verifikasiIzinGuru.status')}</label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as any)}
               className="w-full px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm sm:text-base"
             >
-              <option value="semua">Semua Status</option>
-              <option value="menunggu">Menunggu</option>
-              <option value="diterima">Diterima</option>
-              <option value="ditolak">Ditolak</option>
+              <option value="semua">{t('verifikasiIzinGuru.semuaStatus')}</option>
+              <option value="menunggu">{t('verifikasiIzinGuru.menunggu')}</option>
+              <option value="diterima">{t('verifikasiIzinGuru.disetujui')}</option>
+              <option value="ditolak">{t('verifikasiIzinGuru.ditolak')}</option>
             </select>
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Dari Tanggal</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('verifikasiIzinGuru.dariTanggal')}</label>
             <input
               type="date"
               value={dateFilter.start}
@@ -317,7 +323,7 @@ const IzinGuruAdmin: React.FC = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Sampai Tanggal</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('verifikasiIzinGuru.sampaiTanggal')}</label>
             <input
               type="date"
               value={dateFilter.end}
@@ -329,7 +335,7 @@ const IzinGuruAdmin: React.FC = () => {
         
         <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="text-xs sm:text-sm text-gray-600">
-            Menampilkan {filteredIzin.length} pengajuan
+            {t('verifikasiIzinGuru.menampilkanPengajuan', { count: filteredIzin.length })}
           </div>
           <Button 
             variant="danger" 
@@ -343,7 +349,7 @@ const IzinGuruAdmin: React.FC = () => {
             }}
             className="w-full sm:w-auto"
           >
-            Reset Filter
+            {t('verifikasiIzinGuru.resetFilter')}
           </Button>
         </div>
       </Card>
@@ -351,7 +357,7 @@ const IzinGuruAdmin: React.FC = () => {
       {/* Data Table - Desktop View */}
       <Card className="hidden lg:block">
         <div className="p-4 sm:p-6 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">Daftar Pengajuan Izin</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">{t('verifikasiIzinGuru.daftarPengajuanIzin')}</h3>
         </div>
 
         <div className="overflow-x-auto">
@@ -359,12 +365,12 @@ const IzinGuruAdmin: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableCell header>Guru</TableCell>
-                  <TableCell header>Jenis & Periode</TableCell>
-                  <TableCell header>Alasan</TableCell>
-                  <TableCell header>Status</TableCell>
-                  <TableCell header>Tanggal Pengajuan</TableCell>
-                  <TableCell header>Aksi</TableCell>
+                  <TableCell header>{t('verifikasiIzinGuru.guru')}</TableCell>
+                  <TableCell header>{t('verifikasiIzinGuru.jenisPeriode')}</TableCell>
+                  <TableCell header>{t('verifikasiIzinGuru.alasan')}</TableCell>
+                  <TableCell header>{t('verifikasiIzinGuru.status')}</TableCell>
+                  <TableCell header>{t('verifikasiIzinGuru.tanggalPengajuan')}</TableCell>
+                  <TableCell header>{t('common.aksi')}</TableCell>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -385,9 +391,9 @@ const IzinGuruAdmin: React.FC = () => {
                       <div className="space-y-1">
                         {getJenisBadge(izin.jenis)}
                         <div className="text-sm text-gray-600">
-                          <div>{new Date(izin.tanggalMulai).toLocaleDateString('id-ID')}</div>
+                          <div>{new Date(izin.tanggalMulai).toLocaleDateString(dateLocale)}</div>
                           {izin.tanggalMulai !== izin.tanggalSelesai && (
-                            <div className="text-gray-500">s/d {new Date(izin.tanggalSelesai).toLocaleDateString('id-ID')}</div>
+                            <div className="text-gray-500">s/d {new Date(izin.tanggalSelesai).toLocaleDateString(dateLocale)}</div>
                           )}
                         </div>
                       </div>
@@ -404,14 +410,14 @@ const IzinGuruAdmin: React.FC = () => {
                         {getStatusBadge(izin.status)}
                         {izin.verifiedAt && (
                           <div className="text-xs text-gray-500">
-                            {new Date(izin.verifiedAt).toLocaleDateString('id-ID')}
+                            {new Date(izin.verifiedAt).toLocaleDateString(dateLocale)}
                           </div>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-gray-600">
-                        {new Date(izin.createdAt).toLocaleDateString('id-ID')}
+                        {new Date(izin.createdAt).toLocaleDateString(dateLocale)}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -421,7 +427,7 @@ const IzinGuruAdmin: React.FC = () => {
                         onClick={() => openDetailModal(izin)}
                         className="!p-2 flex items-center justify-center"
                       >
-                        <Eye className="mr-2" size={16} /> Detail
+                        <Eye className="mr-2" size={16} /> {t('verifikasiIzinGuru.detailButton')}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -432,12 +438,12 @@ const IzinGuruAdmin: React.FC = () => {
             <div className="text-center py-12">
               <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {searchTerm || filterStatus !== 'semua' ? 'Tidak ada hasil' : 'Belum ada pengajuan'}
+                {searchTerm || filterStatus !== 'semua' ? t('verifikasiIzinGuru.tidakAdaHasil') : t('verifikasiIzinGuru.belumAdaPengajuan')}
               </h3>
               <p className="text-gray-600">
                 {searchTerm || filterStatus !== 'semua' 
-                  ? 'Tidak ditemukan pengajuan izin untuk filter yang dipilih'
-                  : 'Belum ada pengajuan izin dari guru'
+                  ? t('verifikasiIzinGuru.tidakDitemukanFilter')
+                  : t('verifikasiIzinGuru.belumAdaPengajuanDariGuru')
                 }
               </p>
             </div>
@@ -448,7 +454,7 @@ const IzinGuruAdmin: React.FC = () => {
       {/* Mobile Card View */}
       <Card className="lg:hidden">
         <div className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50/50">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">Daftar Pengajuan Izin</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">{t('verifikasiIzinGuru.daftarPengajuanIzin')}</h3>
         </div>
         
         {filteredIzin.length > 0 ? (
@@ -495,7 +501,7 @@ const IzinGuruAdmin: React.FC = () => {
                     <div className="flex items-center gap-1.5 text-sm text-gray-600 bg-gradient-to-r from-gray-50 to-gray-100/50 px-3 py-1.5 rounded-lg border border-gray-200/50">
                       <Calendar size={14} className="text-blue-500" />
                       <span className="font-medium">
-                        {new Date(izin.tanggalMulai).toLocaleDateString('id-ID', { 
+                        {new Date(izin.tanggalMulai).toLocaleDateString(dateLocale, { 
                           day: '2-digit', 
                           month: '2-digit', 
                           year: 'numeric' 
@@ -505,7 +511,7 @@ const IzinGuruAdmin: React.FC = () => {
                         <>
                           <span className="text-gray-400 mx-1">-</span>
                           <span className="font-medium">
-                            {new Date(izin.tanggalSelesai).toLocaleDateString('id-ID', { 
+                            {new Date(izin.tanggalSelesai).toLocaleDateString(dateLocale, { 
                               day: '2-digit', 
                               month: '2-digit', 
                               year: 'numeric' 
@@ -535,7 +541,7 @@ const IzinGuruAdmin: React.FC = () => {
                           <Clock size={12} className="text-gray-400" />
                           <span>
                             <span className="font-medium text-gray-600">Pengajuan:</span>{' '}
-                            {new Date(izin.createdAt).toLocaleDateString('id-ID', { 
+                            {new Date(izin.createdAt).toLocaleDateString(dateLocale, { 
                               day: '2-digit', 
                               month: '2-digit', 
                               year: 'numeric' 
@@ -547,7 +553,7 @@ const IzinGuruAdmin: React.FC = () => {
                             <Check size={12} className="text-gray-400" />
                             <span>
                               <span className="font-medium text-gray-600">Verifikasi:</span>{' '}
-                              {new Date(izin.verifiedAt).toLocaleDateString('id-ID', { 
+                              {new Date(izin.verifiedAt).toLocaleDateString(dateLocale, { 
                                 day: '2-digit', 
                                 month: '2-digit', 
                                 year: 'numeric' 
@@ -563,7 +569,7 @@ const IzinGuruAdmin: React.FC = () => {
                         className="flex items-center justify-center gap-2 w-full sm:w-auto bg-gradient-to-r from-gray-100 to-gray-50 hover:from-gray-200 hover:to-gray-100 text-gray-700 font-medium shadow-sm border border-gray-200 hover:border-gray-300 transition-all duration-200"
                       >
                         <Eye size={16} />
-                        <span>Detail</span>
+                        <span>{t('verifikasiIzinGuru.detailButton')}</span>
                       </Button>
                     </div>
                   </div>
@@ -575,7 +581,7 @@ const IzinGuruAdmin: React.FC = () => {
           <div className="text-center py-12 px-4">
             <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
-              {searchTerm || filterStatus !== 'semua' ? 'Tidak ada hasil' : 'Belum ada pengajuan'}
+              {searchTerm || filterStatus !== 'semua' ? t('verifikasiIzinGuru.tidakAdaHasil') : t('verifikasiIzinGuru.belumAdaPengajuan')}
             </h3>
             <p className="text-sm text-gray-600">
               {searchTerm || filterStatus !== 'semua' 
@@ -609,18 +615,18 @@ const IzinGuruAdmin: React.FC = () => {
             {/* Form Verifikasi untuk Admin */}
             {selectedIzin.status === 'menunggu' && (
               <div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-gray-50 rounded-lg">
-                <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Verifikasi Pengajuan</h4>
+                <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">{t('verifikasiIzinGuru.verifikasiPengajuan')}</h4>
 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Keterangan Admin (Opsional)
+                    {t('verifikasiIzinGuru.keteranganAdmin')}
                   </label>
                   <textarea
                     value={keterangan}
                     onChange={(e) => setKeterangan(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
                     rows={3}
-                    placeholder="Tambahkan keterangan jika diperlukan..."
+                    placeholder={t('verifikasiIzinGuru.keteranganPlaceholder')}
                   />
                 </div>
 
@@ -632,7 +638,7 @@ const IzinGuruAdmin: React.FC = () => {
                     className="flex items-center justify-center"
                   >
                     <Check size={16} className="mr-2" />
-                    Setujui Pengajuan
+                    {t('verifikasiIzinGuru.setujuiPengajuan')}
                   </Button>
                   <Button
                     variant="danger"
@@ -641,7 +647,7 @@ const IzinGuruAdmin: React.FC = () => {
                     className="flex items-center justify-center"
                   >
                     <X size={16} className="mr-2" />
-                    Tolak Pengajuan
+                    {t('verifikasiIzinGuru.tolakPengajuan')}
                   </Button>
                 </div>
               </div>

@@ -27,7 +27,8 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
   onEdit,
   onDelete
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   const isApproved = (status: string) => status === 'diterima';
 
   if (izinList.length === 0) {
@@ -97,7 +98,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
                 <>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-slate-500" />
-                    <span>{new Date(izin.tanggalMulai).toLocaleDateString('id-ID')}</span>
+                    <span>{new Date(izin.tanggalMulai).toLocaleDateString(dateLocale)}</span>
                   </div>
 
                   {izin.jamMulai && (
@@ -116,8 +117,8 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
               </Badge>
                   <Calendar className="w-4 h-4 text-slate-500" />
                   <span>
-                    {new Date(izin.tanggalMulai).toLocaleDateString('id-ID')} -{' '}
-                    {new Date(izin.tanggalSelesai).toLocaleDateString('id-ID')}
+                    {new Date(izin.tanggalMulai).toLocaleDateString(dateLocale)} -{' '}
+                    {new Date(izin.tanggalSelesai).toLocaleDateString(dateLocale)}
                   </span>
                 </div>
               )}
@@ -138,7 +139,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
                 {izin.status === 'diterima' && t('izinGuru.status.diterima')}
                 {izin.status === 'ditolak' && t('izinGuru.status.ditolak')}
               </Badge>
-              {t('izinGuru.diajukan')}: {new Date(izin.createdAt).toLocaleDateString('id-ID')}
+              {t('izinGuru.diajukan')}: {new Date(izin.createdAt).toLocaleDateString(dateLocale)}
             </div>
 
             {/* ACTION BUTTONS */}
@@ -187,7 +188,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableCell header>{t('izinGuru.jenis')}</TableCell>
+              <TableCell header>{t('izinGuru.jenisKolom')}</TableCell>
               <TableCell header>{t('izinGuru.tanggal')}</TableCell>
               <TableCell header>{t('izinGuru.alasan')}</TableCell>
               <TableCell header>{t('izinGuru.statusLabel')}</TableCell>
@@ -201,7 +202,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
               <TableRow key={izin.id} className="hover:bg-slate-50 transition-colors duration-150">
                 <TableCell>
                   <Badge variant={getJenisBadge(izin.jenis) as any}>
-                    {izin.jenis === 'izin_dispen' ? 'DISPEN' : izin.jenis.toUpperCase()}
+                    {izin.jenis === 'izin_dispen' ? t('izinGuru.izinDispen').toUpperCase() : t(`izinGuru.jenis.${izin.jenis}`).toUpperCase()}
                   </Badge>
                 </TableCell>
 
@@ -210,7 +211,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-slate-900">
                         <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                        {new Date(izin.tanggalMulai).toLocaleDateString('id-ID')}
+                        {new Date(izin.tanggalMulai).toLocaleDateString(dateLocale)}
                       </div>
 
                       {izin.jamMulai && (
@@ -226,8 +227,8 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
                     <div className="flex items-center gap-2 text-slate-900">
                       <Calendar className="w-3.5 h-3.5 text-slate-500" />
                       <span>
-                        {new Date(izin.tanggalMulai).toLocaleDateString('id-ID')} -{' '}
-                        {new Date(izin.tanggalSelesai).toLocaleDateString('id-ID')}
+                        {new Date(izin.tanggalMulai).toLocaleDateString(dateLocale)} -{' '}
+                        {new Date(izin.tanggalSelesai).toLocaleDateString(dateLocale)}
                       </span>
                     </div>
                   )}
@@ -248,7 +249,7 @@ const IzinGuruTable: React.FC<IzinGuruTableProps> = ({
                 </TableCell>
 
                 <TableCell className="text-xs text-slate-600">
-                  {new Date(izin.createdAt).toLocaleDateString('id-ID')}
+                  {new Date(izin.createdAt).toLocaleDateString(dateLocale)}
                 </TableCell>
 
                 <TableCell>

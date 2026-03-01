@@ -7,6 +7,7 @@ import { showDangerConfirmation } from '../../../../../utils/confirmationUtils';
 import { apiService } from '../../../../../services/apiService';
 import { showSuccessToast, showErrorToast } from '../../../../ui/ToastContainer';
 import { shouldShowJurusanSync } from '../../../../../utils/jenjangPendidikanUtils';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 interface UseMuridActionsProps {
   currentKelas: Kelas | undefined;
@@ -36,6 +37,7 @@ export const useMuridActions = ({
     const activeTahunAjaran = tahunAjaran.find(ta => ta.isActive);
     return activeTahunAjaran?.semester || 1;
   });
+  const { language } = useLanguage();
 
   const handleViewDetail = (murid: User) => {
     setSelectedMurid(murid);
@@ -98,7 +100,15 @@ export const useMuridActions = ({
     }
 
     try {
-      await generateMuridKartuPelajar(murid, currentKelas, showJurusan ? currentJurusan : undefined);
+      await generateMuridKartuPelajar(
+        murid,
+        currentKelas,
+        showJurusan ? currentJurusan : undefined,
+        undefined,
+        undefined,
+        'potrait',
+        language
+      );
       alert('Kartu pelajar berhasil diunduh!');
     } catch (error) {
       console.error('Error generating kartu pelajar:', error);

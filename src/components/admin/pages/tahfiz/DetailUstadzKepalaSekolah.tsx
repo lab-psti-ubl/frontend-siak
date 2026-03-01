@@ -145,16 +145,16 @@ const DetailUstadzKepalaSekolah: React.FC = () => {
                 variant="secondary"
                 onClick={() => navigate('/dashboard/data-ustadz-kepala-sekolah')}
                 className="!p-2 bg-white/20 hover:bg-white/30 text-white border-white/30"
-                title="Kembali"
+                title={t('common.back')}
               >
                 <ArrowLeft size={20} />
               </Button>
               <div>
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1 sm:mb-2">
-                  Detail Ustadz
+                  {t('tahfiz.detailUstadz')}
                 </h1>
                 <p className="text-sm sm:text-base text-green-100">
-                  {selectedUstadz?.name || 'Ustadz'}
+                  {selectedUstadz?.name || t('tahfiz.ustadzLabel')}
                 </p>
               </div>
             </div>

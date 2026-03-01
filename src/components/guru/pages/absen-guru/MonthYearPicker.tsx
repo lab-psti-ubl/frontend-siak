@@ -1,5 +1,9 @@
 import React from 'react';
 import { ChevronDown, Calendar } from 'lucide-react';
+import { getMonthNames, type DateLocaleLanguage } from '../../../../utils/dateLocaleUtils';
+
+const ID_MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+const MS_MONTH_SHORT = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogos', 'Sep', 'Okt', 'Nov', 'Dis'];
 
 interface MonthYearPickerProps {
   selectedMonth: number;
@@ -10,6 +14,8 @@ interface MonthYearPickerProps {
   onYearSelect: (year: number) => void;
   onSetThisMonth: () => void;
   onClear: () => void;
+  /** When 'ms', month names use Malay (Mac, Julai, Ogos, Disember, etc.) */
+  language?: DateLocaleLanguage;
 }
 
 const MonthYearPicker: React.FC<MonthYearPickerProps> = ({
@@ -21,29 +27,18 @@ const MonthYearPicker: React.FC<MonthYearPickerProps> = ({
   onYearSelect,
   onSetThisMonth,
   onClear,
+  language = 'id',
 }) => {
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
   const years = [currentYear - 1, currentYear, currentYear + 1];
-  const months = [
-    { short: 'Jan', full: 'Januari', value: 1 },
-    { short: 'Feb', full: 'Februari', value: 2 },
-    { short: 'Mar', full: 'Maret', value: 3 },
-    { short: 'Apr', full: 'April', value: 4 },
-    { short: 'May', full: 'Mei', value: 5 },
-    { short: 'Jun', full: 'Juni', value: 6 },
-    { short: 'Jul', full: 'Juli', value: 7 },
-    { short: 'Aug', full: 'Agustus', value: 8 },
-    { short: 'Sep', full: 'September', value: 9 },
-    { short: 'Oct', full: 'Oktober', value: 10 },
-    { short: 'Nov', full: 'November', value: 11 },
-    { short: 'Dec', full: 'Desember', value: 12 }
-  ];
-
-  const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
+  const monthNames = getMonthNames(language);
+  const shortNames = language === 'ms' ? MS_MONTH_SHORT : ID_MONTH_SHORT;
+  const months = monthNames.map((full, i) => ({
+    short: shortNames[i],
+    full,
+    value: i + 1,
+  }));
 
   return (
     <div className="relative">

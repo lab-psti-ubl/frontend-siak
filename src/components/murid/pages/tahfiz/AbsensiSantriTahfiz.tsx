@@ -22,14 +22,16 @@ import {
   getAvailableMonthsYearsTahfiz
 } from './AbsensiSantriTahfizUtils';
 import { handleQRScanResultTahfiz as handleQRScanResultTahfizUtil, resetQRScanStateTahfiz } from './QRScanHandlerTahfiz';
+import { getTodayIndonesia } from '../../../../utils/absensiUtils';
+import { getDateLocale } from '../../../../utils/dateLocaleUtils';
 
 const AbsensiSantriTahfiz: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const location = useLocation();
   const jadwalRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const { jadwalTahfiz } = useJadwalTahfiz();
-  const { sesiAbsensiTahfiz, refreshSesiAbsensiTahfiz } = useSesiAbsensiTahfiz();
+  const { sesiAbsensiTahfiz, refreshSesiAbsensiTahfiz, addAbsensiToSesiTahfiz: addAbsensiToSesiTahfizAPI } = useSesiAbsensiTahfiz();
   const { ustadz } = useUstadz();
   const { kelasTahfiz } = useKelasTahfiz();
   const { santri } = useSantri();
@@ -64,8 +66,8 @@ const AbsensiSantriTahfiz: React.FC = () => {
   const SCAN_DEBOUNCE_TIME = 2000;
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const today = new Date().toISOString().split('T')[0];
-  const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
+  const today = getTodayIndonesia();
+  const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' }).toLowerCase();
 
   // Map user to santri record (supports santri created from murid or standalone santri)
   const santriRecord = user?.id
@@ -121,7 +123,8 @@ const AbsensiSantriTahfiz: React.FC = () => {
       setRefreshKey,
       lastProcessedScan,
       setLastProcessedScan,
-      SCAN_DEBOUNCE_TIME
+      SCAN_DEBOUNCE_TIME,
+      addAbsensiToSesiTahfizAPI
     });
 
     if (success) {
@@ -279,7 +282,7 @@ const AbsensiSantriTahfiz: React.FC = () => {
                 {t('tahfiz.muridTahfiz.absensiSantri.title')}
               </h1>
               <p className="text-sm sm:text-base text-blue-100">
-                {new Date().toLocaleDateString('id-ID', {
+                {new Date().toLocaleDateString(getDateLocale(language), {
                   weekday: 'long',
                   year: 'numeric',
                   month: 'long',
@@ -521,9 +524,10 @@ const AbsensiSantriTahfiz: React.FC = () => {
                 availableMonths={availableMonths}
                 availableYears={availableYears}
                 monthsYears={monthsYears}
+                language={language}
               />
               <p className="text-xs sm:text-sm text-slate-600 mt-2">
-                {t('tahfiz.muridTahfiz.absensiSantri.menampilkanDataUntuk')} {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+                {t('tahfiz.muridTahfiz.absensiSantri.menampilkanDataUntuk')} {new Date(selectedYear, selectedMonth - 1).toLocaleDateString(getDateLocale(language), { month: 'long', year: 'numeric' })}
               </p>
             </div>
           </div>
@@ -545,7 +549,7 @@ const AbsensiSantriTahfiz: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+                {new Date(selectedYear, selectedMonth - 1).toLocaleDateString(getDateLocale(language), { month: 'long', year: 'numeric' })}
               </span>
             </div>
           </div>

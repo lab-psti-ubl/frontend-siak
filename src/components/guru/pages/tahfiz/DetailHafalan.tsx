@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, RefreshCw, BookOpen, Calendar, User } from 'lucide-react';
 import { useLanguage } from '../../../../context/LanguageContext';
+import { getDateLocale } from '../../../../utils/dateLocaleUtils';
 import Button from '../../../ui/Button';
 import { ProgressHafalan } from '../../../../hooks/useProgressHafalan';
 import { useSantri } from '../../../../hooks/useSantri';
@@ -36,7 +37,7 @@ const DetailHafalan: React.FC = () => {
   const location = useLocation();
   const { santriId } = useParams<{ santriId: string }>();
   const progress = location.state?.progress as ProgressHafalan | null;
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const { santri } = useSantri();
   const selectedSantri = santri.find((s) => s.id === santriId || s.id === progress?.santriId);
@@ -308,7 +309,7 @@ const DetailHafalan: React.FC = () => {
               <div className="flex items-center gap-2 bg-white/20 rounded-lg px-4 py-2 border border-white/30">
                 <Calendar className="w-4 h-4 text-white" />
                 <span className="text-sm text-white font-medium">
-                  {new Date().toLocaleDateString('id-ID', { 
+                  {new Date().toLocaleDateString(getDateLocale(language), { 
                     weekday: 'long', 
                     year: 'numeric', 
                     month: 'long', 
@@ -345,7 +346,7 @@ const DetailHafalan: React.FC = () => {
                 </p>
                 {progress.tanggalTes && (
                   <p className={`text-xs ${hasilTesInfo.textColor} mt-3 opacity-75`}>
-                    {t('tahfiz.guruTahfiz.detailHafalan.tanggalTes')}: {new Date(progress.tanggalTes).toLocaleDateString('id-ID')}
+                    {t('tahfiz.guruTahfiz.detailHafalan.tanggalTes')}: {new Date(progress.tanggalTes).toLocaleDateString(getDateLocale(language))}
                   </p>
                 )}
               </div>

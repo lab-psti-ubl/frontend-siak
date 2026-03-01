@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Download, Printer, Calendar, BookOpen, GraduationCap, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 import Card from '../../../../ui/Card';
 import Button from '../../../../ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableCell } from '../../../../ui/Table';
@@ -126,6 +127,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
   kelas,
   mataPelajaran,
 }) => {
+  const { t } = useLanguage();
   const availableTahunAjaran = (tahunAjaran || []).filter(ta => {
     return jadwalPelajaran.some(j =>
       j.guruId === guru.id &&
@@ -215,7 +217,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
                 {getInitials(guru.name)}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Rekap Mengajar Guru</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">{t('detailAbsensiModal.rekapMengajarGuru')}</h3>
                 <p className="text-xs sm:text-sm text-gray-600 mt-1 truncate">
                   {guru.name}
                 </p>
@@ -229,8 +231,8 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
                 disabled={!rekapData}
               >
                 <Printer size={14} className="mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Cetak</span>
-                <span className="sm:hidden">Cetak</span>
+                <span className="hidden sm:inline">{t('detailAbsensiModal.cetak')}</span>
+                <span className="sm:hidden">{t('detailAbsensiModal.cetak')}</span>
               </Button>
               <Button
                 onClick={handleExportExcel}
@@ -239,8 +241,8 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
                 disabled={!rekapData}
               >
                 <Download size={14} className="mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Export Excel</span>
-                <span className="sm:hidden">Export</span>
+                <span className="hidden sm:inline">{t('detailAbsensiModal.exportExcel')}</span>
+                <span className="sm:hidden">{t('detailAbsensiModal.exportExcel')}</span>
               </Button>
             </div>
           </div>
@@ -250,7 +252,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
               <div className="flex items-start gap-2">
                 <User size={16} className="mt-0.5 flex-shrink-0 text-blue-600" />
                 <div className="min-w-0">
-                  <span className="text-xs sm:text-sm text-gray-600">Guru:</span>
+                  <span className="text-xs sm:text-sm text-gray-600">{t('absenGuru.guruLabel')}:</span>
                   <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">
                     {guru.name}
                   </p>
@@ -259,7 +261,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
               <div className="flex items-start gap-2">
                 <GraduationCap size={16} className="mt-0.5 flex-shrink-0 text-blue-600" />
                 <div className="min-w-0">
-                  <span className="text-xs sm:text-sm text-gray-600">NIP:</span>
+                  <span className="text-xs sm:text-sm text-gray-600">{t('detailAbsensiModal.nip')}:</span>
                   <p className="font-semibold text-sm sm:text-base text-gray-900">
                     {guru.nip || '-'}
                   </p>
@@ -270,7 +272,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
               <div className="flex items-start gap-2">
                 <Calendar size={16} className="mt-0.5 flex-shrink-0 text-blue-600" />
                 <div className="min-w-0 flex-1">
-                  <span className="text-xs sm:text-sm text-gray-600 block">Tahun Ajaran:</span>
+                  <span className="text-xs sm:text-sm text-gray-600 block">{t('detailAbsensiModal.tahunAjaran')}:</span>
                   <select
                     value={selectedTahun}
                     onChange={(e) => setSelectedTahun(e.target.value)}
@@ -287,7 +289,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
               <div className="flex items-start gap-2">
                 <BookOpen size={16} className="mt-0.5 flex-shrink-0 text-blue-600" />
                 <div className="min-w-0 flex-1">
-                  <span className="text-xs sm:text-sm text-gray-600 block">Semester:</span>
+                  <span className="text-xs sm:text-sm text-gray-600 block">{t('detailAbsensiModal.semester')}:</span>
                   <select
                     value={selectedSemester}
                     onChange={(e) => setSelectedSemester(Number(e.target.value))}
@@ -295,7 +297,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
                   >
                     {availableSemesters.map(sem => (
                       <option key={sem} value={sem}>
-                        Semester {sem}
+                        {t('detailAbsensiModal.semester')} {sem}
                       </option>
                     ))}
                   </select>
@@ -306,7 +308,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
               <div className="flex items-start gap-2">
                 <BookOpen size={16} className="mt-0.5 flex-shrink-0 text-blue-600" />
                 <div className="min-w-0">
-                  <span className="text-xs sm:text-sm text-gray-600 block">Total Mata Pelajaran:</span>
+                  <span className="text-xs sm:text-sm text-gray-600 block">{t('detailAbsensiModal.totalMataPelajaran')}:</span>
                   <p className="font-semibold text-sm sm:text-base text-gray-900 mt-1">
                     {rekapData?.subjects.length || 0}
                   </p>
@@ -327,7 +329,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
                     return sum + Object.keys(subject.meetings).length;
                   }, 0)}
                 </p>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">Total Pertemuan</p>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">{t('detailAbsensiModal.totalPertemuan')}</p>
               </div>
             </Card>
             <Card className="bg-gradient-to-r from-green-50 to-green-100">
@@ -335,7 +337,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
                 <p className="text-xl sm:text-2xl font-bold text-green-600">
                   {rekapData.meetings.reduce((sum, m) => sum + m.mengajar, 0)}
                 </p>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">Guru Mengajar</p>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">{t('detailAbsensiModal.guruMengajar')}</p>
               </div>
             </Card>
             <Card className="bg-gradient-to-r from-yellow-50 to-yellow-100">
@@ -343,7 +345,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
                 <p className="text-xl sm:text-2xl font-bold text-yellow-600">
                   {rekapData.meetings.reduce((sum, m) => sum + m.memberiAbsen, 0)}
                 </p>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">Guru Memberi Absen</p>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">{t('detailAbsensiModal.guruMemberiAbsen')}</p>
               </div>
             </Card>
             <Card className="bg-gradient-to-r from-red-50 to-red-100">
@@ -351,7 +353,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
                 <p className="text-xl sm:text-2xl font-bold text-red-600">
                   {rekapData.meetings.reduce((sum, m) => sum + m.tidakMengajar, 0)}
                 </p>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">Tidak Mengajar</p>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">{t('detailAbsensiModal.tidakMengajar')}</p>
               </div>
             </Card>
           </div>
@@ -359,7 +361,7 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
           <div className="block md:hidden">
             <Card>
               <div className="space-y-2">
-                <h3 className="text-base font-semibold text-gray-900 mb-4">Data Pertemuan (Mobile View)</h3>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">{t('detailAbsensiModal.dataPertemuanMobile')}</h3>
                 <MeetingCalendarView
                   subjects={rekapData.subjects}
                   maxPertemuan={rekapData.maxPertemuan}
@@ -367,31 +369,31 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
               </div>
 
               <div className="mt-6 p-4 bg-gray-50 rounded-lg border-t border-gray-200">
-                <h4 className="font-semibold text-gray-900 mb-3 text-sm">Keterangan Status:</h4>
+                <h4 className="font-semibold text-gray-900 mb-3 text-sm">{t('detailAbsensiModal.keteranganStatus')}:</h4>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="flex items-center space-x-2">
                     <div className="w-7 h-7 bg-green-50 rounded flex items-center justify-center">
                       <span className="font-semibold text-green-700 text-xs">M</span>
                     </div>
-                    <span className="text-gray-700">Guru Mengajar</span>
+                    <span className="text-gray-700">{t('detailAbsensiModal.guruMengajar')}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-7 h-7 bg-yellow-50 rounded flex items-center justify-center">
                       <span className="font-semibold text-yellow-700 text-xs">A</span>
                     </div>
-                    <span className="text-gray-700">Guru Memberi Absen</span>
+                    <span className="text-gray-700">{t('detailAbsensiModal.guruMemberiAbsen')}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-7 h-7 bg-red-50 rounded flex items-center justify-center">
                       <span className="font-semibold text-red-700 text-xs">T</span>
                     </div>
-                    <span className="text-gray-700">Tidak Mengajar</span>
+                    <span className="text-gray-700">{t('detailAbsensiModal.tidakMengajar')}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-7 h-7 bg-gray-50 rounded flex items-center justify-center border border-gray-200">
                       <span className="font-semibold text-gray-400 text-xs">-</span>
                     </div>
-                    <span className="text-gray-700">Tidak Ada Jadwal</span>
+                    <span className="text-gray-700">{t('detailAbsensiModal.tidakAdaJadwal')}</span>
                   </div>
                 </div>
               </div>
@@ -475,31 +477,31 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
               </div>
 
               <div className="mt-6 p-4 bg-gray-50 rounded-lg border-t border-gray-200">
-                <h4 className="font-semibold text-gray-900 mb-3 text-sm">Keterangan Status:</h4>
+                <h4 className="font-semibold text-gray-900 mb-3 text-sm">{t('detailAbsensiModal.keteranganStatus')}:</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs sm:text-sm">
                   <div className="flex items-center space-x-2">
                     <div className="w-8 h-8 bg-green-50 rounded flex items-center justify-center">
                       <span className="font-semibold text-green-700">M</span>
                     </div>
-                    <span className="text-gray-700">Guru Mengajar</span>
+                    <span className="text-gray-700">{t('detailAbsensiModal.guruMengajar')}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-8 h-8 bg-yellow-50 rounded flex items-center justify-center">
                       <span className="font-semibold text-yellow-700">A</span>
                     </div>
-                    <span className="text-gray-700">Guru Memberi Absen</span>
+                    <span className="text-gray-700">{t('detailAbsensiModal.guruMemberiAbsen')}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-8 h-8 bg-red-50 rounded flex items-center justify-center">
                       <span className="font-semibold text-red-700">T</span>
                     </div>
-                    <span className="text-gray-700">Tidak Mengajar</span>
+                    <span className="text-gray-700">{t('detailAbsensiModal.tidakMengajar')}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-8 h-8 bg-gray-50 rounded flex items-center justify-center border border-gray-200">
                       <span className="font-semibold text-gray-400">-</span>
                     </div>
-                    <span className="text-gray-700">Tidak Ada Jadwal</span>
+                    <span className="text-gray-700">{t('detailAbsensiModal.tidakAdaJadwal')}</span>
                   </div>
                 </div>
               </div>
@@ -512,8 +514,8 @@ const RekapMengajarGuruModal: React.FC<RekapMengajarGuruModalProps> = ({
         <Card className="p-8 sm:p-12">
           <div className="text-center text-gray-500">
             <Calendar className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-gray-300" />
-            <p className="text-base sm:text-lg font-medium">Tidak ada data rekap mengajar</p>
-            <p className="text-xs sm:text-sm mt-2 text-gray-600">Pilih tahun ajaran dan semester untuk melihat rekap mengajar</p>
+            <p className="text-base sm:text-lg font-medium">{t('detailAbsensiModal.tidakAdaDataRekapMengajar')}</p>
+            <p className="text-xs sm:text-sm mt-2 text-gray-600">{t('detailAbsensiModal.pilihTahunSemesterRekap')}</p>
           </div>
         </Card>
       )}

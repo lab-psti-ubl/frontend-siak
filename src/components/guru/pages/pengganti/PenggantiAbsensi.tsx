@@ -28,6 +28,7 @@ import DetailAbsensiModal from '../mengajar/components/kelola-absensi/DetailAbse
 import EditAbsensiModal from '../mengajar/components/kelola-absensi/EditAbsensiModal';
 import { useKelolaAbsensiHandlers } from '../mengajar/components/kelola-absensi/useKelolaAbsensiHandlers';
 import { getActiveIzinForSubstitute, getGroupedSchedulesByDate, getGuruNameById } from './utils/penggantiUtils';
+import { getTodayIndonesia } from '../../../../utils/absensiUtils';
 import { isTimeOverlapping } from '../../../../utils/izinDispenMuridUtils';
 
 const PenggantiAbsensi: React.FC = () => {
@@ -40,7 +41,7 @@ const PenggantiAbsensi: React.FC = () => {
   const { kelas } = useKelas();
   const { mataPelajaran } = useMataPelajaran();
   const { suratIzin } = useSuratIzin();
-  const { sesiAbsensi, refreshSesiAbsensi, createSesiAbsensi: createSesiAbsensiAPI, updateSesiAbsensi: updateSesiAbsensiAPI } = useSesiAbsensi();
+  const { sesiAbsensi, refreshSesiAbsensi, createSesiAbsensi: createSesiAbsensiAPI, updateSesiAbsensi: updateSesiAbsensiAPI, addAbsensiToSesi: addAbsensiToSesiAPI, bulkAddAbsensiToSesi: bulkAddAbsensiToSesiAPI } = useSesiAbsensi();
   const { absensi, refreshAbsensi, createAbsensi: createAbsensiAPI, updateAbsensi: updateAbsensiAPI } = useAbsensi();
   const { absensiGuru, refreshAbsensiGuru, createAbsensiGuru: createAbsensiGuruAPI, updateAbsensiGuru: updateAbsensiGuruAPI } = useAbsensiGuru();
   const { riwayatKelasMurid, refreshRiwayatKelasMurid, bulkCreateRiwayatKelasMurid } = useRiwayatKelasMurid();
@@ -51,8 +52,8 @@ const PenggantiAbsensi: React.FC = () => {
   const activeIzin = getActiveIzinForSubstitute(user?.id || '', izinGuru);
   const groupedSchedules = getGroupedSchedulesByDate(user?.id || '', activeIzin, jadwalPelajaran, activeTahunAjaran);
 
-  const today = new Date().toISOString().split('T')[0];
-  const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
+  const today = getTodayIndonesia();
+  const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' }).toLowerCase();
 
   const todaySchedules = activeIzin && groupedSchedules.get(today) ? groupedSchedules.get(today) || [] : [];
 
@@ -82,7 +83,7 @@ const PenggantiAbsensi: React.FC = () => {
   };
 
   const getSuratIzinForMurid = (muridId: string, jadwalId?: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayIndonesia();
     
     // Cari semua surat izin yang diterima untuk murid ini hari ini
     const suratIzinHariIni = suratIzin.filter(s =>
@@ -136,6 +137,8 @@ const PenggantiAbsensi: React.FC = () => {
     refreshSesiAbsensi,
     createSesiAbsensiAPI,
     updateSesiAbsensiAPI,
+    addAbsensiToSesiAPI,
+    bulkAddAbsensiToSesiAPI,
     absensi,
     refreshAbsensi,
     createAbsensiAPI,
@@ -301,6 +304,8 @@ const PenggantiAbsensi: React.FC = () => {
         scrollContainerRef={handlers.scrollContainerRef}
         mataPelajaran={mataPelajaran}
         markAllPresent={handlers.markAllPresent}
+        loadingMuridIds={handlers.loadingMuridIds}
+        isBulkLoading={handlers.isBulkLoading}
       />
 
       <SubjectQRModal

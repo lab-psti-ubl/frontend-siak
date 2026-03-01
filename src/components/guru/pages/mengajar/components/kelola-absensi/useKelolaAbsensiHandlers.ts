@@ -13,6 +13,8 @@ export const useKelolaAbsensiHandlers = (
   refreshSesiAbsensi: () => Promise<void>,
   createSesiAbsensiAPI: (sesi: Partial<SesiAbsensi>) => Promise<SesiAbsensi>,
   updateSesiAbsensiAPI: (id: string, sesi: Partial<SesiAbsensi>) => Promise<SesiAbsensi>,
+  addAbsensiToSesiAPI: (sesiId: string, absensiData: any) => Promise<any>,
+  bulkAddAbsensiToSesiAPI: (sesiId: string, absensiList: any[]) => Promise<any>,
   absensi: Absensi[],
   refreshAbsensi: () => Promise<void>,
   createAbsensiAPI: (absensi: Partial<Absensi>) => Promise<Absensi>,
@@ -48,6 +50,9 @@ export const useKelolaAbsensiHandlers = (
   const [isJurnalModalOpen, setIsJurnalModalOpen] = useState(false);
   const [selectedSesiForJurnal, setSelectedSesiForJurnal] = useState<SesiAbsensi | null>(null);
   const [jurnalJudul, setJurnalJudul] = useState('');
+  const [loadingMuridIds, setLoadingMuridIds] = useState<Set<string>>(new Set()); // Loading state per murid
+  const [isBulkLoading, setIsBulkLoading] = useState(false); // Loading state for bulk operation
+  const [isEditingAbsensi, setIsEditingAbsensi] = useState(false); // Loading state for edit operation
   const [jurnalDeskripsi, setJurnalDeskripsi] = useState('');
   const [jurnalFile, setJurnalFile] = useState<File | null>(null);
   const [isDetailAbsensiModalOpen, setIsDetailAbsensiModalOpen] = useState(false);
@@ -334,6 +339,9 @@ export const useKelolaAbsensiHandlers = (
     const existingAbsensi = selectedSesi.dataAbsensi?.find(a => a.muridId === muridId);
 
     try {
+      // Set loading state for this murid
+      setLoadingMuridIds(prev => new Set(prev).add(muridId));
+      
       const absensiData: Partial<AbsensiPelajaran> = {
         id: existingAbsensi?.id || `absensi-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         muridId,
@@ -343,9 +351,8 @@ export const useKelolaAbsensiHandlers = (
         method: 'manual',
       };
 
-      // Save to sesi dataAbsensi array
-      await apiService.addAbsensiToSesi(selectedSesi.id, absensiData);
-      await refreshSesiAbsensi();
+      // Save to sesi dataAbsensi array (using hook method with worker fallback)
+      await addAbsensiToSesiAPI(selectedSesi.id, absensiData);
 
       setSelectedMurid(null);
       setKeterangan('');
@@ -353,6 +360,13 @@ export const useKelolaAbsensiHandlers = (
     } catch (error) {
       console.error('Error marking attendance:', error);
       showNotification('error', 'Error', 'Gagal menyimpan absensi');
+    } finally {
+      // Clear loading state
+      setLoadingMuridIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(muridId);
+        return newSet;
+      });
     }
   };
 
@@ -411,11 +425,13 @@ export const useKelolaAbsensiHandlers = (
       });
     });
 
-    // Bulk add/update absensi to sesi
+    // Bulk add/update absensi to sesi using worker fallback
     if (absensiList.length > 0) {
       try {
-        await apiService.bulkAddAbsensiToSesi(selectedSesi.id, absensiList);
-        await refreshSesiAbsensi();
+        setIsBulkLoading(true);
+        
+        // Use hook method with worker fallback
+        await bulkAddAbsensiToSesiAPI(selectedSesi.id, absensiList);
 
         const hadirCount = absensiList.filter(a => a.status === 'hadir').length;
         const izinCount = absensiList.filter(a => a.status === 'izin').length;
@@ -430,6 +446,8 @@ export const useKelolaAbsensiHandlers = (
       } catch (error) {
         console.error('Error creating bulk absensi:', error);
         showNotification('error', 'Error', 'Gagal menandai semua murid hadir');
+      } finally {
+        setIsBulkLoading(false);
       }
     }
   };
@@ -485,8 +503,8 @@ export const useKelolaAbsensiHandlers = (
         method: 'qr',
       };
 
-      await apiService.addAbsensiToSesi(selectedSesi.id, absensiData);
-      await refreshSesiAbsensi();
+      // Using hook method with worker fallback
+      await addAbsensiToSesiAPI(selectedSesi.id, absensiData);
 
       showNotification('success', 'Absensi Berhasil!', `${murid.name} - ${murid.nisn}`);
       setRefreshKey(prev => prev + 1);
@@ -675,6 +693,10 @@ export const useKelolaAbsensiHandlers = (
     if (!editingAbsensi || !selectedSesiForDetail) return;
 
     try {
+      setIsEditingAbsensi(true);
+      // Set loading state for this murid
+      setLoadingMuridIds(prev => new Set(prev).add(editingAbsensi.muridId));
+      
       const absensiData: Partial<AbsensiPelajaran> = {
         id: editingAbsensi.id,
         muridId: editingAbsensi.muridId,
@@ -684,8 +706,8 @@ export const useKelolaAbsensiHandlers = (
         method: 'manual',
       };
 
-      await apiService.addAbsensiToSesi(selectedSesiForDetail.id, absensiData);
-      await refreshSesiAbsensi();
+      // Using hook method with worker fallback (will wait for worker and refresh)
+      await addAbsensiToSesiAPI(selectedSesiForDetail.id, absensiData);
 
       showNotification('success', 'Absensi Diperbarui', 'Data absensi berhasil diperbarui');
       setEditingAbsensi(null);
@@ -695,6 +717,14 @@ export const useKelolaAbsensiHandlers = (
     } catch (error) {
       console.error('Error updating absensi:', error);
       showNotification('error', 'Error', 'Gagal memperbarui absensi');
+    } finally {
+      setIsEditingAbsensi(false);
+      // Clear loading state
+      setLoadingMuridIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(editingAbsensi.muridId);
+        return newSet;
+      });
     }
   };
 
@@ -717,6 +747,9 @@ export const useKelolaAbsensiHandlers = (
     const attendance = getAttendanceStatus(selectedMuridForKeterangan.id, selectedSesi.id);
     if (attendance) {
       try {
+        // Set loading state for this murid
+        setLoadingMuridIds(prev => new Set(prev).add(selectedMuridForKeterangan.id));
+        
         const absensiData: Partial<AbsensiPelajaran> = {
           id: attendance.id,
           muridId: attendance.muridId,
@@ -726,13 +759,21 @@ export const useKelolaAbsensiHandlers = (
           method: 'manual',
         };
 
-        await apiService.addAbsensiToSesi(selectedSesi.id, absensiData);
-        await refreshSesiAbsensi();
+        // Using hook method with worker fallback (will wait for worker and refresh)
+        await addAbsensiToSesiAPI(selectedSesi.id, absensiData);
+        
         showNotification('success', 'Keterangan Disimpan', 'Keterangan berhasil diperbarui');
         setRefreshKey(prev => prev + 1);
       } catch (error) {
         console.error('Error updating keterangan:', error);
         showNotification('error', 'Error', 'Gagal memperbarui keterangan');
+      } finally {
+        // Clear loading state
+        setLoadingMuridIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(selectedMuridForKeterangan.id);
+          return newSet;
+        });
       }
     }
 
@@ -818,5 +859,8 @@ export const useKelolaAbsensiHandlers = (
     sendWhatsAppNotification,
     markAllPresent,
     setSelectedSesiForDetail,
+    loadingMuridIds,
+    isBulkLoading,
+    isEditingAbsensi,
   };
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Clock, LogIn, LogOut, AlertCircle } from 'lucide-react';
 import { Absensi, PengaturanAbsen } from '../../../../types';
+import { useLanguage } from '../../../../context/LanguageContext';
 import { getAbsenMasukStatus, getAbsenPulangStatus } from './absenKehadiranIntegratedUtils';
 
 interface AbsenDetailModalProps {
@@ -22,8 +23,10 @@ const AbsenDetailModal: React.FC<AbsenDetailModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const { language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   const date = new Date(selectedDate);
-  const formattedDate = date.toLocaleDateString('id-ID', {
+  const formattedDate = date.toLocaleDateString(dateLocale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',

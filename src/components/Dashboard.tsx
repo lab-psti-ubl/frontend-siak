@@ -4,9 +4,12 @@ import { useAuth } from '../context/AuthContext';
 import { usePengaturanSistem } from '../hooks/usePengaturanSistem';
 import Sidebar from './layout/Sidebar';
 import Header from './layout/Header';
+import Footer from './layout/Footer';
 
 // Pages
 import AdminDashboard from './admin/AdminDashboard';
+import AdminMonitoringCBT from './admin/pages/cbt/AdminMonitoringCBT';
+import AdminBankSoalCBT from './admin/pages/cbt/AdminBankSoalCBT';
 import KepalaSekolahDashboard from './admin/KepalaSekolahDashboard';
 import ManajemenGuru from './admin/pages/kelola-guru/ManejemenGuru';
 import ManajemenKelas from './admin/pages/kelola-jurusan/ManjemenKelas';
@@ -28,6 +31,7 @@ import AlumniSekolah from './admin/pages/info-pengumuman/AlumniSekolah';
 import RekapRaportMurid from './admin/pages/info-pengumuman/RekapRaportMurid';
 import MonitoringKelas from './admin/pages/monitoring-kelas/MonitoringKelas';
 import ManajemenAlatRFID from './admin/pages/kelola-alat-rfid/ManajemenAlatRFID';
+import DataFaceRecognition from './admin/pages/kelola-guru/DataFaceRecognition';
 import DataUstadz from './admin/pages/tahfiz/DataUstadz';
 import DataSantri from './admin/pages/tahfiz/DataSantri';
 import DataSantriKepalaSekolah from './admin/pages/tahfiz/DataSantriKepalaSekolah';
@@ -37,6 +41,9 @@ import DetailUstadzKepalaSekolah from './admin/pages/tahfiz/DetailUstadzKepalaSe
 import DetailKelasTahfiz from './admin/pages/tahfiz/DetailKelasTahfiz';
 import DataKelasTahfiz from './admin/pages/tahfiz/DataKelasTahfiz';
 import DataJadwalTahfiz from './admin/pages/tahfiz/DataJadwalTahfiz';
+import PembukaanSpmb from './admin/pages/spmb/PembukaanSpmb';
+import DataPendaftarSpmb from './admin/pages/spmb/DataPendaftarSpmb';
+import DataDiterimaSpmb from './admin/pages/spmb/DataDiterimaSpmb';
 
 import GuruDashboard from './guru/GuruDashboard';
 import JadwalGuru from './guru/pages/mengajar/JadwalGuru';
@@ -74,6 +81,8 @@ import RiwayatAbsensiTahfiz from './guru/pages/tahfiz/RiwayatAbsensiTahfiz';
 import IzinSantriTahfiz from './guru/pages/tahfiz/IzinSantriTahfiz';
 import InfoKelulusanMurid from './murid/InfoKelulusanMurid';
 import RiwayatKelulusan from './guru/RiwayatKelulusan';
+import BankSoalCBT from './guru/pages/cbt/BankSoalCBT/index';
+import BuatUjianCBT from './guru/pages/cbt/BuatUjianCBT/index';
 
 import MuridDashboard from './murid/MuridDashboard';
 import JadwalMurid from './murid/JadwalMurid';
@@ -89,12 +98,14 @@ import MataPelajaranMurid from './murid/MataPelajaranMurid';
 import JadwalTahfizMurid from './murid/pages/tahfiz/JadwalTahfizMurid';
 import AbsensiSantriTahfiz from './murid/pages/tahfiz/AbsensiSantriTahfiz';
 import ProgressHapalanMurid from './murid/pages/tahfiz/ProgressHapalanMurid';
+import UjianCBTMurid from './murid/pages/cbt/UjianCBTMurid';
+import KerjakanUjianCBT from './murid/pages/cbt/KerjakanUjianCBT';
 import MuridBottomNavigation from './murid/MuridBottomNavigation';
 import GuruBottomNavigation from './guru/GuruBottomNavigation';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
-  const { systemType } = usePengaturanSistem();
+  const { user, logout } = useAuth();
+  const { systemType, loading: systemTypeLoading } = usePengaturanSistem();
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedKelasId, setSelectedKelasId] = useState<string>('');
@@ -137,6 +148,23 @@ const Dashboard: React.FC = () => {
       window.removeEventListener('resize', handleResize);
     };
   }, []);
+
+  // Paksa login ulang jika ada kunci CBT saat kembali ke dashboard
+  useEffect(() => {
+    if (location.pathname.startsWith('/dashboard') && user?.role === 'murid') {
+      try {
+        const lock = sessionStorage.getItem('cbt_lock');
+        if (lock) {
+          sessionStorage.removeItem('cbt_lock');
+          logout();
+          navigate('/login', { replace: true });
+          return;
+        }
+      } catch {
+        // abaikan error storage
+      }
+    }
+  }, [location.pathname, navigate, logout, user]);
 
   // Fix scroll container initialization on first load
   useEffect(() => {
@@ -208,10 +236,11 @@ const Dashboard: React.FC = () => {
       'absen-saya': 'Absen Saya',
       'absen-siswa': 'Absen Siswa',
       'data-santri-kepala-sekolah': 'Data Santri Tahfiz',
-      'data-ustadz-kepala-sekolah': 'Data Ustadz Tahfiz',
+      'data-ustadz-kepala-sekolah': 'Data Ustaz/ah Tahfiz',
       'qr-admin': 'QR Admin',
       'pengaturan': 'Pengaturan Absen',
       'data-alat-rfid': 'Data Alat RFID',
+      'data-face-recognition': 'Data Face Recognition',
       'jadwal-saya': 'Jadwal Saya',
       absensi: 'Kelola Absensi',
       'riwayat-absensi': 'Riwayat Absensi',
@@ -249,6 +278,11 @@ const Dashboard: React.FC = () => {
       'riwayat-absensi-tahfiz': 'Riwayat Absen Tahfiz',
       'izin-santri-tahfiz': 'Izin Santri',
       'progress-tahfiz': 'Progress Tahfiz',
+      'spmb-pembukaan': 'Pembukaan SPMB',
+      'spmb-pendaftar': 'Data Pendaftar SPMB',
+      'spmb-diterima': 'Data Diterima SPMB',
+      'cbt-bank-soal': 'Bank Soal CBT',
+      'cbt-buat-ujian': 'Buat Ujian CBT',
     };
     const currentPageForTitle = getCurrentPage();
     return titles[currentPageForTitle] || 'Dashboard';
@@ -267,6 +301,18 @@ const Dashboard: React.FC = () => {
 
   const isMuridMobile = user?.role === 'murid' && isMobileView;
   const isGuruMobile = user?.role === 'guru' && isMobileView;
+
+  // Tampilkan loading sampai systemType dari backend tersedia (jangan tampilkan sistem default)
+  if (systemTypeLoading || systemType === null) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Memuat sistem...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex bg-gray-50 min-h-screen">
@@ -297,10 +343,10 @@ const Dashboard: React.FC = () => {
         />
       )}
 
-      <div className={`flex-1 flex flex-col pt-16 md:pt-0 ${
-        user?.role === 'murid' ? (isMuridMobile ? '' : 'lg:ml-80') :
-        user?.role === 'guru' ? (isGuruMobile ? '' : 'lg:ml-80') :
-        'lg:ml-80'
+      <div className={`flex-1 flex flex-col pt-16 md:pt-0 min-w-0 ${
+        user?.role === 'murid' ? (isMuridMobile ? '' : 'lg:ml-96') :
+        user?.role === 'guru' ? (isGuruMobile ? '' : 'lg:ml-96') :
+        'lg:ml-96'
       } overflow-hidden h-screen ${
         (user?.role === 'murid' && isMuridMobile) || (user?.role === 'guru' && isGuruMobile) ? 'pb-24' : ''
       } main-content-scroll`}>
@@ -339,9 +385,11 @@ const Dashboard: React.FC = () => {
                 <Route path="/" element={<AdminDashboard />} />
                 {systemType === 'tahfiz' ? (
                   <>
+                    <Route path="/monitoring-kelas" element={<MonitoringKelas />} />
                     <Route path="/guru" element={<ManajemenGuru />} />
                     <Route path="/absen-guru" element={<AbsenGuru />} />
                     <Route path="/izin-guru-admin" element={<IzinGuruAdmin />} />
+                    <Route path="/qr-admin" element={<QRAdmin />} />
                     <Route path="/beri-info" element={<BeriInfo />} />
                     <Route path="/data-alat-rfid" element={<ManajemenAlatRFID />} />
                     <Route path="/data-kelas-tahfiz" element={<DataKelasTahfiz />} />
@@ -354,6 +402,7 @@ const Dashboard: React.FC = () => {
                 ) : (
                   <>
                     <Route path="/guru" element={<ManajemenGuru />} />
+                    <Route path="/data-face-recognition" element={<DataFaceRecognition />} />
                     {(systemType === 'sekolah_umum' || systemType === 'sekolah_umum_tahfiz') && (
                       <>
                         <Route path="/jurusan" element={<ManajemenJurusan />} />
@@ -376,6 +425,9 @@ const Dashboard: React.FC = () => {
                         }
                       }} />
                     } />
+                    <Route path="/spmb-pembukaan" element={<PembukaanSpmb />} />
+                    <Route path="/spmb-pendaftar" element={<DataPendaftarSpmb />} />
+                    <Route path="/spmb-diterima" element={<DataDiterimaSpmb />} />
                     <Route path="/guru-mapel" element={<KelolaGuruMapel />} />
                     <Route path="/mapel" element={<ManajemenMapel />} />
                     <Route path="/jadwal" element={<ManajemenJadwal />} />
@@ -391,6 +443,8 @@ const Dashboard: React.FC = () => {
                     <Route path="/pengumuman-kelulusan" element={<PengumumanKelulusan />} />
                     <Route path="/raport-murid-admin" element={<RekapRaportMurid />} />
                     <Route path="/alumni-sekolah" element={<AlumniSekolah />} />
+                    <Route path="/cbt-monitoring" element={<AdminMonitoringCBT />} />
+                    <Route path="/cbt-bank-soal-admin" element={<AdminBankSoalCBT />} />
                     {systemType === 'sekolah_umum_tahfiz' && (
                       <>
                         <Route path="/data-kelas-tahfiz" element={<DataKelasTahfiz />} />
@@ -430,6 +484,8 @@ const Dashboard: React.FC = () => {
                     <Route path="/jadwal-saya" element={<JadwalGuru />} />
                     <Route path="/absensi" element={<KelolaAbsensi />} />
                     <Route path="/input-nilai" element={<InputNilai />} />
+                    <Route path="/cbt-bank-soal" element={<BankSoalCBT />} />
+                    <Route path="/cbt-buat-ujian" element={<BuatUjianCBT />} />
                     <Route path="/capaian-pembelajaran" element={<CapaianPembelajaran />} />
                     <Route path="/riwayat-absensi" element={<RiwayatAbsensi />} />
                     <Route path="/absen-kelas" element={<AbsenKelas />} />
@@ -492,6 +548,8 @@ const Dashboard: React.FC = () => {
                     <Route path="/absen-kehadiran" element={<AbsenKehadiran />} />
                     <Route path="/qr-code" element={<QRCodeMurid />} />
                     <Route path="/nilai-saya" element={<NilaiMurid />} />
+                    <Route path="/cbt-ujian" element={<UjianCBTMurid />} />
+                    <Route path="/cbt-ujian/:ujianId" element={<KerjakanUjianCBT />} />
                     <Route path="/raport-saya" element={<MuridRaportMurid />} />
                     <Route path="/e-raport-saya" element={<ERaportMurid />} />
                     <Route path="/surat-izin" element={<SuratIzinMurid />} />
@@ -519,6 +577,7 @@ const Dashboard: React.FC = () => {
             } />
           </Routes>
         </main>
+        {(!isMobileView || location.pathname.endsWith('/profil')) && <Footer />}
       </div>
 
       {user?.role === 'murid' && isMuridMobile && <MuridBottomNavigation />}

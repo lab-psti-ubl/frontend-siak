@@ -3,7 +3,7 @@ import { TahfizSchedule, SesiAbsensiTahfiz, AbsensiPelajaran, User, JurnalMengaj
 import { parseQRCodeData, generateSubjectQRCodeData, generateQRCodeURL } from '../../../../utils/qrCodeGenerator';
 import { showNotification, sendWhatsAppNotification as sendWhatsApp } from '../mengajar/components/kelola-absensi/kelolaAbsensiUtils';
 import { apiService } from '../../../../services/apiService';
-import { getLocalTimeISOString } from '../../../../utils/absensiUtils';
+import { getLocalTimeISOString, getTodayIndonesia, getCurrentTimeIndonesia } from '../../../../utils/absensiUtils';
 
 export const useAbsensiTahfizHandlers = (
   user: any,
@@ -12,6 +12,8 @@ export const useAbsensiTahfizHandlers = (
   refreshSesiAbsensiTahfiz: () => Promise<void>,
   createSesiAbsensiTahfizAPI: (sesi: Partial<SesiAbsensiTahfiz>) => Promise<SesiAbsensiTahfiz>,
   updateSesiAbsensiTahfizAPI: (id: string, sesi: Partial<SesiAbsensiTahfiz>) => Promise<SesiAbsensiTahfiz>,
+  addAbsensiToSesiTahfizAPI: (sesiId: string, absensiData: any) => Promise<any>,
+  bulkAddAbsensiToSesiTahfizAPI: (sesiId: string, absensiList: any[]) => Promise<any>,
   jadwalTahfiz: TahfizSchedule[],
   santri: User[],
   kelasTahfiz: any[],
@@ -47,12 +49,15 @@ export const useAbsensiTahfizHandlers = (
   const [lastProcessedScan, setLastProcessedScan] = useState<{data: string, time: number} | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [existingJurnalFile, setExistingJurnalFile] = useState<{ name: string; type: string; data: string; size: number } | undefined>(undefined);
+  const [loadingMuridIds, setLoadingMuridIds] = useState<Set<string>>(new Set()); // Loading state per murid
+  const [isBulkLoading, setIsBulkLoading] = useState(false); // Loading state for bulk operation
+  const [isEditingAbsensi, setIsEditingAbsensi] = useState(false); // Loading state for edit operation
 
   const scrollPositionRef = useRef<number>(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const SCAN_DEBOUNCE_TIME = 2000;
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayIndonesia();
 
   // Sync selectedSesi with latest data from sesiAbsensiTahfiz
   useEffect(() => {
@@ -68,12 +73,11 @@ export const useAbsensiTahfizHandlers = (
     const jadwal = mySchedules.find(j => j.id === jadwalId);
     if (!jadwal) return;
 
-    const now = new Date();
-    const currentTime = now.toTimeString().slice(0, 5);
+    const currentTime = getCurrentTimeIndonesia();
 
     if (currentTime >= jadwal.jamSelesai) {
-      showNotification('error', t('tahfiz.absensiTahfiz.waktuSudahBerlalu'),
-        t('tahfiz.absensiTahfiz.tidakDapatMembukaSesi', { jamSelesai: jadwal.jamSelesai }));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.waktuSudahBerlalu'),
+        t('tahfiz.guruTahfiz.absensiTahfiz.tidakDapatMembukaSesi', { jamSelesai: jadwal.jamSelesai }));
       return;
     }
 
@@ -86,8 +90,8 @@ export const useAbsensiTahfizHandlers = (
     const timeDiff = startMinutes - currentMinutes;
 
     if (timeDiff > 30) {
-      showNotification('warning', t('tahfiz.absensiTahfiz.terlaluAwal'),
-        t('tahfiz.absensiTahfiz.sesiDapatDibukaMaksimal', { startTime }));
+      showNotification('warning', t('tahfiz.guruTahfiz.absensiTahfiz.terlaluAwal'),
+        t('tahfiz.guruTahfiz.absensiTahfiz.sesiDapatDibukaMaksimal', { startTime }));
       return;
     }
 
@@ -95,7 +99,7 @@ export const useAbsensiTahfizHandlers = (
       id: `sesi-tahfiz-${Date.now()}`,
       jadwalId,
       tanggal: today,
-      jamBuka: new Date().toLocaleTimeString('id-ID', { hour12: false }),
+      jamBuka: getCurrentTimeIndonesia(),
       status: 'dibuka',
       createdBy: user?.id || '',
       tahun,
@@ -104,12 +108,12 @@ export const useAbsensiTahfizHandlers = (
     try {
       await createSesiAbsensiTahfizAPI(newSesi);
       await refreshSesiAbsensiTahfiz();
-      showNotification('success', t('tahfiz.absensiTahfiz.sesiDibuka'),
-        t('tahfiz.absensiTahfiz.sesiAbsensiBerhasilDibuka', { mapel: getJadwalInfo(jadwalId).mapel }));
+      showNotification('success', t('tahfiz.guruTahfiz.absensiTahfiz.sesiDibuka'),
+        t('tahfiz.guruTahfiz.absensiTahfiz.sesiAbsensiBerhasilDibuka', { mapel: getJadwalInfo(jadwalId).mapel }));
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error creating session:', error);
-      showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.gagalMembukaSesi'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.gagalMembukaSesi'));
     }
   };
 
@@ -146,21 +150,21 @@ export const useAbsensiTahfizHandlers = (
     try {
       await updateSesiAbsensiTahfizAPI(sesiId, {
         status: 'ditutup',
-        jamTutup: new Date().toLocaleTimeString('id-ID', { hour12: false })
+        jamTutup: getCurrentTimeIndonesia()
       });
 
       if (newAbsensiRecords.length > 0) {
-        await apiService.bulkAddAbsensiToSesiTahfiz(sesiId, newAbsensiRecords);
-        showNotification('info', t('tahfiz.absensiTahfiz.sesiDitutup'), t('tahfiz.absensiTahfiz.santriTidakAbsenOtomatisAlfa', { count: newAbsensiRecords.length }));
+        await bulkAddAbsensiToSesiTahfizAPI(sesiId, newAbsensiRecords);
+        showNotification('info', t('tahfiz.guruTahfiz.absensiTahfiz.sesiDitutup'), t('tahfiz.guruTahfiz.absensiTahfiz.santriTidakAbsenOtomatisAlfa', { count: newAbsensiRecords.length }));
       } else {
-        showNotification('success', t('tahfiz.absensiTahfiz.sesiDitutup'), t('tahfiz.absensiTahfiz.sesiAbsensiTelahDitutup'));
+        showNotification('success', t('tahfiz.guruTahfiz.absensiTahfiz.sesiDitutup'), t('tahfiz.guruTahfiz.absensiTahfiz.sesiAbsensiTelahDitutup'));
       }
 
       await refreshSesiAbsensiTahfiz();
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error closing session:', error);
-      showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.gagalMenutupSesi'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.gagalMenutupSesi'));
     }
   };
 
@@ -198,7 +202,7 @@ export const useAbsensiTahfizHandlers = (
   const handlePhotoCapture = async (imageBase64: string) => {
     if (!selectedJadwalForPhoto || !user) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayIndonesia();
     const session = sesiAbsensiTahfiz.find(s => 
       s.jadwalId === selectedJadwalForPhoto.id && 
       s.tanggal === today
@@ -214,7 +218,16 @@ export const useAbsensiTahfizHandlers = (
       keterangan: `Foto bukti mengajar ${getJadwalInfo(selectedJadwalForPhoto.id).mapel} di kelas ${getJadwalInfo(selectedJadwalForPhoto.id).kelas}`
     };
 
+    // Format foto mengajar for JurnalTahfiz collection
+    const fotoMengajarForJurnal = {
+      id: newFoto.id,
+      fotoBase64: newFoto.fotoBase64,
+      waktuFoto: newFoto.waktuFoto,
+      keterangan: newFoto.keterangan
+    };
+
     try {
+      let currentSession = session;
       if (session) {
         // Update existing session with new photo
         const updatedFotoMengajar = [...(session.fotoMengajar || []), newFoto];
@@ -222,30 +235,76 @@ export const useAbsensiTahfizHandlers = (
           fotoMengajar: updatedFotoMengajar
         });
         await refreshSesiAbsensiTahfiz();
-        showNotification('success', t('tahfiz.absensiTahfiz.fotoDisimpan'), t('tahfiz.absensiTahfiz.fotoBuktiMengajarBerhasilDisimpan'));
+        // Get updated session
+        currentSession = sesiAbsensiTahfiz.find(s => s.id === session.id) || session;
       } else {
         // Create new session with photo
         const newSesi: Partial<SesiAbsensiTahfiz> = {
           id: `sesi-tahfiz-foto-${Date.now()}`,
           jadwalId: selectedJadwalForPhoto.id,
           tanggal: today,
-          jamBuka: new Date().toLocaleTimeString('id-ID', { hour12: false }),
+          jamBuka: getCurrentTimeIndonesia(),
           status: 'dibuka',
           createdBy: user.id,
           tahun,
           fotoMengajar: [newFoto],
         };
-        await createSesiAbsensiTahfizAPI(newSesi);
+        const createdSesi = await createSesiAbsensiTahfizAPI(newSesi);
         await refreshSesiAbsensiTahfiz();
-        showNotification('success', t('tahfiz.absensiTahfiz.fotoDisimpan'), t('tahfiz.absensiTahfiz.fotoBuktiMengajarBerhasilDisimpan'));
+        currentSession = createdSesi;
       }
+
+      // Save foto mengajar to JurnalTahfiz collection
+      try {
+        // Check if jurnal tahfiz exists
+        const existingJurnal = await apiService.getJurnalTahfizByJadwalIdAndTanggal(
+          selectedJadwalForPhoto.id,
+          today,
+          selectedJadwalForPhoto.kelasId
+        );
+
+        if (existingJurnal.success && existingJurnal.jurnalTahfiz) {
+          // Update existing jurnal tahfiz with foto mengajar
+          await apiService.updateJurnalTahfiz(existingJurnal.jurnalTahfiz.id, {
+            tanggal: today,
+            fotoMengajar: fotoMengajarForJurnal
+          });
+        } else {
+          // Create new jurnal tahfiz with foto mengajar
+          // If there's existing jurnal data in session, use it; otherwise create minimal jurnal
+          const jurnalId = `jurnal-tahfiz-${selectedJadwalForPhoto.id}-${selectedJadwalForPhoto.kelasId}-${Date.now()}`;
+          await apiService.createJurnalTahfiz({
+            id: jurnalId,
+            jadwalId: selectedJadwalForPhoto.id,
+            kelasId: selectedJadwalForPhoto.kelasId,
+            tanggal: today,
+            judul: currentSession?.jurnal?.judul || 'Jurnal Tahfiz',
+            deskripsi: currentSession?.jurnal?.deskripsi || 'Jurnal mengajar tahfiz',
+            waktuInput: currentSession?.jurnal?.waktuInput || new Date().toISOString(),
+            file: currentSession?.jurnal?.file,
+            fotoMengajar: fotoMengajarForJurnal,
+            tahun: currentSession?.tahun || tahun
+          });
+        }
+      } catch (jurnalError) {
+        console.error('Error saving foto mengajar to jurnaltahfiz collection:', jurnalError);
+        // Don't fail the whole operation, just log the error
+      }
+
+      // Refresh session data to get latest foto mengajar
+      await refreshSesiAbsensiTahfiz();
+
+      // Dispatch event to trigger jurnal refresh in JadwalCard
+      window.dispatchEvent(new Event('jurnal-saved'));
+
+      showNotification('success', t('tahfiz.guruTahfiz.absensiTahfiz.fotoDisimpan'), t('tahfiz.guruTahfiz.absensiTahfiz.fotoBuktiMengajarBerhasilDisimpan'));
 
       setSelectedJadwalForPhoto(null);
       setIsCameraOpen(false);
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error saving photo:', error);
-      showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.gagalMenyimpanFoto'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.gagalMenyimpanFoto'));
     }
   };
 
@@ -259,6 +318,9 @@ export const useAbsensiTahfizHandlers = (
     const existingAbsensi = selectedSesi.dataAbsensi?.find(a => a.muridId === santriId);
 
     try {
+      // Set loading state for this murid
+      setLoadingMuridIds(prev => new Set(prev).add(santriId));
+      
       const absensiData: Partial<AbsensiPelajaran> = {
         id: existingAbsensi?.id || `absensi-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         muridId: santriId,
@@ -268,13 +330,20 @@ export const useAbsensiTahfizHandlers = (
         method: 'manual',
       };
 
-      await apiService.addAbsensiToSesiTahfiz(selectedSesi.id, absensiData);
-      await refreshSesiAbsensiTahfiz();
+      await addAbsensiToSesiTahfizAPI(selectedSesi.id, absensiData);
+      // refreshSesiAbsensiTahfiz is already called inside addAbsensiToSesiTahfizAPI
 
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error marking attendance:', error);
       showNotification('error', 'Error', 'Gagal menyimpan absensi');
+    } finally {
+      // Clear loading state
+      setLoadingMuridIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(santriId);
+        return newSet;
+      });
     }
   };
 
@@ -329,8 +398,10 @@ export const useAbsensiTahfizHandlers = (
 
     if (absensiList.length > 0) {
       try {
-        await apiService.bulkAddAbsensiToSesiTahfiz(selectedSesi.id, absensiList);
-        await refreshSesiAbsensiTahfiz();
+        setIsBulkLoading(true);
+        
+        await bulkAddAbsensiToSesiTahfizAPI(selectedSesi.id, absensiList);
+        // refreshSesiAbsensiTahfiz is already called inside bulkAddAbsensiToSesiTahfizAPI
 
         const hadirCount = absensiList.filter(a => a.status === 'hadir').length;
         const izinCount = absensiList.filter(a => a.status === 'izin').length;
@@ -340,11 +411,13 @@ export const useAbsensiTahfizHandlers = (
         if (izinCount > 0) message += `, ${izinCount} santri tetap izin`;
         if (sakitCount > 0) message += `, ${sakitCount} santri tetap sakit`;
         
-        showNotification('success', t('tahfiz.absensiTahfiz.absensiDiperbarui'), message);
+        showNotification('success', t('tahfiz.guruTahfiz.absensiTahfiz.absensiDiperbarui'), message);
         setRefreshKey(prev => prev + 1);
       } catch (error) {
         console.error('Error creating bulk absensi:', error);
-        showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.gagalMenandaiSemuaSantriHadir'));
+        showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.gagalMenandaiSemuaSantriHadir'));
+      } finally {
+        setIsBulkLoading(false);
       }
     }
   };
@@ -364,7 +437,7 @@ export const useAbsensiTahfizHandlers = (
     const parsed = parseQRCodeData(qrData);
 
     if (!parsed.isValid || !selectedSesi) {
-      showNotification('error', t('tahfiz.absensiTahfiz.qrCodeTidakValid'), t('tahfiz.absensiTahfiz.qrCodeTidakValidAtauSesiTidakDitemukan'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.qrCodeTidakValid'), t('tahfiz.guruTahfiz.absensiTahfiz.qrCodeTidakValidAtauSesiTidakDitemukan'));
       return;
     }
 
@@ -372,7 +445,7 @@ export const useAbsensiTahfizHandlers = (
       santri.find(u => (u as any).muridId === parsed.muridId) ||
       santri.find(u => parsed.nisn && (u as any).nisn === parsed.nisn);
     if (!santriUser) {
-      showNotification('error', t('tahfiz.absensiTahfiz.santriTidakDitemukan'), t('tahfiz.absensiTahfiz.santriTidakDitemukanDalamSistem'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.santriTidakDitemukan'), t('tahfiz.guruTahfiz.absensiTahfiz.santriTidakDitemukanDalamSistem'));
       return;
     }
 
@@ -388,7 +461,7 @@ export const useAbsensiTahfizHandlers = (
     const isMemberOfClass = possibleSantriIds.some(id => santriKelasIds.includes(id));
 
     if (!jadwal || !isMemberOfClass) {
-      showNotification('error', t('tahfiz.absensiTahfiz.kelasTidakSesuai'), t('tahfiz.absensiTahfiz.santriBukanDariKelasIni'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.kelasTidakSesuai'), t('tahfiz.guruTahfiz.absensiTahfiz.santriBukanDariKelasIni'));
       return;
     }
 
@@ -396,11 +469,14 @@ export const useAbsensiTahfizHandlers = (
     const existingAbsensi = selectedSesi.dataAbsensi?.find(a => a.muridId === attendanceId);
 
     if (existingAbsensi) {
-      showNotification('warning', t('tahfiz.absensiTahfiz.sudahAbsen'), t('tahfiz.absensiTahfiz.santriSudahMelakukanAbsensi', { santriName: santriUser.name }));
+      showNotification('warning', t('tahfiz.guruTahfiz.absensiTahfiz.sudahAbsen'), t('tahfiz.guruTahfiz.absensiTahfiz.santriSudahMelakukanAbsensi', { santriName: santriUser.name }));
       return;
     }
 
     try {
+      // Set loading state for this murid
+      setLoadingMuridIds(prev => new Set(prev).add(attendanceId));
+      
       const absensiData: Partial<AbsensiPelajaran> = {
         id: `absensi-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         muridId: attendanceId,
@@ -410,14 +486,21 @@ export const useAbsensiTahfizHandlers = (
         method: 'qr',
       };
 
-      await apiService.addAbsensiToSesiTahfiz(selectedSesi.id, absensiData);
-      await refreshSesiAbsensiTahfiz();
+      await addAbsensiToSesiTahfizAPI(selectedSesi.id, absensiData);
+      // refreshSesiAbsensiTahfiz is already called inside addAbsensiToSesiTahfizAPI
 
-      showNotification('success', t('tahfiz.absensiTahfiz.absensiBerhasil'), `${santriUser.name} - ${(santriUser as any).nisn || 'N/A'}`);
+      showNotification('success', t('tahfiz.guruTahfiz.absensiTahfiz.absensiBerhasil'), `${santriUser.name} - ${(santriUser as any).nisn || 'N/A'}`);
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error creating QR scan absensi:', error);
       showNotification('error', 'Error', 'Gagal menyimpan absensi');
+    } finally {
+      // Clear loading state
+      setLoadingMuridIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(attendanceId);
+        return newSet;
+      });
     }
   };
 
@@ -456,7 +539,7 @@ export const useAbsensiTahfizHandlers = (
     if (!selectedSesiForJurnal) return;
 
     if (!jurnalJudul.trim() || !jurnalDeskripsi.trim()) {
-      showNotification('warning', t('tahfiz.absensiTahfiz.dataTidakLengkap'), t('tahfiz.absensiTahfiz.judulDanDeskripsiJurnalHarusDiisi'));
+      showNotification('warning', t('tahfiz.guruTahfiz.absensiTahfiz.dataTidakLengkap'), t('tahfiz.guruTahfiz.absensiTahfiz.judulDanDeskripsiJurnalHarusDiisi'));
       return;
     }
 
@@ -477,7 +560,7 @@ export const useAbsensiTahfizHandlers = (
           size: jurnalFile.size
         };
       } catch (error) {
-        showNotification('error', t('tahfiz.absensiTahfiz.gagalUpload'), t('tahfiz.absensiTahfiz.gagalMenguploadFile'));
+        showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.gagalUpload'), t('tahfiz.guruTahfiz.absensiTahfiz.gagalMenguploadFile'));
         return;
       }
     }
@@ -490,12 +573,71 @@ export const useAbsensiTahfizHandlers = (
     };
 
     try {
+      // Save to SesiAbsensiTahfiz
       await updateSesiAbsensiTahfizAPI(selectedSesiForJurnal.id, {
         jurnal
       });
 
-      showNotification('success', t('tahfiz.absensiTahfiz.jurnalDisimpan'),
-        jurnalFile ? 'Jurnal mengajar dan file berhasil disimpan' : 'Jurnal mengajar berhasil disimpan'
+      // Get jadwal info to get kelasId
+      const jadwal = jadwalTahfiz.find(j => j.id === selectedSesiForJurnal.jadwalId);
+      if (!jadwal) {
+        throw new Error('Jadwal tidak ditemukan');
+      }
+
+      // Get foto mengajar from session if exists (take the first/latest one)
+      let fotoMengajarData = undefined;
+      if (selectedSesiForJurnal.fotoMengajar && selectedSesiForJurnal.fotoMengajar.length > 0) {
+        const latestFoto = selectedSesiForJurnal.fotoMengajar[selectedSesiForJurnal.fotoMengajar.length - 1];
+        fotoMengajarData = {
+          id: latestFoto.id,
+          fotoBase64: latestFoto.fotoBase64,
+          waktuFoto: latestFoto.waktuFoto,
+          keterangan: latestFoto.keterangan
+        };
+      }
+
+      // Save to JurnalTahfiz collection
+      try {
+        // Check if jurnal tahfiz exists
+        const existingJurnal = await apiService.getJurnalTahfizByJadwalIdAndTanggal(
+          selectedSesiForJurnal.jadwalId,
+          selectedSesiForJurnal.tanggal,
+          jadwal.kelasId
+        );
+
+        if (existingJurnal.success && existingJurnal.jurnalTahfiz) {
+          // Update existing jurnal tahfiz
+          await apiService.updateJurnalTahfiz(existingJurnal.jurnalTahfiz.id, {
+            tanggal: selectedSesiForJurnal.tanggal,
+            judul: jurnal.judul,
+            deskripsi: jurnal.deskripsi,
+            waktuInput: jurnal.waktuInput,
+            file: jurnal.file,
+            fotoMengajar: fotoMengajarData
+          });
+        } else {
+          // Create new jurnal tahfiz
+          const jurnalId = `jurnal-tahfiz-${selectedSesiForJurnal.jadwalId}-${jadwal.kelasId}-${Date.now()}`;
+          await apiService.createJurnalTahfiz({
+            id: jurnalId,
+            jadwalId: selectedSesiForJurnal.jadwalId,
+            kelasId: jadwal.kelasId,
+            tanggal: selectedSesiForJurnal.tanggal,
+            judul: jurnal.judul,
+            deskripsi: jurnal.deskripsi,
+            waktuInput: jurnal.waktuInput,
+            file: jurnal.file,
+            fotoMengajar: fotoMengajarData,
+            tahun: selectedSesiForJurnal.tahun || tahun
+          });
+        }
+      } catch (jurnalError) {
+        console.error('Error saving jurnal to jurnaltahfiz collection:', jurnalError);
+        // Don't fail the whole operation, just log the error
+      }
+
+      showNotification('success', t('tahfiz.guruTahfiz.absensiTahfiz.jurnalDisimpan'),
+        jurnalFile ? t('tahfiz.guruTahfiz.absensiTahfiz.jurnalMengajarDanFileBerhasilDisimpan') : t('tahfiz.guruTahfiz.absensiTahfiz.jurnalMengajarBerhasilDisimpan')
       );
 
       window.dispatchEvent(new Event('jurnal-saved'));
@@ -509,7 +651,7 @@ export const useAbsensiTahfizHandlers = (
       await refreshSesiAbsensiTahfiz();
     } catch (error) {
       console.error('Error saving jurnal:', error);
-      showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.gagalMenyimpanJurnal'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.gagalMenyimpanJurnal'));
     }
   };
 
@@ -528,6 +670,10 @@ export const useAbsensiTahfizHandlers = (
     if (!editingAbsensi || !selectedSesiForDetail) return;
 
     try {
+      setIsEditingAbsensi(true);
+      // Set loading state for this murid
+      setLoadingMuridIds(prev => new Set(prev).add(editingAbsensi.muridId));
+      
       const absensiData: Partial<AbsensiPelajaran> = {
         id: editingAbsensi.id,
         muridId: editingAbsensi.muridId,
@@ -537,17 +683,25 @@ export const useAbsensiTahfizHandlers = (
         method: 'manual',
       };
 
-      await apiService.addAbsensiToSesiTahfiz(selectedSesiForDetail.id, absensiData);
-      await refreshSesiAbsensiTahfiz();
+      await addAbsensiToSesiTahfizAPI(selectedSesiForDetail.id, absensiData);
+      // refreshSesiAbsensiTahfiz is already called inside addAbsensiToSesiTahfizAPI
 
-      showNotification('success', t('tahfiz.absensiTahfiz.absensiDiperbarui'), t('tahfiz.absensiTahfiz.dataAbsensiBerhasilDiperbarui'));
+      showNotification('success', t('tahfiz.guruTahfiz.absensiTahfiz.absensiDiperbarui'), t('tahfiz.guruTahfiz.absensiTahfiz.dataAbsensiBerhasilDiperbarui'));
       setEditingAbsensi(null);
       setEditStatus('hadir');
       setEditKeterangan('');
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error updating absensi:', error);
-      showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.gagalMemperbaruiAbsensi'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.gagalMemperbaruiAbsensi'));
+    } finally {
+      setIsEditingAbsensi(false);
+      // Clear loading state
+      setLoadingMuridIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(editingAbsensi.muridId);
+        return newSet;
+      });
     }
   };
 
@@ -570,6 +724,9 @@ export const useAbsensiTahfizHandlers = (
     const attendance = getAttendanceStatus(selectedMuridForKeterangan.id, selectedSesi.id);
     if (attendance) {
       try {
+        // Set loading state for this murid
+        setLoadingMuridIds(prev => new Set(prev).add(selectedMuridForKeterangan.id));
+        
         const absensiData: Partial<AbsensiPelajaran> = {
           id: attendance.id,
           muridId: attendance.muridId,
@@ -579,13 +736,20 @@ export const useAbsensiTahfizHandlers = (
           method: 'manual',
         };
 
-        await apiService.addAbsensiToSesiTahfiz(selectedSesi.id, absensiData);
-        await refreshSesiAbsensiTahfiz();
-        showNotification('success', t('tahfiz.absensiTahfiz.keteranganDisimpan'), t('tahfiz.absensiTahfiz.keteranganBerhasilDiperbarui'));
+        await addAbsensiToSesiTahfizAPI(selectedSesi.id, absensiData);
+        // refreshSesiAbsensiTahfiz is already called inside addAbsensiToSesiTahfizAPI
+        showNotification('success', t('tahfiz.guruTahfiz.absensiTahfiz.keteranganDisimpan'), t('tahfiz.guruTahfiz.absensiTahfiz.keteranganBerhasilDiperbarui'));
         setRefreshKey(prev => prev + 1);
       } catch (error) {
         console.error('Error updating keterangan:', error);
-        showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.gagalMemperbaruiKeterangan'));
+        showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.gagalMemperbaruiKeterangan'));
+      } finally {
+        // Clear loading state
+        setLoadingMuridIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(selectedMuridForKeterangan.id);
+          return newSet;
+        });
       }
     }
 
@@ -604,48 +768,102 @@ export const useAbsensiTahfizHandlers = (
 
   // Handler untuk menghapus foto dari SesiAbsensiTahfiz
   const handleDeletePhoto = async (fotoId: string, jadwalId: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayIndonesia();
     const session = sesiAbsensiTahfiz.find(s => 
       s.jadwalId === jadwalId && 
       s.tanggal === today
     );
 
     if (!session) {
-      showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.sesiTidakDitemukan'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.sesiTidakDitemukan'));
       return;
     }
 
     try {
+      // First, update JurnalTahfiz collection to remove the photo
+      // This is the primary storage for tahfiz photos
+      try {
+        const jadwal = jadwalTahfiz.find(j => j.id === jadwalId);
+        if (jadwal) {
+          const existingJurnal = await apiService.getJurnalTahfizByJadwalIdAndTanggal(
+            jadwalId,
+            today,
+            jadwal.kelasId
+          );
+
+          if (existingJurnal.success && existingJurnal.jurnalTahfiz) {
+            const jurnalDoc = existingJurnal.jurnalTahfiz;
+            
+            // Check if using new structure (pertemuan array)
+            if (jurnalDoc.pertemuan && Array.isArray(jurnalDoc.pertemuan)) {
+              // Find pertemuan with matching tanggal
+              const pertemuanIndex = jurnalDoc.pertemuan.findIndex((p: any) => p.tanggal === today);
+              
+              if (pertemuanIndex >= 0) {
+                const pertemuan = jurnalDoc.pertemuan[pertemuanIndex];
+                
+                // Check if the foto mengajar in pertemuan matches the fotoId to be deleted
+                if (pertemuan.fotoMengajar && pertemuan.fotoMengajar.id === fotoId) {
+                  // Remove foto mengajar from pertemuan by setting it to null
+                  // Controller checks !== undefined, so null will be set
+                  await apiService.updateJurnalTahfiz(jurnalDoc.id, {
+                    tanggal: today,
+                    fotoMengajar: null as any
+                  });
+                }
+              }
+            } else {
+              // Old structure - check if foto mengajar matches and remove it
+              if (jurnalDoc.fotoMengajar && jurnalDoc.fotoMengajar.id === fotoId) {
+                await apiService.updateJurnalTahfiz(jurnalDoc.id, {
+                  tanggal: today,
+                  fotoMengajar: null as any
+                });
+              }
+            }
+          }
+        }
+      } catch (jurnalError) {
+        console.error('Error updating jurnal tahfiz after photo deletion:', jurnalError);
+        // Continue with session update even if jurnal update fails
+      }
+
+      // Also remove from session.fotoMengajar if it exists there
       const updatedFotoMengajar = (session.fotoMengajar || []).filter(f => f.id !== fotoId);
       await updateSesiAbsensiTahfizAPI(session.id, {
         fotoMengajar: updatedFotoMengajar
       });
       await refreshSesiAbsensiTahfiz();
-      showNotification('success', t('tahfiz.absensiTahfiz.fotoDihapus'), t('tahfiz.absensiTahfiz.fotoBuktiMengajarBerhasilDihapus'));
+
+      showNotification('success', t('tahfiz.guruTahfiz.absensiTahfiz.fotoDihapus'), t('tahfiz.guruTahfiz.absensiTahfiz.fotoBuktiMengajarBerhasilDihapus'));
+      
+      // Dispatch event to trigger jurnal refresh in JadwalCard
+      window.dispatchEvent(new Event('jurnal-saved'));
+      
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error deleting photo:', error);
-      showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.gagalMenghapusFoto'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.gagalMenghapusFoto'));
     }
   };
 
   // Handler untuk mengganti foto di SesiAbsensiTahfiz
   const handleReplacePhoto = async (fotoId: string, jadwalId: string, imageBase64: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayIndonesia();
     const session = sesiAbsensiTahfiz.find(s => 
       s.jadwalId === jadwalId && 
       s.tanggal === today
     );
 
     if (!session) {
-      showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.sesiTidakDitemukan'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.sesiTidakDitemukan'));
       return;
     }
 
     try {
       const existingFoto = session.fotoMengajar?.find(f => f.id === fotoId);
       if (!existingFoto) {
-        showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.fotoTidakDitemukan'));
+        showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.fotoTidakDitemukan'));
         return;
       }
 
@@ -663,11 +881,47 @@ export const useAbsensiTahfizHandlers = (
         fotoMengajar: updatedFotoMengajar
       });
       await refreshSesiAbsensiTahfiz();
-      showNotification('success', t('tahfiz.absensiTahfiz.fotoDiganti'), t('tahfiz.absensiTahfiz.fotoBuktiMengajarBerhasilDiganti'));
+
+      // Update JurnalTahfiz collection
+      try {
+        const jadwal = jadwalTahfiz.find(j => j.id === jadwalId);
+        if (jadwal) {
+          const existingJurnal = await apiService.getJurnalTahfizByJadwalIdAndTanggal(
+            jadwalId,
+            today,
+            jadwal.kelasId
+          );
+
+          if (existingJurnal.success && existingJurnal.jurnalTahfiz) {
+            // Get the latest foto mengajar (the replaced one if it's the latest, or the actual latest)
+            const latestFoto = updatedFotoMengajar.length > 0 
+              ? updatedFotoMengajar[updatedFotoMengajar.length - 1]
+              : null;
+
+            const fotoMengajarData = latestFoto ? {
+              id: latestFoto.id,
+              fotoBase64: latestFoto.fotoBase64,
+              waktuFoto: latestFoto.waktuFoto,
+              keterangan: latestFoto.keterangan
+            } : undefined;
+
+            // Update jurnal tahfiz with updated foto mengajar
+            await apiService.updateJurnalTahfiz(existingJurnal.jurnalTahfiz.id, {
+              tanggal: today,
+              fotoMengajar: fotoMengajarData
+            });
+          }
+        }
+      } catch (jurnalError) {
+        console.error('Error updating jurnal tahfiz after photo replacement:', jurnalError);
+        // Don't fail the whole operation
+      }
+
+      showNotification('success', t('tahfiz.guruTahfiz.absensiTahfiz.fotoDiganti'), t('tahfiz.guruTahfiz.absensiTahfiz.fotoBuktiMengajarBerhasilDiganti'));
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error replacing photo:', error);
-      showNotification('error', t('tahfiz.absensiTahfiz.error'), t('tahfiz.absensiTahfiz.gagalMenggantiFoto'));
+      showNotification('error', t('tahfiz.guruTahfiz.absensiTahfiz.error'), t('tahfiz.guruTahfiz.absensiTahfiz.gagalMenggantiFoto'));
     }
   };
 
@@ -740,6 +994,9 @@ export const useAbsensiTahfizHandlers = (
     setSelectedSesiForDetail,
     handleDeletePhoto,
     handleReplacePhoto,
+    loadingMuridIds,
+    isBulkLoading,
+    isEditingAbsensi,
   };
 };
 

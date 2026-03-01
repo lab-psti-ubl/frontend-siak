@@ -61,7 +61,7 @@ const SystemTypeSetupModal: React.FC<SystemTypeSetupModalProps> = ({
       description: 'Sistem khusus untuk sekolah tahfiz',
       features: [
         'Fokus pada program tahfiz',
-        'Manajemen santri dan ustadz',
+        'Manajemen santri dan Ustaz/ah',
         'Absensi tahfiz',
         'Progress hafalan lengkap',
         'Jadwal tahfiz terintegrasi'
@@ -93,6 +93,7 @@ const SystemTypeSetupModal: React.FC<SystemTypeSetupModalProps> = ({
       });
 
       if (result.success) {
+        // Call the callback which will handle logout and cache clearing
         onSystemTypeSelected(selectedSystemType);
       } else {
         console.error('Failed to save system type:', result.message);

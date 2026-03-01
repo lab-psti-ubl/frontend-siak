@@ -24,13 +24,14 @@ import { useSantri } from '../../hooks/useSantri';
 import { useAbsensi } from '../../hooks/useAbsensi';
 import { usePengaturanAbsen } from '../../hooks/usePengaturanAbsen';
 import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
+import { useJurnalTahfiz } from '../../hooks/useJurnalTahfiz';
 import { useLanguage } from '../../context/LanguageContext';
 import { apiService } from '../../services/apiService';
-import { calculateAttendanceStatus } from '../../utils/absensiUtils';
+import { calculateAttendanceStatus, getTodayIndonesia } from '../../utils/absensiUtils';
 import { showSuccessNotification, showErrorNotification } from '../../utils/notificationUtils';
 import { sseAbsenService } from '../../services/sseAbsenService';
 import { isAttendanceDayAllowed, getDayNameInIndonesian } from '../../utils/attendanceDayValidation';
-import { JadwalPelajaran, SesiAbsensi, SuratIzin, Kelas, MataPelajaran, IzinGuru, TahunAjaran, AbsensiGuru, Absensi } from '../../types';
+import { JadwalPelajaran, SesiAbsensi, SuratIzin, Kelas, MataPelajaran, IzinGuru, TahunAjaran, AbsensiGuru, Absensi, TahfizSchedule } from '../../types';
 
 const GuruDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -38,6 +39,8 @@ const GuruDashboard: React.FC = () => {
   const { t } = useLanguage();
   const { systemType } = usePengaturanSistem();
   const isTahfiz = systemType === 'tahfiz';
+  const isSekolahUmumTahfiz = systemType === 'sekolah_umum_tahfiz';
+  const showTahfizFeatures = isTahfiz || isSekolahUmumTahfiz;
   useRiwayatWaliKelas(user?.id);
   const [isSubmittingMasuk, setIsSubmittingMasuk] = useState(false);
   const [isSubmittingPulang, setIsSubmittingPulang] = useState(false);
@@ -45,21 +48,21 @@ const GuruDashboard: React.FC = () => {
   // Get active tahun ajaran first
   const { tahunAjaran, activeTahunAjaran } = useTahunAjaran();
   
-  // Get jadwal - for tahfiz use jadwal tahfiz, for non-tahfiz use jadwal pelajaran
+  // Get jadwal - for tahfiz use jadwal tahfiz, for hybrid use both, for non-tahfiz use jadwal pelajaran
   const { jadwalPelajaran } = useJadwalPelajaran(
-    !isTahfiz && activeTahunAjaran
+    (!isTahfiz && activeTahunAjaran)
       ? {
           guruId: user?.id,
           tahunAjaran: activeTahunAjaran.tahun,
           semester: activeTahunAjaran.semester,
         }
-      : !isTahfiz ? { guruId: user?.id } : undefined
+      : (!isTahfiz ? { guruId: user?.id } : undefined)
   );
   const { jadwalTahfiz } = useJadwalTahfiz();
   
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayIndonesia();
   const { sesiAbsensi } = useSesiAbsensi(!isTahfiz ? { tanggal: today } : undefined);
-  const { sesiAbsensiTahfiz } = useSesiAbsensiTahfiz(isTahfiz ? { tanggal: today } : undefined);
+  const { sesiAbsensiTahfiz } = useSesiAbsensiTahfiz(showTahfizFeatures ? { tanggal: today } : undefined);
   const { suratIzin } = useSuratIzin();
   const { izinGuru } = useIzinGuru({ guruId: user?.id });
   const { kelas } = useKelas();
@@ -69,17 +72,22 @@ const GuruDashboard: React.FC = () => {
   const { activePengaturanAbsen } = usePengaturanAbsen();
   const { enableEarlyDeparture } = usePengaturanSistem();
   
-  // Get kelas tahfiz milik ustadz untuk sistem tahfiz
+  // Get jurnal tahfiz for tahfiz system (to check foto mengajar)
+  const { jurnalTahfiz: allJurnalTahfiz, refreshJurnalTahfiz } = useJurnalTahfiz(
+    showTahfizFeatures ? { tahun: new Date().getFullYear().toString() } : undefined
+  );
+  
+  // Get kelas tahfiz milik ustadz untuk sistem tahfiz atau hybrid
   const myKelasTahfiz = React.useMemo(() => {
-    if (!isTahfiz || !user?.id) return null;
+    if (!showTahfizFeatures || !user?.id) return null;
     return kelasTahfiz.find(k => k.ustadzId === user.id) || null;
-  }, [isTahfiz, user?.id, kelasTahfiz]);
+  }, [showTahfizFeatures, user?.id, kelasTahfiz]);
 
   // Get jadwal tahfiz milik ustadz
   const myJadwalTahfiz = React.useMemo(() => {
-    if (!isTahfiz || !myKelasTahfiz) return [];
+    if (!showTahfizFeatures || !myKelasTahfiz) return [];
     return jadwalTahfiz.filter(j => j.kelasId === myKelasTahfiz.id);
-  }, [isTahfiz, myKelasTahfiz, jadwalTahfiz]);
+  }, [showTahfizFeatures, myKelasTahfiz, jadwalTahfiz]);
 
   // Get santri for tahfiz kelas or murid for regular kelas
   const { murid: muridKelas } = useMurid(
@@ -91,9 +99,9 @@ const GuruDashboard: React.FC = () => {
   
   // Get santri in my tahfiz kelas
   const santriInKelas = React.useMemo(() => {
-    if (!isTahfiz || !myKelasTahfiz) return [];
+    if (!showTahfizFeatures || !myKelasTahfiz) return [];
     return santriKelas.filter(s => myKelasTahfiz.santriIds.includes(s.id));
-  }, [isTahfiz, myKelasTahfiz, santriKelas]);
+  }, [showTahfizFeatures, myKelasTahfiz, santriKelas]);
 
   // Get absensi for kelas statistics (only for non-tahfiz)
   const { absensi: absensiKelas } = useAbsensi(
@@ -107,7 +115,7 @@ const GuruDashboard: React.FC = () => {
   );
   
   const [isCameraOpen, setIsCameraOpen] = React.useState(false);
-  const [selectedJadwalForPhoto, setSelectedJadwalForPhoto] = React.useState<JadwalPelajaran | null>(null);
+  const [selectedJadwalForPhoto, setSelectedJadwalForPhoto] = React.useState<JadwalPelajaran | TahfizSchedule | null>(null);
   const [isSavingPhoto, setIsSavingPhoto] = React.useState(false);
 
   // SSE listener untuk auto-alfa guru
@@ -130,11 +138,19 @@ const GuruDashboard: React.FC = () => {
 
   const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
 
-  // Get guru's schedules - for tahfiz use jadwal tahfiz, for non-tahfiz use jadwal pelajaran
+  // Get guru's schedules - for tahfiz use jadwal tahfiz, for hybrid use both, for non-tahfiz use jadwal pelajaran
   const mySchedules = React.useMemo(() => {
     if (isTahfiz) {
-      // For tahfiz, use jadwal tahfiz milik ustadz
+      // For tahfiz only, use jadwal tahfiz milik ustadz
       return myJadwalTahfiz;
+    } else if (isSekolahUmumTahfiz) {
+      // For hybrid system, combine both jadwal pelajaran and jadwal tahfiz
+      const jadwalUmum = jadwalPelajaran.filter(j => 
+        j.guruId === user?.id &&
+        j.tahunAjaran === activeTahunAjaran?.tahun &&
+        j.semester === activeTahunAjaran?.semester
+      );
+      return [...jadwalUmum, ...myJadwalTahfiz];
     }
     // For non-tahfiz, filter jadwal pelajaran by tahun ajaran and semester
     return jadwalPelajaran.filter(j => 
@@ -142,28 +158,40 @@ const GuruDashboard: React.FC = () => {
       j.tahunAjaran === activeTahunAjaran?.tahun &&
       j.semester === activeTahunAjaran?.semester
     );
-  }, [isTahfiz, myJadwalTahfiz, jadwalPelajaran, user?.id, activeTahunAjaran]);
+  }, [isTahfiz, isSekolahUmumTahfiz, myJadwalTahfiz, jadwalPelajaran, user?.id, activeTahunAjaran]);
   
   const todaySchedules = React.useMemo(() => {
     return mySchedules.filter(j => j.hari === currentDay);
   }, [mySchedules, currentDay]);
 
-  // Get today's sessions - for tahfiz use sesi absensi tahfiz, for non-tahfiz use sesi absensi biasa
+  // Get today's sessions - for tahfiz use sesi absensi tahfiz, for hybrid use both, for non-tahfiz use sesi absensi biasa
   const todaySessions = React.useMemo(() => {
     if (isTahfiz) {
       return sesiAbsensiTahfiz.filter(s => 
         s.tanggal === today && 
         myJadwalTahfiz.some(j => j.id === s.jadwalId)
       );
+    } else if (isSekolahUmumTahfiz) {
+      // For hybrid system, combine both sesi absensi
+      const sesiUmum = sesiAbsensi.filter(s => 
+        s.tanggal === today && 
+        jadwalPelajaran.some(j => j.id === s.jadwalId && j.guruId === user?.id)
+      );
+      const sesiTahfiz = sesiAbsensiTahfiz.filter(s => 
+        s.tanggal === today && 
+        myJadwalTahfiz.some(j => j.id === s.jadwalId)
+      );
+      return [...sesiUmum, ...sesiTahfiz];
     }
     return sesiAbsensi.filter(s => 
       s.tanggal === today && 
       mySchedules.some(j => j.id === s.jadwalId)
     );
-  }, [isTahfiz, sesiAbsensiTahfiz, sesiAbsensi, today, myJadwalTahfiz, mySchedules]);
+  }, [isTahfiz, isSekolahUmumTahfiz, sesiAbsensiTahfiz, sesiAbsensi, today, myJadwalTahfiz, mySchedules, jadwalPelajaran, user?.id]);
 
   // Get pending surat izin if wali kelas (only from kelas wali)
   // For tahfiz: filter by santri in my tahfiz kelas
+  // For hybrid: filter by both murid in kelas wali and santri in tahfiz kelas
   // For non-tahfiz: filter by murid in kelas wali
   const pendingSuratIzin = React.useMemo(() => {
     if (isTahfiz && myKelasTahfiz) {
@@ -172,6 +200,28 @@ const GuruDashboard: React.FC = () => {
         // Filter by santri in my tahfiz kelas
         return myKelasTahfiz.santriIds.includes(s.muridId);
       });
+    } else if (isSekolahUmumTahfiz) {
+      // For hybrid system, combine surat izin from both kelas wali and tahfiz kelas
+      const suratIzinUmum = user?.isWaliKelas && user?.kelasWali
+        ? suratIzin.filter(s => {
+            if (s.status !== 'menunggu') return false;
+            const murid = muridKelas.find(m => m.id === s.muridId);
+            return murid && (murid as any).kelasId === user.kelasWali;
+          })
+        : [];
+      
+      const suratIzinTahfiz = myKelasTahfiz
+        ? suratIzin.filter(s => {
+            if (s.status !== 'menunggu') return false;
+            return myKelasTahfiz.santriIds.includes(s.muridId);
+          })
+        : [];
+      
+      // Combine and remove duplicates
+      const combined = [...suratIzinUmum, ...suratIzinTahfiz];
+      return combined.filter((s, index, self) => 
+        index === self.findIndex(t => t.id === s.id)
+      );
     } else if (!isTahfiz && user?.isWaliKelas && user?.kelasWali) {
       return suratIzin.filter(s => {
         if (s.status !== 'menunggu') return false;
@@ -181,12 +231,12 @@ const GuruDashboard: React.FC = () => {
       });
     }
     return [];
-  }, [isTahfiz, myKelasTahfiz, suratIzin, user?.isWaliKelas, user?.kelasWali, muridKelas]);
+  }, [isTahfiz, isSekolahUmumTahfiz, myKelasTahfiz, suratIzin, user?.isWaliKelas, user?.kelasWali, muridKelas]);
   
   // Get my izin guru (already filtered by guruId in hook)
   const pendingIzinGuru = izinGuru.filter(i => i.status === 'menunggu');
   const activeIzinGuru = izinGuru.find(i => {
-    const todayDate = new Date().toISOString().split('T')[0];
+    const todayDate = getTodayIndonesia();
     return i.status === 'diterima' &&
            i.jenis !== 'izin_dispen' &&
            i.tanggalMulai <= todayDate &&
@@ -197,8 +247,10 @@ const GuruDashboard: React.FC = () => {
 
   // Get today's absensi guru
   const todayAbsensiGuru = absensiGuru.find(a => a.guruId === user?.id && a.tanggal === today);
-  const hasMasuk = !!(todayAbsensiGuru?.jamMasuk || (todayAbsensiGuru?.statusMasuk && todayAbsensiGuru.statusMasuk !== 'tidak_masuk'));
-  const hasPulang = !!(todayAbsensiGuru?.jamKeluar && todayAbsensiGuru?.statusKeluar && todayAbsensiGuru.statusKeluar !== 'tidak_keluar');
+  // Sudah dianggap masuk hanya jika ada jam masuk dan status bukan alfa/tidak_masuk (boleh absen masuk lagi untuk update)
+  const hasMasuk = !!(todayAbsensiGuru?.jamMasuk && todayAbsensiGuru?.statusMasuk && todayAbsensiGuru.statusMasuk !== 'alfa' && todayAbsensiGuru.statusMasuk !== 'tidak_masuk');
+  // Sudah dianggap pulang hanya jika ada jam keluar dan status bukan tidak_keluar dan bukan alfa (boleh absen pulang lagi untuk update)
+  const hasPulang = !!(todayAbsensiGuru?.jamKeluar && todayAbsensiGuru?.statusKeluar && todayAbsensiGuru.statusKeluar !== 'tidak_keluar' && todayAbsensiGuru.statusKeluar !== 'alfa');
   
   // Format time to use dot instead of colon (12.20 instead of 12:20)
   const formatTimeWithDot = (timeString: string | undefined): string => {
@@ -322,7 +374,7 @@ const GuruDashboard: React.FC = () => {
     setIsSubmittingMasuk(true);
     try {
       const now = new Date();
-      const currentTime24 = now.toTimeString().slice(0, 5); // Format HH:mm
+      const currentTime24 = now.toTimeString().slice(0, 5); // Format HH:mm (jam lokal perangkat)
       const statusMasuk = activePengaturanAbsen 
         ? calculateAttendanceStatus(currentTime24, activePengaturanAbsen, 'masuk')
         : 'tepat_waktu';
@@ -330,7 +382,7 @@ const GuruDashboard: React.FC = () => {
       const newAbsensi: Partial<AbsensiGuru> = {
         guruId: user.id,
         tanggal: today,
-        jamMasuk: now.toISOString(),
+        jamMasuk: currentTime24,
         statusMasuk: statusMasuk as 'tepat_waktu' | 'terlambat' | 'tidak_masuk' | 'izin' | 'sakit' | 'alfa',
         statusKeluar: 'tidak_keluar',
         ...(isTahfiz 
@@ -345,7 +397,9 @@ const GuruDashboard: React.FC = () => {
       };
 
       await createAbsensiGuru(newAbsensi);
-      await refreshAbsensiGuru();
+      await refreshAbsensiGuru({
+        waitForWorker: { guruId: user.id, tanggal: today },
+      });
       showSuccessNotification('Absen Masuk Berhasil', `Waktu: ${currentTime24}`);
     } catch (error) {
       console.error('Error creating absen masuk:', error);
@@ -423,18 +477,20 @@ const GuruDashboard: React.FC = () => {
     setIsSubmittingPulang(true);
     try {
       const now = new Date();
-      const currentTime24 = now.toTimeString().slice(0, 5); // Format HH:mm
+      const currentTime24 = now.toTimeString().slice(0, 5); // Format HH:mm (jam lokal perangkat)
       const statusKeluar = activePengaturanAbsen
         ? calculateAttendanceStatus(currentTime24, activePengaturanAbsen, 'keluar')
         : 'tepat_waktu';
 
       const updateData: Partial<AbsensiGuru> = {
-        jamKeluar: now.toISOString(),
+        jamKeluar: currentTime24,
         statusKeluar: statusKeluar === 'pulang_awal' ? 'pulang_awal' : 'tepat_waktu',
       };
 
       await updateAbsensiGuru(todayAbsensiGuru.id, updateData);
-      await refreshAbsensiGuru();
+      await refreshAbsensiGuru({
+        waitForWorker: { guruId: user.id, tanggal: today },
+      });
       showSuccessNotification('Absen Pulang Berhasil', `Waktu: ${currentTime24}`);
     } catch (error) {
       console.error('Error updating absen pulang:', error);
@@ -549,7 +605,7 @@ const GuruDashboard: React.FC = () => {
     },
   ];
 
-  const handleTakePhoto = (jadwal: JadwalPelajaran) => {
+  const handleTakePhoto = (jadwal: JadwalPelajaran | TahfizSchedule) => {
     setSelectedJadwalForPhoto(jadwal);
     setIsCameraOpen(true);
   };
@@ -557,84 +613,171 @@ const GuruDashboard: React.FC = () => {
   const handlePhotoCapture = async (imageBase64: string) => {
     if (!selectedJadwalForPhoto || !user) return;
     
-    // For non-tahfiz, require activeTahunAjaran
-    if (!isTahfiz && !activeTahunAjaran) return;
+    // Check if this is a tahfiz jadwal
+    const isTahfizJadwal = isJadwalTahfiz(selectedJadwalForPhoto);
+    
+    // For non-tahfiz jadwal, require activeTahunAjaran
+    if (!isTahfizJadwal && !activeTahunAjaran) return;
 
     setIsSavingPhoto(true);
 
     try {
-      // Find or create today's absensi guru record
-      const todayAbsensi = absensiGuru.find(a => a.guruId === user.id && a.tanggal === today);
-      
-      // Backend expects url and timestamp, but we'll use base64 as url for now
-      const newFoto = {
-        id: `foto-${Date.now()}`,
-        jadwalId: selectedJadwalForPhoto.id,
-        url: imageBase64, // Store base64 as url (backend schema uses url)
-        timestamp: new Date().toISOString(),
-      };
-
-      if (todayAbsensi) {
-        // Update existing record
-        const updatedFotoMengajar = [...(todayAbsensi.fotoMengajar || []), newFoto];
-        const response = await apiService.updateAbsensiGuru(todayAbsensi.id, {
-          fotoMengajar: updatedFotoMengajar,
-        });
-
-        if (response.success) {
-          // Refresh absensi guru data
-          await refreshAbsensiGuru();
-          alert('Foto bukti mengajar berhasil disimpan!');
-        } else {
-          throw new Error(response.message || 'Gagal menyimpan foto');
-        }
-      } else {
-        // Create new record with photo
-        const newAbsensi: Partial<AbsensiGuru> = {
-          guruId: user.id,
-          tanggal: today,
-          statusMasuk: 'tidak_masuk',
-          statusKeluar: 'tidak_keluar',
-          fotoMengajar: [newFoto],
-          keterangan: 'Foto bukti mengajar',
-          ...(isTahfiz 
-            ? {} // No tahun ajaran/semester for tahfiz
-            : activeTahunAjaran 
-            ? {
-                tahunAjaranId: activeTahunAjaran.id || activeTahunAjaran.tahun,
-                semester: activeTahunAjaran.semester,
-              }
-            : {}
-          ),
+      if (isTahfizJadwal) {
+        // For tahfiz jadwal, save to JurnalTahfiz collection
+        const tahun = new Date().getFullYear().toString();
+        const kelasId = selectedJadwalForPhoto.kelasId;
+        
+        // Format foto mengajar for JurnalTahfiz collection
+        const fotoMengajarForJurnal = {
+          id: `foto-tahfiz-${Date.now()}`,
+          fotoBase64: imageBase64,
+          waktuFoto: new Date().toISOString(),
+          keterangan: `Foto bukti mengajar tahfiz di kelas ${getKelasName(kelasId)}`
         };
 
-        const response = await apiService.createAbsensiGuru(newAbsensi);
+        // Check if jurnal tahfiz exists
+        const existingJurnal = await apiService.getJurnalTahfizByJadwalIdAndTanggal(
+          selectedJadwalForPhoto.id,
+          today,
+          kelasId
+        );
 
-        if (response.success) {
-          // Refresh absensi guru data
-          await refreshAbsensiGuru();
-          alert('Foto bukti mengajar berhasil disimpan!');
+        if (existingJurnal.success && existingJurnal.jurnalTahfiz) {
+          // Update existing jurnal tahfiz with foto mengajar
+          const jurnalDoc = existingJurnal.jurnalTahfiz;
+          
+          // Check if using new structure (pertemuan array)
+          if (jurnalDoc.pertemuan && Array.isArray(jurnalDoc.pertemuan)) {
+            const pertemuanIndex = jurnalDoc.pertemuan.findIndex((p: any) => p.tanggal === today);
+            
+            if (pertemuanIndex >= 0) {
+              // Update existing pertemuan
+              const updatedPertemuan = [...jurnalDoc.pertemuan];
+              updatedPertemuan[pertemuanIndex] = {
+                ...updatedPertemuan[pertemuanIndex],
+                fotoMengajar: fotoMengajarForJurnal
+              };
+              
+              await apiService.updateJurnalTahfiz(jurnalDoc.id, {
+                pertemuan: updatedPertemuan
+              });
+            } else {
+              // Add new pertemuan with foto mengajar
+              const newPertemuan = {
+                tanggal: today,
+                judul: 'Jurnal Tahfiz',
+                deskripsi: 'Jurnal mengajar tahfiz',
+                waktuInput: new Date().toISOString(),
+                fotoMengajar: fotoMengajarForJurnal
+              };
+              
+              await apiService.updateJurnalTahfiz(jurnalDoc.id, {
+                pertemuan: [...(jurnalDoc.pertemuan || []), newPertemuan]
+              });
+            }
+          } else {
+            // Old structure - update directly
+            await apiService.updateJurnalTahfiz(jurnalDoc.id, {
+              tanggal: today,
+              fotoMengajar: fotoMengajarForJurnal
+            });
+          }
         } else {
-          throw new Error(response.message || 'Gagal menyimpan foto');
+          // Create new jurnal tahfiz with foto mengajar
+          const jurnalId = `jurnal-tahfiz-${selectedJadwalForPhoto.id}-${kelasId}-${Date.now()}`;
+          await apiService.createJurnalTahfiz({
+            id: jurnalId,
+            jadwalId: selectedJadwalForPhoto.id,
+            kelasId: kelasId,
+            tanggal: today,
+            judul: 'Jurnal Tahfiz',
+            deskripsi: 'Jurnal mengajar tahfiz',
+            waktuInput: new Date().toISOString(),
+            fotoMengajar: fotoMengajarForJurnal,
+            tahun: tahun
+          });
+        }
+
+        // Refresh jurnal tahfiz data
+        await refreshJurnalTahfiz();
+        showSuccessNotification('Foto Bukti Mengajar', 'Foto bukti mengajar berhasil disimpan!');
+      } else {
+        // For non-tahfiz jadwal, save to AbsensiGuru collection
+        // Find or create today's absensi guru record
+        const todayAbsensi = absensiGuru.find(a => a.guruId === user.id && a.tanggal === today);
+        
+        // Backend expects url and timestamp, but we'll use base64 as url for now
+        const newFoto = {
+          id: `foto-${Date.now()}`,
+          jadwalId: selectedJadwalForPhoto.id,
+          url: imageBase64, // Store base64 as url (backend schema uses url)
+          timestamp: new Date().toISOString(),
+        };
+
+        if (todayAbsensi) {
+          // Update existing record
+          const updatedFotoMengajar = [...(todayAbsensi.fotoMengajar || []), newFoto];
+          const response = await apiService.submitAbsensiGuruUpdateWithFallback(todayAbsensi.id, {
+            fotoMengajar: updatedFotoMengajar,
+          });
+
+          if (response.success) {
+            // Refresh absensi guru data
+            await refreshAbsensiGuru({
+              waitForWorker: { guruId: user.id, tanggal: today },
+            });
+            showSuccessNotification('Foto Bukti Mengajar', 'Foto bukti mengajar berhasil disimpan!');
+          } else {
+            throw new Error(response.message || 'Gagal menyimpan foto');
+          }
+        } else {
+          // Create new record with photo
+          const newAbsensi: Partial<AbsensiGuru> = {
+            guruId: user.id,
+            tanggal: today,
+            statusMasuk: 'tidak_masuk',
+            statusKeluar: 'tidak_keluar',
+            fotoMengajar: [newFoto],
+            keterangan: 'Foto bukti mengajar',
+            ...(activeTahunAjaran 
+              ? {
+                  tahunAjaranId: activeTahunAjaran.id || activeTahunAjaran.tahun,
+                  semester: activeTahunAjaran.semester,
+                }
+              : {}
+            ),
+          };
+
+          const response = await apiService.submitAbsensiGuruWithFallback(newAbsensi);
+
+          if (response.success) {
+            // Refresh absensi guru data
+            await refreshAbsensiGuru({
+              waitForWorker: { guruId: user.id, tanggal: today },
+            });
+            showSuccessNotification('Foto Bukti Mengajar', 'Foto bukti mengajar berhasil disimpan!');
+          } else {
+            throw new Error(response.message || 'Gagal menyimpan foto');
+          }
         }
       }
 
       setSelectedJadwalForPhoto(null);
     } catch (error: any) {
       console.error('Error saving photo:', error);
-      alert(error.message || 'Gagal menyimpan foto bukti mengajar');
+      showErrorNotification('Error', error.message || 'Gagal menyimpan foto bukti mengajar');
     } finally {
       setIsSavingPhoto(false);
     }
   };
 
   const getKelasName = (kelasId: string) => {
-    if (isTahfiz) {
-      // For tahfiz, use kelas tahfiz name
-      const kelasTahfizData = kelasTahfiz.find(k => k.id === kelasId);
-      return kelasTahfizData?.namaKelas || 'Unknown';
+    // Check if this is a tahfiz kelas first
+    const kelasTahfizData = kelasTahfiz.find(k => k.id === kelasId);
+    if (kelasTahfizData) {
+      return kelasTahfizData.namaKelas;
     }
-    // For non-tahfiz, use regular kelas name
+    // For regular kelas
     return kelas.find(k => k.id === kelasId)?.name || 'Unknown';
   };
 
@@ -644,11 +787,39 @@ const GuruDashboard: React.FC = () => {
 
   // Helper to check if jadwal is tahfiz schedule
   const isJadwalTahfiz = (jadwal: any): boolean => {
-    return isTahfiz && !('mataPelajaranId' in jadwal);
+    return showTahfizFeatures && !('mataPelajaranId' in jadwal);
   };
 
   const hasPhotoForJadwal = (jadwalId: string) => {
-    if (isTahfiz) return false; // Photo evidence not used for tahfiz
+    if (showTahfizFeatures) {
+      // For tahfiz or hybrid, check jurnalTahfiz collection if it's a tahfiz jadwal
+      const isTahfizJadwal = myJadwalTahfiz.some(j => j.id === jadwalId);
+      if (isTahfizJadwal) {
+        if (!allJurnalTahfiz || allJurnalTahfiz.length === 0) return false;
+        
+        const jurnalDoc = allJurnalTahfiz.find(j => 
+          j.jadwalId === jadwalId && 
+          j.kelasId === (myJadwalTahfiz.find(jw => jw.id === jadwalId)?.kelasId || '')
+        );
+        
+        if (!jurnalDoc) return false;
+        
+        // Check new structure (pertemuan array)
+        if (jurnalDoc.pertemuan && Array.isArray(jurnalDoc.pertemuan)) {
+          const pertemuan = jurnalDoc.pertemuan.find((p: any) => p.tanggal === today);
+          return !!(pertemuan && pertemuan.fotoMengajar);
+        }
+        
+        // Check old structure (backward compatibility)
+        if (jurnalDoc.tanggal === today) {
+          return !!jurnalDoc.fotoMengajar;
+        }
+        
+        return false;
+      }
+    }
+    
+    // For non-tahfiz jadwal, check absensiGuru collection
     const todayAbsensi = absensiGuru.find(a => a.guruId === user?.id && a.tanggal === today);
     return todayAbsensi?.fotoMengajar?.some(f => f.jadwalId === jadwalId) || false;
   };
@@ -1060,7 +1231,7 @@ const GuruDashboard: React.FC = () => {
                       return currentTime >= jadwal.jamSelesai;
                     })() :
                     isJadwalFinished(jadwal);
-                  const hasPhoto = isJadwalTahfizType ? false : hasPhotoForJadwal(jadwal.id);
+                  const hasPhoto = hasPhotoForJadwal(jadwal.id);
                   const sessionOpened = hasSessionOpened(jadwal.id);
 
                   return (
@@ -1071,9 +1242,16 @@ const GuruDashboard: React.FC = () => {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="flex-1">
-                          <p className="font-semibold text-slate-900 text-sm sm:text-base mb-1">
-                            {isJadwalTahfizType ? getKelasName(jadwal.kelasId) : getMapelName((jadwal as any).mataPelajaranId)}
-                          </p>
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-slate-900 text-sm sm:text-base">
+                              {isJadwalTahfizType ? getKelasName(jadwal.kelasId) : getMapelName((jadwal as any).mataPelajaranId)}
+                            </p>
+                            {isJadwalTahfizType && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+                                Tahfiz
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1.5 text-slate-600 text-xs sm:text-sm">
                             <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             <p>
@@ -1081,7 +1259,7 @@ const GuruDashboard: React.FC = () => {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-2">
                           {session ? (
                             <span className={`inline-flex items-center px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold ${
                               session.status === 'dibuka' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-200 text-slate-700 border border-slate-300'
@@ -1193,7 +1371,7 @@ const GuruDashboard: React.FC = () => {
                 </div>
               </div>
             )}
-            {((isTahfiz && myKelasTahfiz) || (!isTahfiz && user?.isWaliKelas)) && pendingSuratIzin.length > 0 && (
+            {((showTahfizFeatures && myKelasTahfiz) || (!isTahfiz && user?.isWaliKelas)) && pendingSuratIzin.length > 0 && (
               <div 
                 onClick={() => navigate('/dashboard/surat-izin')}
                 className="flex items-start gap-3 p-3 sm:p-4 bg-gradient-to-br from-orange-50 to-orange-50/50 rounded-lg border border-orange-200 hover:border-orange-300 cursor-pointer hover:from-orange-100 hover:to-orange-100/50 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-1 hover:scale-[1.02] active:scale-[0.98]"
@@ -1203,13 +1381,20 @@ const GuruDashboard: React.FC = () => {
                   <p className="text-xs sm:text-sm font-semibold text-orange-900">
                     {t('dashboardGuru.suratIzinMembutuhkanVerifikasi', { count: pendingSuratIzin.length })}
                   </p>
-                  <p className="text-xs text-orange-700 mt-0.5">{t(isTahfiz ? 'dashboardGuru.sebagaiWaliKelasTahfiz' : 'dashboardGuru.sebagaiWaliKelas', { kelas: isTahfiz ? (myKelasTahfiz?.namaKelas || '') : getKelasName(user.kelasWali || '') })}</p>
+                  <p className="text-xs text-orange-700 mt-0.5">
+                    {isSekolahUmumTahfiz && myKelasTahfiz && user?.isWaliKelas
+                      ? `Sebagai wali kelas ${getKelasName(user.kelasWali || '')} dan ustadz ${myKelasTahfiz.namaKelas}`
+                      : isTahfiz
+                      ? t('dashboardGuru.sebagaiWaliKelasTahfiz', { kelas: myKelasTahfiz?.namaKelas || '' })
+                      : t('dashboardGuru.sebagaiWaliKelas', { kelas: getKelasName(user.kelasWali || '') })
+                    }
+                  </p>
                 </div>
               </div>
             )}
             {todaySessions.length > 0 && (
               <div 
-                onClick={() => navigate('/dashboard/absensi')}
+                onClick={() => navigate(isSekolahUmumTahfiz ? '/dashboard/absensi' : '/dashboard/absensi')}
                 className="flex items-start gap-3 p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-blue-50/50 rounded-lg border border-blue-200 hover:border-blue-300 cursor-pointer hover:from-blue-100 hover:to-blue-100/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20 hover:-translate-y-1 hover:scale-[1.02] active:scale-[0.98]"
               >
                 <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
@@ -1221,7 +1406,7 @@ const GuruDashboard: React.FC = () => {
                 </div>
               </div>
             )}
-            {!activeIzinGuru && pendingIzinGuruCount === 0 && (((isTahfiz && myKelasTahfiz) || (!isTahfiz && user?.isWaliKelas)) ? pendingSuratIzin.length === 0 : true) && (
+            {!activeIzinGuru && pendingIzinGuruCount === 0 && (((showTahfizFeatures && myKelasTahfiz) || (!isTahfiz && user?.isWaliKelas)) ? pendingSuratIzin.length === 0 : true) && (
               <div className="text-center py-6 text-slate-500">
                 <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-2">
                   <CheckCircle className="w-6 h-6 text-slate-400" />
@@ -1234,7 +1419,7 @@ const GuruDashboard: React.FC = () => {
         </div>
       </div>
 
-      {((isTahfiz && myKelasTahfiz) || (!isTahfiz && user?.isWaliKelas)) && (() => {
+      {((showTahfizFeatures && myKelasTahfiz) || (!isTahfiz && user?.isWaliKelas)) && (() => {
         // Calculate attendance statistics for wali kelas/ustadz
         let classAttendanceRate = '0';
         
@@ -1368,7 +1553,7 @@ const GuruDashboard: React.FC = () => {
           setSelectedJadwalForPhoto(null);
         }}
         onCapture={handlePhotoCapture}
-        title={selectedJadwalForPhoto ? `Foto Bukti Mengajar - ${getMapelName(selectedJadwalForPhoto.mataPelajaranId)}` : 'Ambil Foto'}
+        title={selectedJadwalForPhoto ? `Foto Bukti Mengajar - ${isJadwalTahfiz(selectedJadwalForPhoto) ? getKelasName(selectedJadwalForPhoto.kelasId) : getMapelName((selectedJadwalForPhoto as JadwalPelajaran).mataPelajaranId)}` : 'Ambil Foto'}
       />
     </div>
   );

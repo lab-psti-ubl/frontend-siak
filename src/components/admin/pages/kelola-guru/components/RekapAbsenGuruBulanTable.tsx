@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { User, AbsensiGuru, IzinGuru, TahunAjaran } from '../../../../../types';
+import { getMonthNames, type DateLocaleLanguage } from '../../../../../utils/dateLocaleUtils';
 import { getKeteranganAbsensi, getGuruAbsensiForDate, getGuruIzinForDate, isTanggalExistsInDatabase } from '../utils/absenGuruDataHelpers';
 
 interface RekapAbsenGuruBulanTableProps {
@@ -9,6 +10,8 @@ interface RekapAbsenGuruBulanTableProps {
   absensiGuru: AbsensiGuru[];
   izinGuru: IzinGuru[];
   tahunAjaranData?: TahunAjaran[];
+  /** When 'ms', month label uses Malay (Mac, Julai, Ogos, Disember, etc.) */
+  language?: DateLocaleLanguage;
 }
 
 interface RekapGuruBulanData {
@@ -48,13 +51,10 @@ const RekapAbsenGuruBulanTable: React.FC<RekapAbsenGuruBulanTableProps> = ({
   absensiGuru,
   izinGuru,
   tahunAjaranData,
+  language = 'id',
 }) => {
   const daysInMonth = new Date(tahun, bulan, 0).getDate();
-
-  const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
+  const monthNames = getMonthNames(language);
 
   const [isMobileView, setIsMobileView] = React.useState(window.innerWidth < 768);
   const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null);

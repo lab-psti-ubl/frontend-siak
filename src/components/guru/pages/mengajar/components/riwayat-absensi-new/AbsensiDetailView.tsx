@@ -42,9 +42,11 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
   tahunAjaran = [],
 }) => {
   const { absensi, refreshAbsensi } = useAbsensi();
-  const { sesiAbsensi: allSesiAbsensi, createSesiAbsensi, updateSesiAbsensi, refreshSesiAbsensi } = useSesiAbsensi();
+  const { sesiAbsensi: allSesiAbsensi, createSesiAbsensi, updateSesiAbsensi, refreshSesiAbsensi, addAbsensiToSesi, bulkAddAbsensiToSesi, isSyncingWithWorker, syncMessage } = useSesiAbsensi();
   const { riwayatKelasMurid, createRiwayatKelasMurid, refreshRiwayatKelasMurid } = useRiwayatKelasMurid();
   const [refreshKey, setRefreshKey] = React.useState(0); // Force re-render after refresh
+  const [loadingMuridIds, setLoadingMuridIds] = React.useState<Set<string>>(new Set()); // Loading state per murid
+  const [isBulkLoading, setIsBulkLoading] = React.useState(false); // Loading state for bulk operation
   
   // Get current sesi - prioritize hook data (which is refreshed and has latest data)
   const activeSesi = React.useMemo(() => {
@@ -59,6 +61,7 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
   const [editStatus, setEditStatus] = useState<'hadir' | 'izin' | 'sakit' | 'alfa'>('hadir');
   const [editKeterangan, setEditKeterangan] = useState('');
   const [isNewAbsensi, setIsNewAbsensi] = useState(false);
+  const [isSavingAbsensi, setIsSavingAbsensi] = useState(false);
 
   const isCurrentTahunAjaran = tahunAjaran.find(ta => ta.isActive);
   const isFilteringPreviousTahunAjaran = isCurrentTahunAjaran &&
@@ -246,8 +249,12 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
       }
     }
 
-    // Use addAbsensiToSesi API to save absensi pelajaran to sesi.dataAbsensi
+    // Use addAbsensiToSesi from hook (with worker fallback) to save absensi pelajaran to sesi.dataAbsensi
     try {
+      setIsSavingAbsensi(true);
+      // Set loading state for this murid
+      setLoadingMuridIds(prev => new Set(prev).add(selectedMurid.id));
+      
       const absensiPelajaranData = {
         muridId: selectedMurid.id,
         status: editStatus,
@@ -261,24 +268,31 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
                           editStatus === 'alfa' ? 'Alfa' : undefined,
       };
       
-      const response = await apiService.addAbsensiToSesi(sesiId, absensiPelajaranData);
-      if (response.success && response.sesiAbsensi) {
-        // Hapus cache dan muat ulang semua data
-        // Refresh semua related caches secara berurutan untuk memastikan data terbaru
-        await refreshSesiAbsensi();
-        await refreshAbsensi();
-        await refreshRiwayatKelasMurid();
-        
-        // Force re-render dengan update key setelah semua refresh selesai
-        setRefreshKey(prev => prev + 1);
-      }
+      // Hook's addAbsensiToSesi handles worker fallback and auto-refresh with waitForWorker
+      await addAbsensiToSesi(sesiId, absensiPelajaranData);
+      
+      // Refresh other related data
+      await refreshAbsensi();
+      await refreshRiwayatKelasMurid();
+      
+      // Force re-render dengan update key setelah semua refresh selesai
+      setRefreshKey(prev => prev + 1);
+      
+      // Close modal after successful save
+      setEditModalOpen(false);
+      setSelectedMurid(null);
     } catch (error) {
       console.error('Error saving absensi pelajaran:', error);
       throw error; // Re-throw to show error to user
+    } finally {
+      setIsSavingAbsensi(false);
+      // Clear loading state
+      setLoadingMuridIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(selectedMurid.id);
+        return newSet;
+      });
     }
-
-    setEditModalOpen(false);
-    setSelectedMurid(null);
   };
 
   const handleCeklisHadirSemua = async () => {
@@ -340,7 +354,7 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
       }
     }
 
-    // Use bulkAddAbsensiToSesi to save all absensi pelajaran at once
+    // Use bulkAddAbsensiToSesi from hook to save all absensi pelajaran at once
     const absensiList = muridList.map(murid => ({
       muridId: murid.id,
       status: 'hadir' as const,
@@ -352,20 +366,22 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
     }));
     
     try {
-      const response = await apiService.bulkAddAbsensiToSesi(sesiId, absensiList);
-      if (response.success && response.sesiAbsensi) {
-        // Hapus cache dan muat ulang semua data
-        // Refresh semua related caches secara berurutan untuk memastikan data terbaru
-        await refreshSesiAbsensi();
-        await refreshAbsensi();
-        await refreshRiwayatKelasMurid();
-        
-        // Force re-render dengan update key setelah semua refresh selesai
-        setRefreshKey(prev => prev + 1);
-      }
+      setIsBulkLoading(true);
+      
+      // Hook's bulkAddAbsensiToSesi handles worker fallback and auto-refresh with waitForWorker
+      await bulkAddAbsensiToSesi(sesiId, absensiList);
+      
+      // Refresh other related data
+      await refreshAbsensi();
+      await refreshRiwayatKelasMurid();
+      
+      // Force re-render dengan update key setelah semua refresh selesai
+      setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error saving bulk absensi pelajaran:', error);
       throw error; // Re-throw to show error to user
+    } finally {
+      setIsBulkLoading(false);
     }
   };
 
@@ -456,6 +472,15 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
         </Card>
       </div>
 
+      {(isSyncingWithWorker || isBulkLoading) && (
+        <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl mb-4">
+          <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" aria-label="Memuat data absensi" />
+          <p className="text-sm font-medium">
+            {syncMessage || (isBulkLoading ? 'Menyimpan absensi pelajaran...' : 'Memproses absensi pelajaran...')}
+          </p>
+        </div>
+      )}
+
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
           <h3 className="text-base sm:text-lg font-semibold text-slate-900">Data Absensi Murid</h3>
@@ -464,10 +489,20 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
               onClick={handleCeklisHadirSemua}
               variant="primary"
               size="sm"
+              disabled={isBulkLoading}
               className="text-xs sm:text-sm w-full sm:w-auto flex items-center justify-center"
             >
-              <CheckCircle size={14} className="mr-1.5 sm:mr-2" />
-              Ceklis Hadir Semua
+              {isBulkLoading ? (
+                <>
+                  <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5 sm:mr-2" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={14} className="mr-1.5 sm:mr-2" />
+                  Ceklis Hadir Semua
+                </>
+              )}
             </Button>
           )}
         </div>
@@ -522,14 +557,21 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
                           </td>
                           {!isAdminView && !isFilteringPreviousTahunAjaran && (
                             <td className="px-3 sm:px-6 py-3 text-center">
-                              <Button
-                                onClick={() => handleEditAbsensi(murid, absensiMurid)}
-                                variant="secondary"
-                                size="sm"
-                                className="text-xs px-2 py-1 mx-auto"
-                              >
-                                {absensiMurid ? 'Edit' : 'Tambah'}
-                              </Button>
+                              {loadingMuridIds.has(murid.id) ? (
+                                <div className="flex items-center justify-center gap-2 text-blue-600">
+                                  <div className="h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                  <span className="text-xs">Menyimpan...</span>
+                                </div>
+                              ) : (
+                                <Button
+                                  onClick={() => handleEditAbsensi(murid, absensiMurid)}
+                                  variant="secondary"
+                                  size="sm"
+                                  className="text-xs px-2 py-1 mx-auto"
+                                >
+                                  {absensiMurid ? 'Edit' : 'Tambah'}
+                                </Button>
+                              )}
                             </td>
                           )}
                         </tr>
@@ -573,14 +615,21 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
                       </div>
 
                       {!isAdminView && !isFilteringPreviousTahunAjaran && (
-                        <Button
-                          onClick={() => handleEditAbsensi(murid, absensiMurid)}
-                          variant="primary"
-                          size="sm"
-                          className="w-full text-xs sm:text-sm flex items-center justify-center"
-                        >
-                          {absensiMurid ? 'Edit Absensi' : 'Tambah Absensi'}
-                        </Button>
+                        loadingMuridIds.has(murid.id) ? (
+                          <div className="flex items-center justify-center gap-2 text-blue-600 py-2">
+                            <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs sm:text-sm">Menyimpan...</span>
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => handleEditAbsensi(murid, absensiMurid)}
+                            variant="primary"
+                            size="sm"
+                            className="w-full text-xs sm:text-sm flex items-center justify-center"
+                          >
+                            {absensiMurid ? 'Edit Absensi' : 'Tambah Absensi'}
+                          </Button>
+                        )
                       )}
                     </div>
                   </Card>
@@ -591,7 +640,7 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
         )}
       </div>
 
-      <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} size="md">
+      <Modal isOpen={editModalOpen} onClose={() => !isSavingAbsensi && setEditModalOpen(false)} size="md">
         <div className="space-y-4">
           <h3 className="text-xl font-bold text-gray-900">{isNewAbsensi ? 'Tambah' : 'Edit'} Absensi</h3>
 
@@ -604,6 +653,15 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
             </div>
           )}
 
+          {isSavingAbsensi && (
+            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl">
+              <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" aria-label="Menyimpan data absensi" />
+              <p className="text-sm font-medium">
+                Menyimpan absensi pelajaran melalui worker...
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Status Kehadiran
@@ -612,6 +670,7 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
               value={editStatus}
               onChange={(e) => setEditStatus(e.target.value as 'hadir' | 'izin' | 'sakit' | 'alfa')}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isSavingAbsensi}
             >
               <option value="hadir">Hadir</option>
               <option value="izin">Izin</option>
@@ -630,6 +689,7 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
               rows={3}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Tambahkan keterangan..."
+              disabled={isSavingAbsensi}
             />
           </div>
 
@@ -637,6 +697,7 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
             <Button
               onClick={() => setEditModalOpen(false)}
               variant="secondary"
+              disabled={isSavingAbsensi}
             >
               Batal
             </Button>
@@ -644,9 +705,19 @@ const AbsensiDetailView: React.FC<AbsensiDetailViewProps> = ({
               onClick={handleSaveEdit}
               variant="primary"
               className="flex items-center"
+              disabled={isSavingAbsensi}
             >
-              <Save size={16} className="mr-2" />
-              Simpan
+              {isSavingAbsensi ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Save size={16} className="mr-2" />
+                  Simpan
+                </>
+              )}
             </Button>
           </div>
         </div>

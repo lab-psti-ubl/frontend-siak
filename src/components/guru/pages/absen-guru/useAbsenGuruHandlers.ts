@@ -1,16 +1,17 @@
 import { useState, useRef } from 'react';
 import { AbsensiGuru, PengaturanAbsen, User } from '../../../../types';
 import { parseQRCodeData, generateTeacherAttendanceQRCode, downloadQRCode, parseAdminAttendanceQRCode } from '../../../../utils/qrCodeGenerator';
-import { calculateAttendanceStatus } from '../../../../utils/absensiUtils';
+import { calculateAttendanceStatus, getCurrentTimeIndonesia, getCurrentTimeLocal } from '../../../../utils/absensiUtils';
 import { showSuccessNotification, showErrorNotification, showWarningNotification } from '../../../../utils/notificationUtils';
 import { apiService } from '../../../../services/apiService';
 import { isAttendanceDayAllowed, getDayNameInIndonesian } from '../../../../utils/attendanceDayValidation';
 import { usePengaturanSistem } from '../../../../hooks/usePengaturanSistem';
+import { AbsensiGuruRefreshOptions } from '../../../../hooks/useAbsensiGuru';
 import { ScanResult } from '../../../ui/QRScanner';
 
 interface UseAbsenGuruHandlersProps {
   user: User | null;
-  refreshAbsensiGuru: () => Promise<void>;
+  refreshAbsensiGuru: (options?: AbsensiGuruRefreshOptions) => Promise<void>;
   activePengaturan: PengaturanAbsen | undefined;
   today: string;
   activeTahunAjaranId: string;
@@ -33,7 +34,8 @@ export const useAbsenGuruHandlers = ({
 
   const handleQRScan = async (qrData: string): Promise<ScanResult | null> => {
     const currentTime = Date.now();
-    const currentTime24 = new Date().toLocaleTimeString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    const currentTime24 = getCurrentTimeIndonesia(); // untuk tampilan & validasi (WIB)
+    const jamForDb = getCurrentTimeLocal(); // jam lokal perangkat untuk disimpan ke DB
 
     if (isProcessingRef.current) {
       console.log('Scan still processing, ignoring...');
@@ -125,12 +127,81 @@ export const useAbsenGuruHandlers = ({
       const existingAbsensi = existingResponse.success && existingResponse.absensiGuru ? existingResponse.absensiGuru : null;
 
       if (existingAbsensi) {
-        if (!existingAbsensi.jamKeluar) {
-          // Check enableEarlyDeparture restriction
-          if (!enableEarlyDeparture && activePengaturan) {
+        // Update masuk jika belum ada jam masuk ATAU status masuk alfa/tidak_masuk (edit manual dari admin)
+        const bolehUpdateMasuk =
+          !existingAbsensi.jamMasuk ||
+          existingAbsensi.statusMasuk === 'alfa' ||
+          existingAbsensi.statusMasuk === 'tidak_masuk';
+        if (bolehUpdateMasuk) {
+          // Validasi: jangan absen masuk jika sudah lewat jam pulang
+          if (activePengaturan) {
             const now = new Date();
             const currentHour = now.getHours();
             const currentMinute = now.getMinutes();
+            const [jamPulangHour, jamPulangMinute] = activePengaturan.jamPulang.split(':').map(Number);
+            const currentTimeMinutes = currentHour * 60 + currentMinute;
+            const jamPulangMinutes = jamPulangHour * 60 + jamPulangMinute;
+            if (currentTimeMinutes > jamPulangMinutes) {
+              const result: ScanResult = {
+                user: user,
+                role: 'guru',
+                timestamp: currentTime24,
+                statusMessage: `Waktu absen masuk sudah melewati jam pulang (${activePengaturan.jamPulang}). Anda tidak dapat melakukan absen masuk.`,
+                isError: true,
+                errorType: 'not_registered',
+              };
+              showErrorNotification(
+                'Tidak Dapat Absen Masuk',
+                `Waktu absen masuk sudah melewati jam pulang (${activePengaturan.jamPulang}). Anda tidak dapat melakukan absen masuk.`
+              );
+              isProcessingRef.current = false;
+              return result;
+            }
+          }
+          const statusMasuk = calculateAttendanceStatus(currentTime24, activePengaturan, 'masuk');
+          const updateData = {
+            jamMasuk: jamForDb,
+            statusMasuk: statusMasuk as 'tepat_waktu' | 'terlambat' | 'tidak_masuk' | 'izin' | 'sakit' | 'alfa',
+          };
+          const updateResponse = await apiService.submitAbsensiGuruUpdateWithFallback(existingAbsensi.id, updateData);
+          if (updateResponse.success) {
+            await refreshAbsensiGuru({ waitForWorker: { guruId: user.id, tanggal: today } });
+            const result: ScanResult = {
+              user: user,
+              role: 'guru',
+              tipeAbsen: 'Masuk',
+              status: statusMasuk,
+              timestamp: currentTime24,
+              statusMessage: `Absen masuk berhasil. Status: ${statusMasuk === 'tepat_waktu' ? 'Tepat Waktu' : statusMasuk === 'terlambat' ? 'Terlambat' : statusMasuk}`,
+              isError: false,
+            };
+            showSuccessNotification('Absen Masuk Berhasil!', `Waktu: ${currentTime24}`);
+            setTimeout(() => { isProcessingRef.current = false; }, SCAN_DEBOUNCE_TIME);
+            return result;
+          }
+          const result: ScanResult = {
+            user: user,
+            role: 'guru',
+            tipeAbsen: 'Masuk',
+            timestamp: currentTime24,
+            statusMessage: updateResponse.message || 'Gagal memperbarui absensi masuk',
+            isError: true,
+            errorType: 'absen_failed',
+          };
+          showErrorNotification('Gagal Update Absensi', updateResponse.message || 'Gagal memperbarui absensi masuk');
+          isProcessingRef.current = false;
+          return result;
+        }
+
+        // Update keluar jika belum ada jam keluar ATAU jam keluar ada tapi status alfa/tidak_keluar (edit manual dari admin)
+        const bolehUpdateKeluar =
+          !existingAbsensi.jamKeluar ||
+          existingAbsensi.statusKeluar === 'alfa' ||
+          existingAbsensi.statusKeluar === 'tidak_keluar';
+        if (bolehUpdateKeluar) {
+          // Check enableEarlyDeparture restriction
+          if (!enableEarlyDeparture && activePengaturan) {
+            const [currentHour, currentMinute] = getCurrentTimeIndonesia().split(':').map(Number);
             const [jamPulangHour, jamPulangMinute] = activePengaturan.jamPulang.split(':').map(Number);
             
             const currentTimeMinutes = currentHour * 60 + currentMinute;
@@ -166,7 +237,7 @@ export const useAbsenGuruHandlers = ({
           const statusKeluar = calculateAttendanceStatus(currentTime24, activePengaturan, 'keluar');
           
           const updated: Partial<AbsensiGuru> = {
-            jamKeluar: currentTime24,
+            jamKeluar: jamForDb,
             statusKeluar: statusKeluar as 'tepat_waktu' | 'pulang_awal' | 'tidak_keluar' | 'izin' | 'sakit' | 'alfa',
           };
 
@@ -182,10 +253,24 @@ export const useAbsenGuruHandlers = ({
             updated.keteranganAbsensi = 'Dispen';
           }
 
-          const updateResponse = await apiService.updateAbsensiGuru(existingAbsensi.id, updated);
+          // Send via worker first (RMQ). If worker/RMQ down, fallback to direct server.
+          // We send a full payload so consumer can upsert safely and avoid duplicates.
+          const updatePayload: Partial<AbsensiGuru> = {
+            ...existingAbsensi,
+            ...updated,
+            guruId: user.id,
+            tanggal: today,
+            tahunAjaranId: activeTahunAjaranId,
+            semester,
+            statusMasuk: existingAbsensi.statusMasuk, // required by worker validation
+          };
+
+          const updateResponse = await apiService.submitAbsensiGuruWithFallback(updatePayload);
           
           if (updateResponse.success) {
-            await refreshAbsensiGuru();
+            await refreshAbsensiGuru({
+              waitForWorker: { guruId: user.id, tanggal: today },
+            });
             
             const result: ScanResult = {
               user: user,
@@ -266,17 +351,20 @@ export const useAbsenGuruHandlers = ({
         const newAbsensi: Partial<AbsensiGuru> = {
           guruId: user.id,
           tanggal: today,
-          jamMasuk: currentTime24,
+          jamMasuk: jamForDb,
           statusMasuk: statusMasuk as 'tepat_waktu' | 'terlambat' | 'tidak_masuk' | 'izin' | 'sakit' | 'alfa',
           statusKeluar: 'tidak_keluar',
           tahunAjaranId: activeTahunAjaranId,
           semester,
         };
 
-        const createResponse = await apiService.createAbsensiGuru(newAbsensi);
+        // Send via worker first (RMQ). If worker/RMQ down, fallback to direct server.
+        const createResponse = await apiService.submitAbsensiGuruWithFallback(newAbsensi);
         
         if (createResponse.success) {
-          await refreshAbsensiGuru();
+          await refreshAbsensiGuru({
+            waitForWorker: { guruId: user.id, tanggal: today },
+          });
           
           const result: ScanResult = {
             user: user,

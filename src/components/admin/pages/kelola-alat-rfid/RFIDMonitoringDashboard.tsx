@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import Card from '../../../ui/Card';
@@ -16,6 +16,7 @@ import { usePengaturanAbsen } from '../../../../hooks/usePengaturanAbsen';
 import { useProfilSekolah } from '../../../../hooks/useProfilSekolah';
 import { useIzinGuru } from '../../../../hooks/useIzinGuru';
 import ScanningArea from './components/ScanningArea';
+import ScanningAreaFaceRecognition from './components/ScanningAreaFaceRecognition';
 import ScanHistoryLog from './components/ScanHistoryLog';
 import ScanResultModal from './components/ScanResultModal';
 import {
@@ -23,7 +24,8 @@ import {
   ScanLogEntry,
   generateSpeechMessage,
 } from './utils/rfidMonitoringUtils';
-import { processScan } from './utils/scanProcessing';
+import { getTodayIndonesia } from '../../../../utils/absensiUtils';
+import { processScan, processFaceVerificationScan } from './utils/scanProcessing';
 
 interface RFIDMonitoringDashboardProps {
   alatId?: string;
@@ -52,6 +54,20 @@ const RFIDMonitoringDashboard: React.FC<RFIDMonitoringDashboardProps> = ({ alatI
   const [showModal, setShowModal] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
 
+  const absensiGuruRef = useRef<AbsensiGuru[]>([]);
+  const faceQueueRef = useRef<ScanResult[]>([]);
+  const isProcessingFaceRef = useRef(false);
+  /** Cooldown 10 menit per guru: jangan proses guru yang sama lagi sebelum 10 menit. */
+  const lastProcessedGuruAtRef = useRef<Record<string, number>>({});
+  const FACE_GURU_COOLDOWN_MS = 10 * 60 * 1000;
+  /** Waktu terakhir modal sukses absen ditampilkan per guru (untuk skip modal "belum waktunya pulang" dalam 10 menit). */
+  const lastSuccessModalShownAtRef = useRef<Record<string, number>>({});
+  const MODAL_SKIP_EARLY_DEPARTURE_MS = 10 * 60 * 1000;
+
+  useEffect(() => {
+    absensiGuruRef.current = absensiGuru;
+  }, [absensiGuru]);
+
   const alatId = propAlatId || searchParams.get('alatId');
   const token = propToken || searchParams.get('token');
 
@@ -77,7 +93,7 @@ const RFIDMonitoringDashboard: React.FC<RFIDMonitoringDashboardProps> = ({ alatI
 
   const fetchAbsensiGuru = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayIndonesia();
       const response = await apiService.getAbsensiGuruByTanggal(today);
       if (response.success && response.absensiGuru) {
         setAbsensiGuru(response.absensiGuru);
@@ -89,7 +105,7 @@ const RFIDMonitoringDashboard: React.FC<RFIDMonitoringDashboardProps> = ({ alatI
 
   const fetchAbsensi = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayIndonesia();
       const response = await apiService.getAllAbsensi({ tanggal: today });
       if (response.success && response.absensi) {
         setAbsensi(response.absensi);
@@ -274,6 +290,9 @@ const RFIDMonitoringDashboard: React.FC<RFIDMonitoringDashboardProps> = ({ alatI
   useEffect(() => {
     if (!isAuthenticated || showModal) return;
 
+    // Untuk alat dengan jenisAbsen face recognition, input keyboard RFID tidak digunakan
+    if (currentAlat?.jenisAbsen === 'facerecognition') return;
+
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'Enter') {
         if (lastScannedData.trim()) {
@@ -287,7 +306,7 @@ const RFIDMonitoringDashboard: React.FC<RFIDMonitoringDashboardProps> = ({ alatI
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isAuthenticated, lastScannedData, showModal]);
+  }, [isAuthenticated, lastScannedData, showModal, currentAlat?.jenisAbsen]);
 
   // If no alatId and no token, show token input form
   if (!alatId && !token) {
@@ -369,7 +388,137 @@ const RFIDMonitoringDashboard: React.FC<RFIDMonitoringDashboardProps> = ({ alatI
         <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 lg:gap-5">
           {/* Scanning Area */}
           <div className="lg:col-span-2 order-1 min-h-0 flex">
-            <ScanningArea lastScannedGuid={lastScannedData} />
+            {currentAlat?.jenisAbsen === 'facerecognition' ? (
+              <ScanningAreaFaceRecognition
+                onAttendanceResult={async (faceResult) => {
+                  if (!currentAlat) return;
+                  const guruId = faceResult.user?.id;
+                  if (!guruId) {
+                    const logEntry: ScanLogEntry = {
+                      id: `scan-face-${Date.now()}`,
+                      namaUser: faceResult.user?.name || 'Guru',
+                      tipeUser: 'Guru',
+                      tipeAbsen: '-',
+                      timestamp: faceResult.timestamp,
+                      status: 'gagal',
+                    };
+                    setScanLog((prev) => [logEntry, ...prev.slice(0, 19)]);
+                    setScanResult({ ...faceResult, status: 'gagal', isError: true, errorType: 'absen_failed', statusMessage: 'Gagal mencatat absensi. Data guru tidak ditemukan.' });
+                    setShowModal(true);
+                    speakMessage(faceResult.user?.name || '', 'gagal', '-', 'absen_failed');
+                    return;
+                  }
+                  const alreadyInQueue = faceQueueRef.current.some((r) => r.user?.id === guruId);
+                  if (alreadyInQueue) return;
+                  faceQueueRef.current.push(faceResult);
+                  const processQueue = async () => {
+                    if (isProcessingFaceRef.current || faceQueueRef.current.length === 0) return;
+                    isProcessingFaceRef.current = true;
+                    while (faceQueueRef.current.length > 0) {
+                      const item = faceQueueRef.current.shift()!;
+                      const itemGuruId = item.user?.id as string;
+                      const nowMs = Date.now();
+                      const lastAt = lastProcessedGuruAtRef.current[itemGuruId];
+                      if (lastAt != null && nowMs - lastAt < FACE_GURU_COOLDOWN_MS) {
+                        // Cooldown: tidak tampilkan result modal (info "bisa scan lagi" tidak perlu di modal)
+                        continue;
+                      }
+                      const latestAbsensiGuru = absensiGuruRef.current;
+                      try {
+                        const result = await processFaceVerificationScan(
+                          {
+                            guruId: itemGuruId,
+                            currentAlat,
+                            absensiGuru: latestAbsensiGuru,
+                            users,
+                            pengaturanAbsen,
+                            izinGuru,
+                          },
+                          setAbsensiGuru
+                        );
+                        if (result) {
+                          const { logEntry, scanResult: res } = result;
+                          const guruIdForResult = res.user?.id;
+                          const isEarlyDeparture = res.isError && res.errorType === 'early_departure';
+                          const lastSuccessAt = guruIdForResult ? lastSuccessModalShownAtRef.current[guruIdForResult] : undefined;
+                          const skipSecondModal = isEarlyDeparture && guruIdForResult && lastSuccessAt != null && (Date.now() - lastSuccessAt) < MODAL_SKIP_EARLY_DEPARTURE_MS;
+
+                          if (res.status !== 'gagal') {
+                            lastProcessedGuruAtRef.current[itemGuruId] = Date.now();
+                          }
+                          setScanLog((prev) => [logEntry, ...prev.slice(0, 19)]);
+
+                          if (skipSecondModal) {
+                            // Modal kedua (belum waktunya pulang) di-skip jika < 10 menit sejak modal absen berhasil
+                            continue;
+                          }
+
+                          if (guruIdForResult && !res.isError && res.status !== 'gagal') {
+                            lastSuccessModalShownAtRef.current[guruIdForResult] = Date.now();
+                          }
+                          setScanResult(res);
+                          setShowModal(true);
+                          speakMessage(
+                            res.user?.name || '',
+                            res.status,
+                            res.tipeAbsen,
+                            res.errorType,
+                            res.izinInfo
+                          );
+                          if (res.status !== 'gagal' && res.status !== 'sudah_terpenuhi') {
+                            await fetchAbsensiGuru();
+                          }
+                        } else {
+                          const logEntry: ScanLogEntry = {
+                            id: `scan-face-${Date.now()}`,
+                            namaUser: item.user?.name || 'Guru',
+                            tipeUser: 'Guru',
+                            tipeAbsen: '-',
+                            timestamp: item.timestamp,
+                            status: 'gagal',
+                          };
+                          setScanLog((prev) => [logEntry, ...prev.slice(0, 19)]);
+                          setScanResult({
+                            ...item,
+                            status: 'gagal',
+                            isError: true,
+                            errorType: 'absen_failed',
+                            statusMessage: 'Gagal mencatat absensi. Periksa alat atau data guru.',
+                          });
+                          setShowModal(true);
+                          speakMessage(item.user?.name || '', 'gagal', '-', 'absen_failed');
+                        }
+                      } catch (error) {
+                        console.error('Error processing face attendance:', error);
+                        const logEntry: ScanLogEntry = {
+                          id: `scan-face-${Date.now()}`,
+                          namaUser: item.user?.name || 'Guru',
+                          tipeUser: 'Guru',
+                          tipeAbsen: '-',
+                          timestamp: item.timestamp,
+                          status: 'gagal',
+                        };
+                        setScanLog((prev) => [logEntry, ...prev.slice(0, 19)]);
+                        setScanResult({
+                          ...item,
+                          status: 'gagal',
+                          isError: true,
+                          errorType: 'absen_failed',
+                          statusMessage: 'Terjadi kesalahan saat mencatat absensi.',
+                        });
+                        setShowModal(true);
+                        speakMessage(item.user?.name || '', 'gagal', '-', 'absen_failed');
+                        showToast('error', 'Error', 'Terjadi kesalahan saat memproses absen wajah');
+                      }
+                    }
+                    isProcessingFaceRef.current = false;
+                  };
+                  processQueue();
+                }}
+              />
+            ) : (
+              <ScanningArea lastScannedGuid={lastScannedData} />
+            )}
           </div>
 
           {/* Scan Log */}

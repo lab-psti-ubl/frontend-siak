@@ -12,7 +12,8 @@ import DetailPerbaikanModal from '../../../murid/pages/tahfiz/components/DetailP
 import { useLanguage } from '../../../../context/LanguageContext';
 
 const DetailProgressSantriKepalaSekolah: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   const { santriId } = useParams<{ santriId: string }>();
   const navigate = useNavigate();
   const { santri } = useSantri();
@@ -224,7 +225,7 @@ const DetailProgressSantriKepalaSekolah: React.FC = () => {
                         {t('tahfiz.ayat')} {progress.ayatDari} - {progress.ayatSampai}
                       </TableCell>
                       <TableCell className="text-sm text-slate-600">
-                        {new Date(progress.tanggal).toLocaleDateString('id-ID', {
+                        {new Date(progress.tanggal).toLocaleDateString(dateLocale, {
                           day: 'numeric',
                           month: 'long',
                           year: 'numeric'
@@ -232,7 +233,7 @@ const DetailProgressSantriKepalaSekolah: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-sm text-slate-600">
                         {progress.tanggalTes
-                          ? new Date(progress.tanggalTes).toLocaleDateString('id-ID', {
+                          ? new Date(progress.tanggalTes).toLocaleDateString(dateLocale, {
                               day: 'numeric',
                               month: 'long',
                               year: 'numeric'
@@ -295,7 +296,7 @@ const DetailProgressSantriKepalaSekolah: React.FC = () => {
                         <Calendar className="w-3 h-3 text-slate-400" />
                         <span className="text-slate-500">{t('tahfiz.tanggal')}:</span>
                         <span className="text-slate-900 font-medium">
-                          {new Date(progress.tanggal).toLocaleDateString('id-ID', {
+                          {new Date(progress.tanggal).toLocaleDateString(dateLocale, {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric'
@@ -307,7 +308,7 @@ const DetailProgressSantriKepalaSekolah: React.FC = () => {
                           <ClipboardCheck className="w-3 h-3 text-slate-400" />
                           <span className="text-slate-500">{t('tahfiz.tanggalTes')}:</span>
                           <span className="text-slate-900 font-medium">
-                            {new Date(progress.tanggalTes).toLocaleDateString('id-ID', {
+                            {new Date(progress.tanggalTes).toLocaleDateString(dateLocale, {
                               day: 'numeric',
                               month: 'long',
                               year: 'numeric'

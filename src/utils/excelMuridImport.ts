@@ -176,7 +176,7 @@ export const createMuridFromImport = (
     name: muridData.nama.trim(),
     email: muridData.email.trim(),
     nisn: muridData.nisn.trim(),
-    password: 'abc1234',
+    password: 'cerdasdanreligius',
     kelasId: kelasId,
     whatsappOrtu: whatsappOrtu,
     rfidGuid: muridData.rfidGuid || undefined,

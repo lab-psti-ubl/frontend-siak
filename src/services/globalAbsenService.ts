@@ -1,5 +1,6 @@
 import { AbsensiGuru, Absensi, PengaturanAbsen, User, TahunAjaran } from '../types';
 import { getActiveTahunAjaran } from '../utils/tahunAjaranUtils';
+import { getTodayIndonesia, getCurrentTimeIndonesia } from '../utils/absensiUtils';
 
 class GlobalAbsenService {
   private isRunning: boolean = false;
@@ -15,7 +16,7 @@ class GlobalAbsenService {
     if (this.isRunning) return;
 
     this.isRunning = true;
-    this.lastProcessedDate = new Date().toISOString().split('T')[0];
+    this.lastProcessedDate = getTodayIndonesia();
     this.processedGuruToday.clear();
     this.processedMuridToday.clear();
 
@@ -43,7 +44,7 @@ class GlobalAbsenService {
 
       const pengaturanAbsen = JSON.parse(pengaturanAbsenString)[0];
       const jamPulang = pengaturanAbsen?.jamPulang || '16:00';
-      const currentTime = `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`;
+      const currentTime = getCurrentTimeIndonesia();
 
       this.isAfterWorkHours = currentTime > jamPulang;
     } catch (error) {
@@ -59,7 +60,7 @@ class GlobalAbsenService {
       }
       this.lastCheckTime = now;
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayIndonesia();
 
       if (this.lastProcessedDate !== today) {
         this.lastProcessedDate = today;
@@ -82,7 +83,7 @@ class GlobalAbsenService {
 
       if (!activeTahunAjaran) return;
 
-      const currentTime = `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`;
+      const currentTime = getCurrentTimeIndonesia();
       const jamPulang = pengaturanAbsen?.jamPulang || '16:00';
       const jamPulangLimit = this.addMinutes(jamPulang, 0);
       const jamPulangBolosLimit = this.addMinutes(jamPulang, 180);

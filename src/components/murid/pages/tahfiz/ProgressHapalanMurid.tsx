@@ -7,6 +7,7 @@ import {
   TrendingUp,
   Eye,
   CheckCircle2,
+  Plus,
 } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { useLanguage } from '../../../../context/LanguageContext';
@@ -14,9 +15,30 @@ import { useProgressHafalan, ProgressHafalan } from '../../../../hooks/useProgre
 import { Table, TableHeader, TableBody, TableRow, TableCell } from '../../../ui/Table';
 import Badge from '../../../ui/Badge';
 import Button from '../../../ui/Button';
+import Modal from '../../../ui/Modal';
 import PreviewHapalanModal from './components/PreviewHapalanModal';
 import HasilTesModal from './components/HasilTesModal';
 import DetailPerbaikanModal from './components/DetailPerbaikanModal';
+import SuratAutocomplete from '../../../guru/pages/tahfiz/components/SuratAutocomplete';
+
+interface Surah {
+  nomor: number;
+  nama: string;
+  namaLatin?: string;
+  nama_latin: string;
+  jumlahAyat?: number;
+  jumlah_ayat: number;
+  tempatTurun?: string;
+  tempat_turun: string;
+  arti: string;
+}
+
+interface SurahProgressInfo {
+  surah: Surah;
+  nextAvailableDari: number;
+  nextAvailableSampai: number;
+  isFullyCompleted: boolean;
+}
 
 interface Statistics {
   juz: number;
@@ -26,17 +48,53 @@ interface Statistics {
 
 const ProgressHapalanMurid: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   const currentYear = new Date().getFullYear().toString();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
   const [selectedProgress, setSelectedProgress] = useState<ProgressHafalan | null>(null);
   const [modalType, setModalType] = useState<'preview' | 'hasil' | 'perbaikan' | null>(null);
+  const [showAddProgressModal, setShowAddProgressModal] = useState(false);
+  const [suratInput, setSuratInput] = useState('');
+  const [surahList, setSurahList] = useState<Surah[]>([]);
+  const [selectedSurah, setSelectedSurah] = useState<Surah | null>(null);
+  const [ayatDari, setAyatDari] = useState<number | ''>('');
+  const [ayatSampai, setAyatSampai] = useState<number | ''>('');
+  const [ayatRangeError, setAyatRangeError] = useState<string>('');
 
   const {
     progressList,
     loading: progressLoading,
+    addProgress,
   } = useProgressHafalan(user?.id, currentYear);
+
+  // Helper: today's date in YYYY-MM-DD
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleOpenAddModal = () => {
+    setShowAddProgressModal(true);
+    setSuratInput('');
+    setSelectedSurah(null);
+    setAyatDari('');
+    setAyatSampai('');
+    setAyatRangeError('');
+  };
+
+  const handleCloseAddModal = () => {
+    setShowAddProgressModal(false);
+    setSuratInput('');
+    setSelectedSurah(null);
+    setAyatDari('');
+    setAyatSampai('');
+    setAyatRangeError('');
+  };
 
   // Calculate statistics
   const statistics = useMemo<Statistics>(() => {
@@ -78,6 +136,250 @@ const ProgressHapalanMurid: React.FC = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [progressList.length]);
+
+  // Fetch surah list (for autocomplete & range validation)
+  useEffect(() => {
+    const fetchSurahList = async () => {
+      try {
+        const response = await fetch('https://equran.id/api/v2/surat');
+        const data = await response.json();
+        if (data.data) {
+          setSurahList(data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching surah list:', error);
+      }
+    };
+
+    fetchSurahList();
+  }, []);
+
+  // Calculate surah progress info based on existing (tested) progress
+  const surahProgressInfo = useMemo(() => {
+    if (!surahList.length) {
+      return new Map<string, SurahProgressInfo>();
+    }
+
+    const infoMap = new Map<string, SurahProgressInfo>();
+
+    const progressBySurah = new Map<string, ProgressHafalan[]>();
+    if (progressList.length > 0) {
+      progressList.forEach((progress) => {
+        const key = progress.surat.toLowerCase().trim();
+        if (!progressBySurah.has(key)) {
+          progressBySurah.set(key, []);
+        }
+        progressBySurah.get(key)!.push(progress);
+      });
+    }
+
+    surahList.forEach((surah) => {
+      const surahName = (surah.namaLatin || surah.nama_latin || '').toLowerCase().trim();
+      const surahProgress = progressBySurah.get(surahName) || [];
+      const totalAyat = surah.jumlahAyat || surah.jumlah_ayat || 0;
+
+      if (surahProgress.length === 0) {
+        infoMap.set(surahName, {
+          surah,
+          nextAvailableDari: 1,
+          nextAvailableSampai: totalAyat,
+          isFullyCompleted: false,
+        });
+        return;
+      }
+
+      // Only consider accepted (tested & diterima) progress when blocking ranges
+      const acceptedProgress = surahProgress.filter(
+        (p) => p.hasilTes === 'Mumtaz' || p.hasilTes === 'Jayid Jiddan'
+      );
+
+      if (acceptedProgress.length === 0) {
+        const allRanges = surahProgress
+          .map((p) => ({ dari: p.ayatDari, sampai: p.ayatSampai }))
+          .sort((a, b) => a.dari - b.dari);
+
+        let nextDari = 1;
+        for (const range of allRanges) {
+          if (nextDari < range.dari) {
+            break;
+          }
+          nextDari = Math.max(nextDari, range.sampai + 1);
+        }
+
+        infoMap.set(surahName, {
+          surah,
+          nextAvailableDari: nextDari > totalAyat ? totalAyat : nextDari,
+          nextAvailableSampai: totalAyat,
+          isFullyCompleted: false,
+        });
+        return;
+      }
+
+      const acceptedRanges = acceptedProgress
+        .map((p) => ({ dari: p.ayatDari, sampai: p.ayatSampai }))
+        .sort((a, b) => a.dari - b.dari);
+
+      const mergedRanges: Array<{ dari: number; sampai: number }> = [];
+      for (const range of acceptedRanges) {
+        if (mergedRanges.length === 0) {
+          mergedRanges.push({ ...range });
+        } else {
+          const lastRange = mergedRanges[mergedRanges.length - 1];
+          if (range.dari <= lastRange.sampai + 1) {
+            lastRange.sampai = Math.max(lastRange.sampai, range.sampai);
+          } else {
+            mergedRanges.push({ ...range });
+          }
+        }
+      }
+
+      const isFullyCovered =
+        mergedRanges.length > 0 &&
+        mergedRanges[0].dari === 1 &&
+        mergedRanges[mergedRanges.length - 1].sampai >= totalAyat &&
+        mergedRanges.every((range, index) => {
+          if (index === 0) return true;
+          return mergedRanges[index - 1].sampai + 1 >= range.dari;
+        });
+
+      if (isFullyCovered) {
+        infoMap.set(surahName, {
+          surah,
+          nextAvailableDari: 0,
+          nextAvailableSampai: 0,
+          isFullyCompleted: true,
+        });
+      } else {
+        let nextDari = 1;
+        for (const range of mergedRanges) {
+          if (nextDari < range.dari) {
+            break;
+          }
+          nextDari = Math.max(nextDari, range.sampai + 1);
+        }
+
+        infoMap.set(surahName, {
+          surah,
+          nextAvailableDari: nextDari > totalAyat ? totalAyat : nextDari,
+          nextAvailableSampai: totalAyat,
+          isFullyCompleted: false,
+        });
+      }
+    });
+
+    return infoMap;
+  }, [surahList, progressList]);
+
+  const availableSurahList = useMemo(() => {
+    return surahList.filter((surah) => {
+      const surahName = (surah.namaLatin || surah.nama_latin || '').toLowerCase().trim();
+      const info = surahProgressInfo.get(surahName);
+      return !info || !info.isFullyCompleted;
+    });
+  }, [surahList, surahProgressInfo]);
+
+  const handleSurahSelect = (surah: Surah | null) => {
+    setSelectedSurah(surah);
+    setAyatRangeError('');
+
+    if (surah) {
+      const surahName = (surah.namaLatin || surah.nama_latin || '').toLowerCase().trim();
+      const info = surahProgressInfo.get(surahName);
+
+      if (info && !info.isFullyCompleted) {
+        setAyatDari(info.nextAvailableDari);
+        setAyatSampai(info.nextAvailableSampai);
+      } else {
+        const totalAyat = surah.jumlahAyat || surah.jumlah_ayat || 1;
+        setAyatDari(1);
+        setAyatSampai(totalAyat);
+      }
+    } else {
+      setAyatDari('');
+      setAyatSampai('');
+    }
+  };
+
+  const validateAyatRange = (dari: number, sampai: number, surah: Surah | null) => {
+    if (!surah) {
+      return 'Silakan pilih surah terlebih dahulu';
+    }
+
+    const totalAyat = surah.jumlahAyat || surah.jumlah_ayat || 0;
+
+    if (dari < 1) {
+      return 'Ayat dari harus minimal 1';
+    }
+
+    if (dari > totalAyat) {
+      return `Ayat dari tidak boleh lebih dari ${totalAyat} (total ayat surah ini)`;
+    }
+
+    if (sampai < 1) {
+      return 'Ayat sampai harus minimal 1';
+    }
+
+    if (sampai > totalAyat) {
+      return `Ayat sampai tidak boleh lebih dari ${totalAyat} (total ayat surah ini)`;
+    }
+
+    if (dari > sampai) {
+      return 'Ayat dari tidak boleh lebih besar dari ayat sampai';
+    }
+
+    const surahName = (surah.namaLatin || surah.nama_latin || '').toLowerCase().trim();
+    const surahProgress = progressList.filter(
+      (p) =>
+        p.surat.toLowerCase().trim() === surahName &&
+        (p.hasilTes === 'Mumtaz' || p.hasilTes === 'Jayid Jiddan')
+    );
+
+    for (const progress of surahProgress) {
+      if (
+        (dari >= progress.ayatDari && dari <= progress.ayatSampai) ||
+        (sampai >= progress.ayatDari && sampai <= progress.ayatSampai) ||
+        (dari <= progress.ayatDari && sampai >= progress.ayatSampai)
+      ) {
+        return `Range ayat ${dari}-${sampai} bertumpang tindih dengan hapalan yang sudah diterima (${progress.ayatDari}-${progress.ayatSampai})`;
+      }
+    }
+
+    return '';
+  };
+
+  const handleAddProgress = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user?.id) return;
+
+    const formData = new FormData(e.currentTarget);
+
+    const ayatDariValue = typeof ayatDari === 'number' ? ayatDari : parseInt(formData.get('ayatDari') as string);
+    const ayatSampaiValue = typeof ayatSampai === 'number' ? ayatSampai : parseInt(formData.get('ayatSampai') as string);
+
+    const validationError = validateAyatRange(ayatDariValue, ayatSampaiValue, selectedSurah);
+    if (validationError) {
+      setAyatRangeError(validationError);
+      return;
+    }
+
+    const data = {
+      santriId: user.id,
+      juz: parseInt(formData.get('juz') as string),
+      surat: suratInput || (formData.get('surat') as string),
+      ayatDari: ayatDariValue,
+      ayatSampai: ayatSampaiValue,
+      tanggal: formData.get('tanggal') as string,
+    };
+
+    try {
+      await addProgress(data);
+      handleCloseAddModal();
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Gagal menyimpan progress hafalan';
+      alert(errorMessage);
+    }
+  };
 
   const getResultBadgeVariant = (hasilTes?: string) => {
     if (!hasilTes) return 'secondary';
@@ -236,6 +538,13 @@ const ProgressHapalanMurid: React.FC = () => {
               </p>
             )}
           </div>
+          <Button
+            onClick={handleOpenAddModal}
+            className="flex items-center justify-center gap-2 text-xs sm:text-sm bg-emerald-600 text-white"
+          >
+            <Plus size={16} />
+            {t('tahfiz.guruTahfiz.detailProgressTahfiz.tambahProgressHafalan')}
+          </Button>
         </div>
 
         {progressLoading ? (
@@ -274,7 +583,7 @@ const ProgressHapalanMurid: React.FC = () => {
                         {t('tahfiz.muridTahfiz.commonLabels.ayat')} {progress.ayatDari} - {progress.ayatSampai}
                       </TableCell>
                       <TableCell className="text-sm text-slate-600">
-                        {new Date(progress.tanggal).toLocaleDateString('id-ID', {
+                        {new Date(progress.tanggal).toLocaleDateString(dateLocale, {
                           day: 'numeric',
                           month: 'long',
                           year: 'numeric'
@@ -282,7 +591,7 @@ const ProgressHapalanMurid: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-sm text-slate-600">
                         {progress.tanggalTes
-                          ? new Date(progress.tanggalTes).toLocaleDateString('id-ID', {
+                          ? new Date(progress.tanggalTes).toLocaleDateString(dateLocale, {
                               day: 'numeric',
                               month: 'long',
                               year: 'numeric'
@@ -373,7 +682,7 @@ const ProgressHapalanMurid: React.FC = () => {
                         <Calendar className="w-3 h-3 text-slate-400" />
                         <span className="text-slate-500">{t('tahfiz.muridTahfiz.progressHapalan.tanggal')}:</span>
                         <span className="text-slate-900 font-medium">
-                          {new Date(progress.tanggal).toLocaleDateString('id-ID', {
+                          {new Date(progress.tanggal).toLocaleDateString(dateLocale, {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric'
@@ -385,7 +694,7 @@ const ProgressHapalanMurid: React.FC = () => {
                           <ClipboardCheck className="w-3 h-3 text-slate-400" />
                           <span className="text-slate-500">{t('tahfiz.muridTahfiz.progressHapalan.tanggalTes')}:</span>
                           <span className="text-slate-900 font-medium">
-                            {new Date(progress.tanggalTes).toLocaleDateString('id-ID', {
+                            {new Date(progress.tanggalTes).toLocaleDateString(dateLocale, {
                               day: 'numeric',
                               month: 'long',
                               year: 'numeric'
@@ -445,6 +754,183 @@ const ProgressHapalanMurid: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Add Progress Modal (murid menambahkan sendiri) */}
+      <Modal
+        isOpen={showAddProgressModal}
+        onClose={handleCloseAddModal}
+        title={t('tahfiz.guruTahfiz.detailProgressTahfiz.tambahProgressHafalan')}
+        size="sm"
+      >
+        <form onSubmit={handleAddProgress} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              {t('tahfiz.juz')} <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="juz"
+              required
+              defaultValue=""
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+            >
+              <option value="">{t('tahfiz.guruTahfiz.detailProgressTahfiz.pilihJuz')}</option>
+              {Array.from({ length: 30 }, (_, i) => i + 1).map((juz) => (
+                <option key={juz} value={juz}>
+                  Juz {juz}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              {t('tahfiz.guruTahfiz.detailProgressTahfiz.surat')} <span className="text-red-500">*</span>
+            </label>
+            <SuratAutocomplete
+              value={suratInput}
+              onChange={(value) => {
+                setSuratInput(value);
+                if (value.trim() === '') {
+                  setSelectedSurah(null);
+                  setAyatRangeError('');
+                  setAyatDari('');
+                  setAyatSampai('');
+                } else {
+                  const surah = availableSurahList.find((s) => {
+                    const surahName = (s.namaLatin || s.nama_latin || '').toLowerCase().trim();
+                    return surahName === value.toLowerCase().trim();
+                  });
+                  if (surah) {
+                    handleSurahSelect(surah);
+                  } else {
+                    setSelectedSurah(null);
+                    setAyatRangeError('');
+                  }
+                }
+              }}
+              onSelect={(surah) => {
+                handleSurahSelect(surah);
+              }}
+              placeholder={t('tahfiz.guruTahfiz.detailProgressTahfiz.suratPlaceholder')}
+              required
+              availableSurahList={availableSurahList}
+              surahProgressInfo={surahProgressInfo}
+            />
+            <input type="hidden" name="surat" value={suratInput} />
+            {selectedSurah && (
+              <div className="mt-2 text-xs text-slate-600">
+                <span className="font-medium">
+                  {selectedSurah.namaLatin || selectedSurah.nama_latin}
+                </span>{' '}
+                ({selectedSurah.jumlahAyat || selectedSurah.jumlah_ayat} ayat)
+                {(() => {
+                  const surahName = (selectedSurah.namaLatin || selectedSurah.nama_latin || '')
+                    .toLowerCase()
+                    .trim();
+                  const info = surahProgressInfo.get(surahName);
+                  if (info && !info.isFullyCompleted && info.nextAvailableDari > 1) {
+                    return (
+                      <span className="ml-2 text-emerald-600">
+                        • Range tersedia: {info.nextAvailableDari}-{info.nextAvailableSampai}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {t('tahfiz.guruTahfiz.detailProgressTahfiz.ayatDari')}{' '}
+                <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                name="ayatDari"
+                required
+                min={1}
+                max={selectedSurah ? selectedSurah.jumlahAyat || selectedSurah.jumlah_ayat || 1 : undefined}
+                value={ayatDari}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? '' : parseInt(e.target.value);
+                  setAyatDari(value);
+                  setAyatRangeError('');
+                  if (typeof value === 'number' && typeof ayatSampai === 'number' && value > ayatSampai) {
+                    setAyatSampai(value);
+                  }
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm ${
+                  ayatRangeError ? 'border-red-300' : 'border-slate-300'
+                }`}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {t('tahfiz.guruTahfiz.detailProgressTahfiz.ayatSampai')}{' '}
+                <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                name="ayatSampai"
+                required
+                min={1}
+                max={selectedSurah ? selectedSurah.jumlahAyat || selectedSurah.jumlah_ayat || 1 : undefined}
+                value={ayatSampai}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? '' : parseInt(e.target.value);
+                  setAyatSampai(value);
+                  setAyatRangeError('');
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm ${
+                  ayatRangeError ? 'border-red-300' : 'border-slate-300'
+                }`}
+              />
+            </div>
+          </div>
+          {ayatRangeError && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
+              {ayatRangeError}
+            </div>
+          )}
+          {selectedSurah && !ayatRangeError && (
+            <div className="text-xs text-slate-500">
+              Maksimal ayat untuk surah ini:{' '}
+              {selectedSurah.jumlahAyat || selectedSurah.jumlah_ayat} ayat
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              {t('tahfiz.guruTahfiz.detailProgressTahfiz.tanggal')}{' '}
+              <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              name="tanggal"
+              required
+              defaultValue={getTodayDate()}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleCloseAddModal}
+              className="flex-1"
+            >
+              {t('tahfiz.guruTahfiz.detailProgressTahfiz.batal')}
+            </Button>
+            <Button type="submit" className="flex-1">
+              {t('tahfiz.guruTahfiz.detailProgressTahfiz.tambahProgressHafalan')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Modals */}
       {selectedProgress && modalType === 'preview' && (

@@ -11,7 +11,8 @@ export const printSuratIzin = async (
   muridUser: User | undefined,
   verificationQRDataUrl?: string,
   showVerificationSection: boolean = true,
-  currentUserName?: string
+  currentUserName?: string,
+  language: string = 'id'
 ) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -27,6 +28,9 @@ export const printSuratIzin = async (
   const contentWidth = pageWidth - (margin * 2);
 
   let yPosition = margin;
+
+  const isMalay = language === 'ms';
+  const dateLocale = isMalay ? 'ms-MY' : 'id-ID';
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
@@ -100,7 +104,9 @@ export const printSuratIzin = async (
   
   // Telp dan Email
   const contactY = alamatY + (alamatLines.length * lineHeight) + 2;
-  doc.text(`Telp: ${schoolData.nomorTelepon || '-'} | Email: ${schoolData.email || '-'}`, textX, contactY, { maxWidth: textWidth });
+  const telLabel = isMalay ? 'Tel' : 'Telp';
+  const emailLabel = isMalay ? 'Email' : 'Email';
+  doc.text(`${telLabel}: ${schoolData.nomorTelepon || '-'} | ${emailLabel}: ${schoolData.email || '-'}`, textX, contactY, { maxWidth: textWidth });
 
   // Update yPosition untuk elemen berikutnya
   yPosition = contactY + lineHeight + 4;
@@ -116,10 +122,11 @@ export const printSuratIzin = async (
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Nomor: ${surat.id.toUpperCase()}/SISWA/${new Date(surat.createdAt).getFullYear()}`, pageWidth / 2, yPosition, { align: 'center' });
+  const nomorLabel = isMalay ? 'Nombor' : 'Nomor';
+  doc.text(`${nomorLabel}: ${surat.id.toUpperCase()}/SISWA/${new Date(surat.createdAt).getFullYear()}`, pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 8;
 
-  addText('Yang bertanda tangan di bawah ini:');
+  addText(isMalay ? 'Yang bertandatangan di bawah ini:' : 'Yang bertanda tangan di bawah ini:');
   yPosition += 2;
 
   const infoLines = [
@@ -137,23 +144,29 @@ export const printSuratIzin = async (
 
   yPosition += 3;
 
-  const dateFormatted = new Date(surat.tanggalMulai).toLocaleDateString('id-ID', {
+  const dateFormatted = new Date(surat.tanggalMulai).toLocaleDateString(dateLocale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
 
-  let mainParagraph = `Dengan ini mengajukan permohonan ${surat.jenis} untuk tidak mengikuti kegiatan pembelajaran pada tanggal ${dateFormatted}`;
+  let mainParagraph = '';
+  const jenisText = surat.jenis === 'izin_dispen' ? 'izin dispen' : surat.jenis;
+  if (isMalay) {
+    mainParagraph = `Dengan ini memohon ${jenisText} untuk tidak mengikuti aktiviti pembelajaran pada tarikh ${dateFormatted}`;
+  } else {
+    mainParagraph = `Dengan ini mengajukan permohonan ${jenisText} untuk tidak mengikuti kegiatan pembelajaran pada tanggal ${dateFormatted}`;
+  }
 
   if (surat.tanggalMulai !== surat.tanggalSelesai) {
-    const endDateFormatted = new Date(surat.tanggalSelesai).toLocaleDateString('id-ID', {
+    const endDateFormatted = new Date(surat.tanggalSelesai).toLocaleDateString(dateLocale, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
-    mainParagraph += ` sampai dengan ${endDateFormatted}`;
+    mainParagraph += isMalay ? ` sehingga ${endDateFormatted}` : ` sampai dengan ${endDateFormatted}`;
   }
   mainParagraph += '.';
 
@@ -164,7 +177,7 @@ export const printSuratIzin = async (
     yPosition += 2;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text('Jam Izin Dispen:', margin + 5, yPosition);
+    doc.text(isMalay ? 'Jam Izin Dispen:' : 'Jam Izin Dispen:', margin + 5, yPosition);
     yPosition += 5;
 
     doc.setFont('helvetica', 'normal');
@@ -176,7 +189,7 @@ export const printSuratIzin = async (
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text(`Alasan ${surat.jenis}:`, margin, yPosition);
+  doc.text(`${isMalay ? 'Alasan' : 'Alasan'} ${surat.jenis}:`, margin, yPosition);
   yPosition += 5;
 
   doc.setFont('helvetica', 'normal');
@@ -188,12 +201,14 @@ export const printSuratIzin = async (
 
   yPosition += 5;
 
-  const demikianText = `Demikian surat ${surat.jenis} ini saya buat dengan sebenar-benarnya. Atas perhatian dan kebijaksanaan Bapak/Ibu, saya ucapkan terima kasih.`;
+  const demikianText = isMalay
+    ? `Demikian surat ${surat.jenis} ini saya buat dengan sebenar-benarnya. Atas perhatian dan kebijaksanaan Bapa/Ibu, saya ucapkan terima kasih.`
+    : `Demikian surat ${surat.jenis} ini saya buat dengan sebenar-benarnya. Atas perhatian dan kebijaksanaan Bapak/Ibu, saya ucapkan terima kasih.`;
   addTextMultiline(demikianText, margin, contentWidth, 9);
 
   yPosition += 5;
 
-  const createdDateFormatted = new Date(surat.createdAt).toLocaleDateString('id-ID', {
+  const createdDateFormatted = new Date(surat.createdAt).toLocaleDateString(dateLocale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -202,7 +217,7 @@ export const printSuratIzin = async (
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text('Diajukan pada:', margin, yPosition);
+  doc.text(isMalay ? 'Diajukan pada:' : 'Diajukan pada:', margin, yPosition);
   doc.text(createdDateFormatted, margin + 24, yPosition);
   yPosition += 10;
 
@@ -210,14 +225,14 @@ export const printSuratIzin = async (
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text('Hormat Saya.', margin, yPosition, { align: 'left' });
-  doc.text('Diketahui,', pageWidth / 2 + 40,yPosition, { align: 'left' });
+  doc.text(isMalay ? 'Hormat Saya.' : 'Hormat Saya.', margin, yPosition, { align: 'left' });
+  doc.text(isMalay ? 'Diketahui,' : 'Diketahui,', pageWidth / 2 + 40, yPosition, { align: 'left' });
   yPosition += 4;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text('Murid', margin, yPosition, { align: 'left' });
-  doc.text('Wali Kelas', pageWidth / 2 + 40,yPosition, { align: 'left' });
+  doc.text(isMalay ? 'Murid' : 'Murid', margin, yPosition, { align: 'left' });
+  doc.text(isMalay ? 'Guru Kelas' : 'Wali Kelas', pageWidth / 2 + 40, yPosition, { align: 'left' });
   yPosition += 16;
 
   doc.setFont('helvetica', 'bold');
@@ -239,7 +254,7 @@ export const printSuratIzin = async (
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text('Tanda Tangan Digital', pageWidth / 2 + 5, yPosition, { align: 'center' });
+    doc.text(isMalay ? 'Tanda Tangan Digital' : 'Tanda Tangan Digital', pageWidth / 2 + 5, yPosition, { align: 'center' });
     yPosition += 4;
 
     try {
@@ -248,7 +263,7 @@ export const printSuratIzin = async (
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
-      doc.text('Sah & Terverifikasi Walikelas', pageWidth / 2 + 5, yPosition, { align: 'center' });
+      doc.text(isMalay ? 'Sah & Terverifikasi Guru Kelas' : 'Sah & Terverifikasi Walikelas', pageWidth / 2 + 5, yPosition, { align: 'center' });
     } catch (error) {
       console.error('Error adding QR code:', error);
     }
@@ -264,7 +279,7 @@ export const printSuratIzin = async (
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('STATUS VERIFIKASI WALI KELAS', pageWidth / 2, yPosition, { align: 'center' });
+    doc.text(isMalay ? 'STATUS PENGESAHAN GURU KELAS' : 'STATUS VERIFIKASI WALI KELAS', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 8;
 
     doc.setLineWidth(0.3);
@@ -273,15 +288,17 @@ export const printSuratIzin = async (
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.text('Status:', margin + 8, yPosition);
-    doc.text('Tanggal Verifikasi:', pageWidth / 2 + 5, yPosition);
+    doc.text(isMalay ? 'Tarikh Pengesahan:' : 'Tanggal Verifikasi:', pageWidth / 2 + 5, yPosition);
     yPosition += 6;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    const statusText = surat.status === 'diterima' ? 'DISETUJUI' : 'DITOLAK';
+    const statusText = surat.status === 'diterima'
+      ? (isMalay ? 'DILULUSKAN' : 'DISETUJUI')
+      : (isMalay ? 'DITOLAK' : 'DITOLAK');
     doc.text(statusText, margin + 8, yPosition);
     const verifyDateFormatted = surat.verifiedAt
-      ? new Date(surat.verifiedAt).toLocaleDateString('id-ID')
+      ? new Date(surat.verifiedAt).toLocaleDateString(dateLocale)
       : '-';
     doc.text(verifyDateFormatted, pageWidth / 2 + 5, yPosition);
     yPosition += 8;
@@ -289,7 +306,7 @@ export const printSuratIzin = async (
     if (surat.keterangan) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.text('Keterangan:', margin + 8, yPosition);
+      doc.text(isMalay ? 'Keterangan Guru Kelas:' : 'Keterangan Wali Kelas:', margin + 8, yPosition);
       yPosition += 4;
 
       doc.setFont('helvetica', 'normal');
@@ -317,7 +334,8 @@ export const printIzinGuru = async (
   izin: any,
   user: User | null,
   verificationQRDataUrl?: string,
-  showVerificationStatus: boolean = true
+  showVerificationStatus: boolean = true,
+  language: string = 'id'
 ) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -333,6 +351,9 @@ export const printIzinGuru = async (
   const contentWidth = pageWidth - (margin * 2);
 
   let yPosition = margin;
+
+  const isMalay = language === 'ms';
+  const dateLocale = isMalay ? 'ms-MY' : 'id-ID';
 
   const addText = (text: string, x: number = margin, size: number = 10, isBold: boolean = false) => {
     if (yPosition > pageHeight - margin - 10) {
@@ -403,7 +424,9 @@ export const printIzinGuru = async (
   
   // Telp dan Email
   const contactY = alamatY + (alamatLines.length * lineHeight) + 2;
-  doc.text(`Telp: ${schoolData.nomorTelepon || '-'} | Email: ${schoolData.email || '-'}`, textX, contactY, { maxWidth: textWidth });
+  const telLabelGuru = isMalay ? 'Tel' : 'Telp';
+  const emailLabelGuru = isMalay ? 'Emel' : 'Email';
+  doc.text(`${telLabelGuru}: ${schoolData.nomorTelepon || '-'} | ${emailLabelGuru}: ${schoolData.email || '-'}`, textX, contactY, { maxWidth: textWidth });
 
   // Update yPosition untuk elemen berikutnya
   yPosition = contactY + lineHeight + 4;
@@ -414,21 +437,35 @@ export const printIzinGuru = async (
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
-  doc.text(`SURAT PENGAJUAN ${izin.jenis === 'izin_dispen' ? 'IZIN DISPEN' : izin.jenis.toUpperCase()}`, pageWidth / 2, yPosition, { align: 'center' });
+  const suratPengajuanLabel = isMalay ? 'SURAT PERMOHONAN' : 'SURAT PENGAJUAN';
+  doc.text(
+    `${suratPengajuanLabel} ${izin.jenis === 'izin_dispen' ? (isMalay ? 'IZIN DISPEN' : 'IZIN DISPEN') : izin.jenis.toUpperCase()}`,
+    pageWidth / 2,
+    yPosition,
+    { align: 'center' }
+  );
   yPosition += 7;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Nomor: ${izin.id.toUpperCase()}/GURU/${new Date(izin.createdAt).getFullYear()}`, pageWidth / 2, yPosition, { align: 'center' });
+  const nomorLabelGuru = isMalay ? 'Nombor' : 'Nomor';
+  doc.text(
+    `${nomorLabelGuru}: ${izin.id.toUpperCase()}/GURU/${new Date(izin.createdAt).getFullYear()}`,
+    pageWidth / 2,
+    yPosition,
+    { align: 'center' }
+  );
   yPosition += 8;
 
-  addText('Yang bertanda tangan di bawah ini:');
+  addText(isMalay ? 'Yang bertandatangan di bawah ini:' : 'Yang bertanda tangan di bawah ini:');
   yPosition += 2;
 
+  const jabatanLabel = isMalay ? 'Jawatan' : 'Jabatan';
+  const waliKelasLabel = isMalay ? 'Guru Kelas' : 'Wali Kelas';
   const infoLines = [
     `Nama                  : ${user?.name || 'Tidak diketahui'}`,
     `NIP                   : ${user?.nip || 'Tidak diketahui'}`,
-    `Jabatan               : Guru${user?.isWaliKelas ? ' / Wali Kelas' : ''}`
+    `${jabatanLabel}               : Guru${user?.isWaliKelas ? ` / ${waliKelasLabel}` : ''}`
   ];
 
   infoLines.forEach(line => {
@@ -440,25 +477,33 @@ export const printIzinGuru = async (
 
   yPosition += 3;
 
-  const dateFormatted = new Date(izin.tanggalMulai).toLocaleDateString('id-ID', {
+  const dateFormatted = new Date(izin.tanggalMulai).toLocaleDateString(dateLocale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
 
-  let mainParagraph = `Dengan ini mengajukan permohonan ${izin.jenis === 'izin_dispen' ? 'izin dispen' : izin.jenis} untuk tidak melaksanakan tugas mengajar pada tanggal ${dateFormatted}`;
+  const jenisGuruText = izin.jenis === 'izin_dispen' ? 'izin dispen' : izin.jenis;
+  let mainParagraph = '';
+  if (isMalay) {
+    mainParagraph = `Dengan ini memohon ${jenisGuruText} untuk tidak melaksanakan tugas mengajar pada tarikh ${dateFormatted}`;
+  } else {
+    mainParagraph = `Dengan ini mengajukan permohonan ${jenisGuruText} untuk tidak melaksanakan tugas mengajar pada tanggal ${dateFormatted}`;
+  }
 
   if (izin.jenis === 'izin_dispen' && izin.jamMulai && izin.jamSelesai) {
-    mainParagraph += ` dari pukul ${izin.jamMulai} sampai dengan pukul ${izin.jamSelesai}`;
+    mainParagraph += isMalay
+      ? ` dari pukul ${izin.jamMulai} sehingga pukul ${izin.jamSelesai}`
+      : ` dari pukul ${izin.jamMulai} sampai dengan pukul ${izin.jamSelesai}`;
   } else if (izin.jenis !== 'izin_dispen' && izin.tanggalMulai !== izin.tanggalSelesai) {
-    const endDateFormatted = new Date(izin.tanggalSelesai).toLocaleDateString('id-ID', {
+    const endDateFormatted = new Date(izin.tanggalSelesai).toLocaleDateString(dateLocale, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
-    mainParagraph += ` sampai dengan ${endDateFormatted}`;
+    mainParagraph += isMalay ? ` sehingga ${endDateFormatted}` : ` sampai dengan ${endDateFormatted}`;
   }
   mainParagraph += '.';
 
@@ -467,7 +512,7 @@ export const printIzinGuru = async (
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text(`Alasan ${izin.jenis}:`, margin, yPosition);
+  doc.text(`${isMalay ? 'Alasan' : 'Alasan'} ${izin.jenis}:`, margin, yPosition);
   yPosition += 5;
 
   doc.setFont('helvetica', 'normal');
@@ -483,7 +528,7 @@ export const printIzinGuru = async (
     yPosition += 3;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text('Guru Pengganti per Jadwal:', margin, yPosition);
+    doc.text(isMalay ? 'Guru Pengganti per Jadual:' : 'Guru Pengganti per Jadwal:', margin, yPosition);
     yPosition += 5;
 
     doc.setFont('helvetica', 'normal');
@@ -526,12 +571,14 @@ export const printIzinGuru = async (
 
   yPosition += 3;
 
-  const demikianText = `Demikian surat pengajuan ${izin.jenis} ini saya buat dengan sebenar-benarnya. Atas perhatian dan kebijaksanaan Bapak/Ibu, saya ucapkan terima kasih.`;
+  const demikianText = isMalay
+    ? `Demikian surat permohonan ${izin.jenis} ini saya buat dengan sebenar-benarnya. Atas perhatian dan kebijaksanaan Bapa/Ibu, saya ucapkan terima kasih.`
+    : `Demikian surat pengajuan ${izin.jenis} ini saya buat dengan sebenar-benarnya. Atas perhatian dan kebijaksanaan Bapak/Ibu, saya ucapkan terima kasih.`;
   addTextMultiline(demikianText, margin, contentWidth, 9);
 
   yPosition += 5;
 
-  const createdDateFormatted = new Date(izin.createdAt).toLocaleDateString('id-ID', {
+  const createdDateFormatted = new Date(izin.createdAt).toLocaleDateString(dateLocale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -540,7 +587,7 @@ export const printIzinGuru = async (
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text('Diajukan pada:', margin, yPosition);
+  doc.text(isMalay ? 'Diajukan pada:' : 'Diajukan pada:', margin, yPosition);
   doc.text(createdDateFormatted, pageWidth - margin - 50, yPosition);
   yPosition += 10;
 
@@ -548,7 +595,7 @@ export const printIzinGuru = async (
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text('Hormat saya,', pageWidth - margin - 40, yPosition, { align: 'left' });
+  doc.text(isMalay ? 'Hormat saya,' : 'Hormat saya,', pageWidth - margin - 40, yPosition, { align: 'left' });
   yPosition += 12;
 
   doc.setFont('helvetica', 'bold');
@@ -570,7 +617,7 @@ export const printIzinGuru = async (
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('STATUS VERIFIKASI ADMIN', pageWidth / 2, yPosition, { align: 'center' });
+    doc.text(isMalay ? 'STATUS PENGESAHAN ADMIN' : 'STATUS VERIFIKASI ADMIN', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 8;
 
     doc.setLineWidth(0.3);
@@ -579,15 +626,17 @@ export const printIzinGuru = async (
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.text('Status:', margin + 8, yPosition);
-    doc.text('Tanggal Verifikasi:', pageWidth / 2 + 5, yPosition);
+    doc.text(isMalay ? 'Tarikh Pengesahan:' : 'Tanggal Verifikasi:', pageWidth / 2 + 5, yPosition);
     yPosition += 6;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    const statusText = izin.status === 'diterima' ? 'DISETUJUI' : 'DITOLAK';
+    const statusText = izin.status === 'diterima'
+      ? (isMalay ? 'DILULUSKAN' : 'DISETUJUI')
+      : (isMalay ? 'DITOLAK' : 'DITOLAK');
     doc.text(statusText, margin + 8, yPosition);
     const verifyDateFormatted = izin.verifiedAt
-      ? new Date(izin.verifiedAt).toLocaleDateString('id-ID')
+      ? new Date(izin.verifiedAt).toLocaleDateString(dateLocale)
       : '-';
     doc.text(verifyDateFormatted, pageWidth / 2 + 5, yPosition);
     yPosition += 8;
@@ -595,7 +644,7 @@ export const printIzinGuru = async (
     if (izin.keterangan) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.text('Keterangan:', margin + 8, yPosition);
+      doc.text(isMalay ? 'Keterangan Admin:' : 'Keterangan:', margin + 8, yPosition);
       yPosition += 4;
 
       doc.setFont('helvetica', 'normal');
@@ -607,13 +656,13 @@ export const printIzinGuru = async (
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text('Administrator', pageWidth / 2, yPosition + 3, { align: 'center' });
+    doc.text(isMalay ? 'Administrator' : 'Administrator', pageWidth / 2, yPosition + 3, { align: 'center' });
     yPosition += 12;
 
     if (izin.status === 'diterima' && verificationQRDataUrl) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.text('Tanda Tangan Digital', pageWidth / 2, yPosition, { align: 'center' });
+      doc.text(isMalay ? 'Tanda Tangan Digital' : 'Tanda Tangan Digital', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 4;
 
       try {
@@ -622,7 +671,7 @@ export const printIzinGuru = async (
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
-        doc.text('Sah & Terverifikasi Admin', pageWidth / 2, yPosition, { align: 'center' });
+        doc.text(isMalay ? 'Sah & Terverifikasi Admin' : 'Sah & Terverifikasi Admin', pageWidth / 2, yPosition, { align: 'center' });
       } catch (error) {
         console.error('Error adding QR code:', error);
       }
@@ -631,7 +680,7 @@ export const printIzinGuru = async (
     yPosition += 5;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text('Admin Sekolah', pageWidth / 2, yPosition, { align: 'center' });
+    doc.text(isMalay ? 'Admin Sekolah' : 'Admin Sekolah', pageWidth / 2, yPosition, { align: 'center' });
   }
 
   const fileName = `Surat-Izin-Guru-${user?.name}-${new Date(izin.createdAt).toLocaleDateString('id-ID').replace(/\//g, '-')}`;

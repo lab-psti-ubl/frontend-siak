@@ -1,5 +1,6 @@
 import React from 'react';
 import { UserCheck } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 import Card from '../../../../ui/Card';
 import Badge from '../../../../ui/Badge';
 import { AbsensiGuru, IzinGuru } from '../../../../../types';
@@ -17,10 +18,12 @@ const AbsensiInfoCard: React.FC<AbsensiInfoCardProps> = ({
   absensi,
   izinAktif
 }) => {
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   return (
     <Card className="p-4">
       <h4 className="font-semibold text-gray-900 mb-4">
-        Absensi {new Date(detailDate).toLocaleDateString('id-ID', {
+        {t('detailAbsensiModal.absensi')} {new Date(detailDate).toLocaleDateString(dateLocale, {
           weekday: 'long',
           day: 'numeric',
           month: 'long',
@@ -41,11 +44,11 @@ const AbsensiInfoCard: React.FC<AbsensiInfoCardProps> = ({
       ) : (
         <div className="space-y-4">
           <div>
-            <h5 className="font-medium text-gray-900 ">Status Masuk:</h5>
+            <h5 className="font-medium text-gray-900 ">{t('detailAbsensiModal.statusMasuk')}:</h5>
             
           </div>
           <div className="flex justify-between items-center p-1 bg-gray-50 rounded-lg">
-            <span className="text-gray-600">Jam Masuk:</span>
+            <span className="text-gray-600">{t('detailAbsensiModal.jamMasuk')}:</span>
             <div className="text-right">
               {absensi?.jamMasuk ? (
                 <>
@@ -58,7 +61,7 @@ const AbsensiInfoCard: React.FC<AbsensiInfoCardProps> = ({
             </div>
           </div>
           <div>
-            <h5 className="font-medium text-gray-900 ">Status Keluar:</h5>
+            <h5 className="font-medium text-gray-900 ">{t('detailAbsensiModal.statusKeluar')}:</h5>
             
           </div>
 
@@ -66,7 +69,7 @@ const AbsensiInfoCard: React.FC<AbsensiInfoCardProps> = ({
 
           <div className="flex justify-between items-center p-1 bg-gray-50 rounded-lg">
             
-            <span className="text-gray-600">Jam Keluar:</span>
+            <span className="text-gray-600">{t('detailAbsensiModal.jamKeluar')}:</span>
             <div className="text-right">
               {absensi?.jamKeluar ? (
                 <>

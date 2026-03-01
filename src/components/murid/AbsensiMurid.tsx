@@ -16,6 +16,7 @@ import { JadwalPelajaran, SesiAbsensi, Absensi, MataPelajaran, Kelas, TahunAjara
 import TodaySessionCard from './pages/absensi/TodaySessionCard';
 import MonthYearPicker from './pages/absensi/MonthYearPicker';
 import AttendanceHistoryTable from './pages/absensi/AttendanceHistoryTable';
+import { getTodayIndonesia } from '../../utils/absensiUtils';
 import {
   getKelasForTahunAjaran,
   getJadwalInfo as getJadwalInfoUtil,
@@ -30,7 +31,7 @@ const AbsensiMurid: React.FC = () => {
   const location = useLocation();
   const jadwalRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const { jadwalPelajaran } = useJadwalPelajaran();
-  const { sesiAbsensi, refreshSesiAbsensi } = useSesiAbsensi();
+  const { sesiAbsensi, refreshSesiAbsensi, addAbsensiToSesi: addAbsensiToSesiAPI } = useSesiAbsensi();
   const { absensi, refreshAbsensi, createAbsensi: createAbsensiAPI } = useAbsensi({ muridId: user?.id });
   const { mataPelajaran } = useMataPelajaran();
   const { gurus } = useGurus();
@@ -80,7 +81,7 @@ const AbsensiMurid: React.FC = () => {
   const SCAN_DEBOUNCE_TIME = 2000;
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayIndonesia();
 
   const targetKelas = user?.kelasId ? getKelasForTahunAjaran(user.kelasId, selectedTahunAjaran, kelas, activeTahunAjaran) : null;
 
@@ -126,6 +127,7 @@ const AbsensiMurid: React.FC = () => {
       refreshAbsensi,
       createAbsensiAPI,
       refreshSesiAbsensi,
+      addAbsensiToSesiAPI,
       setRefreshKey,
       lastProcessedScan,
       setLastProcessedScan,

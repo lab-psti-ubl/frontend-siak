@@ -50,27 +50,32 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   const [language, setLanguageState] = useState<Language>('id');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load language from database on mount
+  // Load language from database on mount - always from database, even before login
   useEffect(() => {
     const loadLanguage = async () => {
       try {
         const token = localStorage.getItem('authToken');
-        if (!token) {
-          // If no token, use default language
-          setLanguageState('id');
-          setIsLoading(false);
-          return;
-        }
-
-        const response = await apiService.getLanguage();
-        if (response.success && response.language) {
-          setLanguageState(response.language as Language);
+        
+        // Always get language from database
+        // Use public endpoint if no token (for login page), otherwise use authenticated endpoint
+        const response = token 
+          ? await apiService.getLanguage()
+          : await apiService.getLanguagePublic();
+        
+        if (response && response.success && response.language) {
+          // Validate that the language is 'id' or 'ms'
+          const lang = response.language === 'id' || response.language === 'ms' 
+            ? (response.language as Language) 
+            : 'id';
+          setLanguageState(lang);
         } else {
-          setLanguageState('id'); // Default to Indonesian
+          // If database doesn't have language, default to Indonesian
+          setLanguageState('id');
         }
       } catch (error) {
-        console.error('Error loading language:', error);
-        setLanguageState('id'); // Default to Indonesian on error
+        console.error('Error loading language from database:', error);
+        // Default to Indonesian on error
+        setLanguageState('id');
       } finally {
         setIsLoading(false);
       }
@@ -81,14 +86,21 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
   const setLanguage = async (lang: Language) => {
     try {
+      // Validate language value
+      if (lang !== 'id' && lang !== 'ms') {
+        throw new Error('Bahasa tidak valid');
+      }
+
+      // Save to database first
       const response = await apiService.updatePengaturanSistem({ language: lang });
       if (response.success) {
+        // Only update state after successful database save
         setLanguageState(lang);
       } else {
-        throw new Error(response.message || 'Gagal memperbarui bahasa');
+        throw new Error(response.message || 'Gagal memperbarui bahasa di database');
       }
     } catch (error: any) {
-      console.error('Error updating language:', error);
+      console.error('Error updating language in database:', error);
       throw error;
     }
   };
@@ -96,6 +108,12 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   const t = (key: string, params?: Record<string, any>): string => {
     const translation = translations[language];
     let text = getNestedValue(translation, key);
+
+    // Fallback to Indonesian if key missing in selected language
+    if (text === key && language !== 'id') {
+      const fallback = getNestedValue(translations.id, key);
+      if (fallback !== key) text = fallback;
+    }
     
     // Replace placeholders with actual values if params provided
     if (params && typeof text === 'string') {

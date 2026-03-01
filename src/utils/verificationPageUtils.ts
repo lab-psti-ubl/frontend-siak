@@ -69,7 +69,20 @@ export const openVerificationPage = (
     'raport': 'Verifikasi Laporan Hasil Belajar'
   };
 
-  const timestamp = new Date().toLocaleDateString('id-ID', {
+  // Determine current language (default to Indonesian) for proper day name formatting
+  let language: 'id' | 'ms' = 'id';
+  try {
+    const storedLanguage = (localStorage.getItem('language') || '').toLowerCase();
+    if (storedLanguage === 'ms' || storedLanguage === 'id') {
+      language = storedLanguage as 'id' | 'ms';
+    }
+  } catch {
+    // ignore and keep default
+  }
+
+  const locale = language === 'ms' ? 'ms-MY' : 'id-ID';
+
+  const timestamp = new Date().toLocaleDateString(locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -84,6 +97,7 @@ export const openVerificationPage = (
   params.append('message', message);
   params.append('documentType', documentType);
   params.append('timestamp', timestamp);
+  params.append('lang', language);
 
   if (userInfo?.name) {
     params.append('userName', userInfo.name);
@@ -121,12 +135,26 @@ export const getVerificationUrl = (
   const baseUrl = window.location.origin;
   const params = new URLSearchParams();
 
+  // Determine current language for correct day name formatting on verification page
+  let language: 'id' | 'ms' = 'id';
+  try {
+    const storedLanguage = (localStorage.getItem('language') || '').toLowerCase();
+    if (storedLanguage === 'ms' || storedLanguage === 'id') {
+      language = storedLanguage as 'id' | 'ms';
+    }
+  } catch {
+    // ignore and keep default
+  }
+
   params.append('verification', suratId);
   params.append('message', 'Telah ditanda tangani oleh sistem secara digital dan dinyatakan sah');
 
   if (documentType) {
     params.append('documentType', documentType);
   }
+
+  // Pass language to verification page so it can display the day correctly
+  params.append('lang', language);
 
   if (userInfo?.name) {
     params.append('userName', userInfo.name);

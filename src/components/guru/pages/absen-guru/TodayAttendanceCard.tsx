@@ -1,7 +1,6 @@
 import React from 'react';
 import { Camera, QrCode, Download, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import Button from '../../../ui/Button';
-import Badge from '../../../ui/Badge';
 import { AbsensiGuru } from '../../../../types';
 import { useLanguage } from '../../../../context/LanguageContext';
 
@@ -12,6 +11,7 @@ interface TodayAttendanceCardProps {
   onDownloadQR: () => void;
   getStatusBadge: (status: string) => React.ReactNode;
   isOnLeaveOrSick?: boolean;
+  enableManualAbsen?: boolean;
 }
 
 const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
@@ -21,6 +21,7 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   onDownloadQR,
   getStatusBadge,
   isOnLeaveOrSick = false,
+  enableManualAbsen = true,
 }) => {
   const { t } = useLanguage();
   const isBothCheckIn = !!(todayAttendance?.jamMasuk && todayAttendance?.jamKeluar);
@@ -43,6 +44,29 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       return timeString;
     }
   };
+
+  // Helper: dapatkan display text dan style untuk card berdasarkan status
+  const getStatusDisplay = (status: string | undefined) => {
+    const s = (status || '').toLowerCase();
+    if (s === 'alfa') return { text: 'ALFA', isStatus: true };
+    if (s === 'sakit') return { text: 'SAKIT', isStatus: true };
+    if (s === 'izin') return { text: 'IZIN', isStatus: true };
+    return { text: '', isStatus: false };
+  };
+
+  const getCardStyles = (status: string | undefined, hasTime: boolean) => {
+    const s = (status || '').toLowerCase();
+    if (s === 'alfa') return { card: 'bg-red-50 border-red-200', icon: 'bg-red-600', text: 'text-red-900' };
+    if (s === 'sakit') return { card: 'bg-blue-50 border-blue-200', icon: 'bg-blue-600', text: 'text-blue-900' };
+    if (s === 'izin') return { card: 'bg-amber-50 border-amber-200', icon: 'bg-amber-600', text: 'text-amber-900' };
+    if (hasTime) return { card: 'bg-emerald-50 border-emerald-200', icon: 'bg-emerald-600', text: 'text-slate-900' };
+    return { card: 'bg-slate-50 border-slate-200 hover:border-slate-300', icon: 'bg-slate-300', text: 'text-slate-900' };
+  };
+
+  const statusMasukDisplay = getStatusDisplay(todayAttendance?.statusMasuk);
+  const statusKeluarDisplay = getStatusDisplay(todayAttendance?.statusKeluar);
+  const stylesMasuk = getCardStyles(todayAttendance?.statusMasuk, !!todayAttendance?.jamMasuk);
+  const stylesKeluar = getCardStyles(todayAttendance?.statusKeluar, !!todayAttendance?.jamKeluar);
 
   return (
     <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -72,18 +96,13 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
-          <div className={`group rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 transition-all duration-200 ${
-            todayAttendance?.jamMasuk
-              ? 'bg-emerald-50 border-emerald-200'
-              : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-          }`}>
+          {/* Card Absen Masuk */}
+          <div className={`group rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 transition-all duration-200 ${stylesMasuk.card}`}>
             <div className="flex items-start gap-3 mb-3">
-              <div className={`rounded-lg p-2.5 flex-shrink-0 ${
-                todayAttendance?.jamMasuk
-                  ? 'bg-emerald-600'
-                  : 'bg-slate-300'
-              }`}>
-                {todayAttendance?.jamMasuk ? (
+              <div className={`rounded-lg p-2.5 flex-shrink-0 ${stylesMasuk.icon}`}>
+                {statusMasukDisplay.isStatus ? (
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                ) : todayAttendance?.jamMasuk ? (
                   <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 ) : (
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
@@ -91,37 +110,36 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm font-semibold text-slate-600 uppercase tracking-wide">{t('absenGuruPage.absenMasuk')}</p>
-                {todayAttendance?.jamMasuk && (
+                {todayAttendance?.jamMasuk && !statusMasukDisplay.isStatus && (
                   <p className="text-xs sm:text-xs text-slate-500 mt-0.5">{t('absenGuruPage.selesai')}</p>
+                )}
+                {statusMasukDisplay.isStatus && (
+                  <p className={`text-xs sm:text-xs mt-0.5 ${stylesMasuk.text}`}>{statusMasukDisplay.text}</p>
                 )}
               </div>
             </div>
-            <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mb-2">
-              {formatTimeWithDot(todayAttendance?.jamMasuk)}
+            <p className={`text-xl sm:text-2xl lg:text-3xl font-bold mb-2 ${stylesMasuk.text}`}>
+              {statusMasukDisplay.isStatus
+                ? statusMasukDisplay.text
+                : formatTimeWithDot(todayAttendance?.jamMasuk)}
             </p>
-            {todayAttendance?.jamMasuk && (
+            {todayAttendance?.jamMasuk && !statusMasukDisplay.isStatus && (
               <div className="mt-2">
                 {getStatusBadge(todayAttendance.statusMasuk)}
               </div>
             )}
+            {statusMasukDisplay.isStatus && (
+              <div className="mt-2">
+                {getStatusBadge(todayAttendance?.statusMasuk || '')}
+              </div>
+            )}
           </div>
 
-          <div className={`group rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 transition-all duration-200 ${
-            todayAttendance?.statusKeluar === 'alfa'
-              ? 'bg-red-50 border-red-200'
-              : todayAttendance?.jamKeluar
-              ? 'bg-emerald-50 border-emerald-200'
-              : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-          }`}>
+          {/* Card Absen Keluar */}
+          <div className={`group rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 transition-all duration-200 ${stylesKeluar.card}`}>
             <div className="flex items-start gap-3 mb-3">
-              <div className={`rounded-lg p-2.5 flex-shrink-0 ${
-                todayAttendance?.statusKeluar === 'alfa'
-                  ? 'bg-red-600'
-                  : todayAttendance?.jamKeluar
-                  ? 'bg-emerald-600'
-                  : 'bg-slate-300'
-              }`}>
-                {todayAttendance?.statusKeluar === 'alfa' ? (
+              <div className={`rounded-lg p-2.5 flex-shrink-0 ${stylesKeluar.icon}`}>
+                {statusKeluarDisplay.isStatus ? (
                   <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 ) : todayAttendance?.jamKeluar ? (
                   <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -131,22 +149,24 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm font-semibold text-slate-600 uppercase tracking-wide">{t('absenGuruPage.absenKeluar')}</p>
-                {todayAttendance?.jamKeluar && todayAttendance?.statusKeluar !== 'alfa' && (
+                {todayAttendance?.jamKeluar && !statusKeluarDisplay.isStatus && (
                   <p className="text-xs sm:text-xs text-slate-500 mt-0.5">{t('absenGuruPage.selesai')}</p>
                 )}
-                {todayAttendance?.statusKeluar === 'alfa' && (
-                  <p className="text-xs sm:text-xs text-red-600 mt-0.5">{t('absenGuruPage.tidakAbsen')}</p>
+                {statusKeluarDisplay.isStatus && (
+                  <p className={`text-xs sm:text-xs mt-0.5 ${stylesKeluar.text}`}>
+                    {statusKeluarDisplay.text === 'ALFA' ? t('absenGuruPage.tidakAbsen') : statusKeluarDisplay.text}
+                  </p>
                 )}
               </div>
             </div>
-            <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mb-2">
-              {todayAttendance?.statusKeluar === 'alfa' 
-                ? 'ALFA'
+            <p className={`text-xl sm:text-2xl lg:text-3xl font-bold mb-2 ${stylesKeluar.text}`}>
+              {statusKeluarDisplay.isStatus
+                ? statusKeluarDisplay.text
                 : formatTimeWithDot(todayAttendance?.jamKeluar)}
             </p>
-            {todayAttendance?.statusKeluar === 'alfa' ? (
+            {statusKeluarDisplay.isStatus ? (
               <div className="mt-2">
-                <Badge variant="danger">{t('absenGuruPage.tidakAbsen')}</Badge>
+                {getStatusBadge(todayAttendance?.statusKeluar || '')}
               </div>
             ) : todayAttendance?.jamKeluar && (
               <div className="mt-2">
@@ -158,21 +178,23 @@ const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
 
         <div className="pt-2 sm:pt-3 border-t border-slate-200">
           <div className="space-y-2 sm:space-y-3">
-            <Button
-              fullWidth
-              onClick={onScanQR}
-              disabled={isOnLeaveOrSick || isBothCheckIn}
-              className="justify-center flex items-center text-xs sm:text-sm py-2.5 sm:py-3"
-            >
-              <Camera size={16} className="mr-2" />
-              {isOnLeaveOrSick
-                ? t('absenGuruPage.sedangIzinSakit')
-                : !todayAttendance?.jamMasuk
-                ? t('absenGuruPage.scanQRAbsenMasuk')
-                : !todayAttendance?.jamKeluar
-                ? t('absenGuruPage.scanQRAbsenKeluar')
-                : t('absenGuruPage.absensiLengkap')}
-            </Button>
+            {enableManualAbsen && (
+              <Button
+                fullWidth
+                onClick={onScanQR}
+                disabled={isOnLeaveOrSick || isBothCheckIn}
+                className="justify-center flex items-center text-xs sm:text-sm py-2.5 sm:py-3"
+              >
+                <Camera size={16} className="mr-2" />
+                {isOnLeaveOrSick
+                  ? t('absenGuruPage.sedangIzinSakit')
+                  : !todayAttendance?.jamMasuk
+                  ? t('absenGuruPage.scanQRAbsenMasuk')
+                  : !todayAttendance?.jamKeluar
+                  ? t('absenGuruPage.scanQRAbsenKeluar')
+                  : t('absenGuruPage.absensiLengkap')}
+              </Button>
+            )}
 
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <Button

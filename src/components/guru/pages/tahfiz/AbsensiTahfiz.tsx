@@ -8,6 +8,7 @@ import { useSesiAbsensiTahfiz } from '../../../../hooks/useSesiAbsensiTahfiz';
 import { useSantri } from '../../../../hooks/useSantri';
 import { useKelasTahfiz } from '../../../../hooks/useKelasTahfiz';
 import { useSuratIzin } from '../../../../hooks/useSuratIzin';
+import { useJurnalTahfiz } from '../../../../hooks/useJurnalTahfiz';
 import { TahfizSchedule, SesiAbsensiTahfiz, User, SuratIzin } from '../../../../types';
 import JadwalCard from '../mengajar/components/kelola-absensi/JadwalCard';
 import AbsensiManualModal from '../mengajar/components/kelola-absensi/AbsensiManualModal';
@@ -18,24 +19,36 @@ import JurnalModal from '../mengajar/components/kelola-absensi/JurnalModal';
 import DetailAbsensiModal from '../mengajar/components/kelola-absensi/DetailAbsensiModal';
 import EditAbsensiModal from '../mengajar/components/kelola-absensi/EditAbsensiModal';
 import { useAbsensiTahfizHandlers } from './useAbsensiTahfizHandlers';
+import { getTodayIndonesia } from '../../../../utils/absensiUtils';
+import { getDateLocale } from '../../../../utils/dateLocaleUtils';
 import { isTimeOverlapping } from '../../../../utils/izinDispenMuridUtils';
 import QRScanner from '../../../ui/QRScanner';
 import CameraCapture from '../../../ui/CameraCapture';
 
 const AbsensiTahfiz: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const location = useLocation();
   const jadwalRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const [refreshKey, setRefreshKey] = useState(0);
   const { jadwalTahfiz } = useJadwalTahfiz();
-  const { sesiAbsensiTahfiz, refreshSesiAbsensiTahfiz, createSesiAbsensiTahfiz: createSesiAbsensiTahfizAPI, updateSesiAbsensiTahfiz: updateSesiAbsensiTahfizAPI } = useSesiAbsensiTahfiz();
+  const { 
+    sesiAbsensiTahfiz, 
+    refreshSesiAbsensiTahfiz, 
+    createSesiAbsensiTahfiz: createSesiAbsensiTahfizAPI, 
+    updateSesiAbsensiTahfiz: updateSesiAbsensiTahfizAPI,
+    addAbsensiToSesiTahfiz: addAbsensiToSesiTahfizAPI,
+    bulkAddAbsensiToSesiTahfiz: bulkAddAbsensiToSesiTahfizAPI,
+    isSyncingWithWorker,
+    syncMessage,
+  } = useSesiAbsensiTahfiz();
   const { santri: allSantri } = useSantri();
   const { kelasTahfiz } = useKelasTahfiz();
   const { suratIzin } = useSuratIzin();
+  const { jurnalTahfiz: allJurnalTahfiz, refreshJurnalTahfiz } = useJurnalTahfiz({ tahun: new Date().getFullYear().toString() });
 
-  const today = new Date().toISOString().split('T')[0];
-  const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
+  const today = getTodayIndonesia();
+  const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' }).toLowerCase();
   const currentYear = new Date().getFullYear().toString();
 
   // Filter jadwal tahfiz for logged-in ustadz
@@ -76,7 +89,7 @@ const AbsensiTahfiz: React.FC = () => {
   };
 
   const getSuratIzinForSantri = (santriId: string, jadwalId?: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayIndonesia();
     
     // Cari semua surat izin yang diterima untuk santri ini hari ini
     const suratIzinHariIni = suratIzin.filter(s =>
@@ -118,8 +131,39 @@ const AbsensiTahfiz: React.FC = () => {
   };
 
   const hasPhotoForJadwal = (jadwalId: string) => {
+    // Check session.fotoMengajar (old way)
     const session = todaySessions.find(s => s.jadwalId === jadwalId);
-    return session?.fotoMengajar && session.fotoMengajar.length > 0;
+    if (session?.fotoMengajar && session.fotoMengajar.length > 0) {
+      return true;
+    }
+
+    // Check jurnalTahfiz.pertemuan[].fotoMengajar (new way)
+    if (allJurnalTahfiz && allJurnalTahfiz.length > 0) {
+      const jadwal = jadwalTahfiz.find(j => j.id === jadwalId);
+      if (jadwal) {
+        const jurnalDoc = allJurnalTahfiz.find(j => 
+          j.jadwalId === jadwalId && 
+          j.kelasId === jadwal.kelasId
+        );
+        
+        if (jurnalDoc) {
+          // Check new structure (pertemuan array)
+          if (jurnalDoc.pertemuan && Array.isArray(jurnalDoc.pertemuan)) {
+            const pertemuan = jurnalDoc.pertemuan.find((p: any) => p.tanggal === today);
+            if (pertemuan && pertemuan.fotoMengajar) {
+              return true;
+            }
+          }
+          
+          // Check old structure (backward compatibility)
+          if (jurnalDoc.tanggal === today && jurnalDoc.fotoMengajar) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
   };
 
   const handlers = useAbsensiTahfizHandlers(
@@ -129,6 +173,8 @@ const AbsensiTahfiz: React.FC = () => {
     refreshSesiAbsensiTahfiz,
     createSesiAbsensiTahfizAPI,
     updateSesiAbsensiTahfizAPI,
+    addAbsensiToSesiTahfizAPI,
+    bulkAddAbsensiToSesiTahfizAPI,
     jadwalTahfiz,
     allSantri,
     kelasTahfiz,
@@ -144,6 +190,18 @@ const AbsensiTahfiz: React.FC = () => {
       handlers.scrollContainerRef.current.scrollTop = 0;
     }
   }, [handlers.refreshKey]);
+
+  // Listen for jurnal-saved event to refresh jurnalTahfiz cache
+  useEffect(() => {
+    const handleJurnalSaved = () => {
+      refreshJurnalTahfiz();
+    };
+    
+    window.addEventListener('jurnal-saved', handleJurnalSaved);
+    return () => {
+      window.removeEventListener('jurnal-saved', handleJurnalSaved);
+    };
+  }, [refreshJurnalTahfiz]);
 
   // Scroll to specific jadwal when navigating from JadwalTahfizGuru
   useEffect(() => {
@@ -221,6 +279,18 @@ const AbsensiTahfiz: React.FC = () => {
 
   return (
     <div className="space-y-5 lg:space-y-6">
+      {/* Global Loading Indicator for Worker Sync */}
+      {(isSyncingWithWorker || handlers.isBulkLoading) && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4">
+          <div className="bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-down">
+            <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            <p className="text-sm font-medium flex-1">
+              {syncMessage || (handlers.isBulkLoading ? 'Menyimpan absensi tahfiz...' : 'Memproses absensi tahfiz...')}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Welcome Header */}
       <div className="bg-gradient-to-br from-emerald-700 via-emerald-700 to-emerald-500 rounded-2xl shadow-lg overflow-hidden">
         <div className="px-5 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
@@ -236,7 +306,7 @@ const AbsensiTahfiz: React.FC = () => {
             <div className="flex items-center gap-2 bg-white bg-opacity-20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 w-fit">
               <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               <span className="text-xs sm:text-sm text-white font-medium">
-                {new Date().toLocaleDateString('id-ID', {
+                {new Date().toLocaleDateString(getDateLocale(language), {
                   weekday: 'long',
                   year: 'numeric',
                   month: 'long',
@@ -415,7 +485,7 @@ const AbsensiTahfiz: React.FC = () => {
               </div>
               <p className="text-sm sm:text-base font-medium text-slate-500">{t('tahfiz.guruTahfiz.absensiTahfiz.tidakAdaJadwalHariIni')}</p>
               <p className="text-xs sm:text-sm text-slate-400 mt-1 sm:mt-2">
-                {t('tahfiz.guruTahfiz.absensiTahfiz.hari')}: {new Date().toLocaleDateString('id-ID', { weekday: 'long' })}
+                {t('tahfiz.guruTahfiz.absensiTahfiz.hari')}: {new Date().toLocaleDateString(getDateLocale(language), { weekday: 'long' })}
               </p>
             </div>
           )}
@@ -442,6 +512,8 @@ const AbsensiTahfiz: React.FC = () => {
         scrollContainerRef={handlers.scrollContainerRef}
         mataPelajaran={[]}
         markAllPresent={handlers.markAllPresent}
+        loadingMuridIds={handlers.loadingMuridIds}
+        isBulkLoading={handlers.isBulkLoading}
       />
 
       <SubjectQRModal
@@ -459,13 +531,16 @@ const AbsensiTahfiz: React.FC = () => {
       <KeteranganModal
         isOpen={handlers.isKeteranganModalOpen}
         onClose={() => {
-          handlers.setIsKeteranganModalOpen(false);
-          handlers.setKeteranganInput('');
+          if (!handlers.loadingMuridIds.has(handlers.selectedMuridForKeterangan?.id || '')) {
+            handlers.setIsKeteranganModalOpen(false);
+            handlers.setKeteranganInput('');
+          }
         }}
         selectedMurid={handlers.selectedMuridForKeterangan}
         keteranganInput={handlers.keteranganInput}
         setKeteranganInput={handlers.setKeteranganInput}
         onSave={() => handlers.handleSaveKeteranganInput(getAttendanceStatus)}
+        isSaving={handlers.selectedMuridForKeterangan ? handlers.loadingMuridIds.has(handlers.selectedMuridForKeterangan.id) : false}
       />
 
       <SuratDetailModal
@@ -537,6 +612,7 @@ const AbsensiTahfiz: React.FC = () => {
         setEditKeterangan={handlers.setEditKeterangan}
         onSave={handlers.handleSaveEditAbsensi}
         users={allSantri}
+        isSaving={handlers.editingAbsensi ? handlers.loadingMuridIds.has(handlers.editingAbsensi.muridId) : false}
       />
 
       <QRScanner

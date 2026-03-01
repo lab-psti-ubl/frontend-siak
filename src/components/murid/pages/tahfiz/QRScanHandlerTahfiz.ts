@@ -1,4 +1,5 @@
-import { SesiAbsensiTahfiz, AbsensiPelajaran, User, TahfizSchedule, KelasTahfiz } from '../../../../types';
+import { SesiAbsensiTahfiz, AbsensiPelajaran, User, TahfizSchedule } from '../../../../types';
+import { TahfizClass } from '../../../../hooks/useKelasTahfiz';
 import { parseSubjectQRCodeData } from '../../../../utils/qrCodeGenerator';
 import { showSuccessNotification, showErrorNotification, showWarningNotification } from '../../../../utils/notificationUtils';
 import { apiService } from '../../../../services/apiService';
@@ -11,7 +12,7 @@ interface QRScanHandlerTahfizParams {
   selectedSesi: SesiAbsensiTahfiz | null;
   sesiAbsensiTahfiz: SesiAbsensiTahfiz[];
   jadwalTahfiz: TahfizSchedule[];
-  kelasTahfiz: KelasTahfiz[];
+  kelasTahfiz: TahfizClass[];
   santriList?: User[];
   attendanceUserId?: string;
   refreshSesiAbsensiTahfiz: () => Promise<void>;
@@ -19,6 +20,7 @@ interface QRScanHandlerTahfizParams {
   lastProcessedScan: {data: string, time: number} | null;
   setLastProcessedScan: (scan: {data: string, time: number} | null) => void;
   SCAN_DEBOUNCE_TIME: number;
+  addAbsensiToSesiTahfizAPI?: (sesiId: string, absensiData: Partial<AbsensiPelajaran>) => Promise<void>;
 }
 
 let isProcessingTahfiz = false;
@@ -47,7 +49,8 @@ export const handleQRScanResultTahfiz = async ({
   setRefreshKey,
   lastProcessedScan,
   setLastProcessedScan,
-  SCAN_DEBOUNCE_TIME
+  SCAN_DEBOUNCE_TIME,
+  addAbsensiToSesiTahfizAPI
 }: QRScanHandlerTahfizParams): Promise<boolean> => {
   const currentTime = Date.now();
   const resolvedUserId = attendanceUserId || user?.id;
@@ -120,6 +123,12 @@ export const handleQRScanResultTahfiz = async ({
     clearSesiAbsensiTahfizCache();
 
     let sesi: SesiAbsensiTahfiz | null = null;
+    if (!subjectParsed.sesiId) {
+      isProcessingTahfiz = false;
+      showErrorNotification('QR Code Tidak Valid', 'Sesi ID tidak ditemukan dalam QR Code!');
+      return false;
+    }
+    
     try {
       const sesiResponse = await apiService.getSesiAbsensiTahfizById(subjectParsed.sesiId);
       if (sesiResponse.success && sesiResponse.sesiAbsensiTahfiz) {
@@ -162,6 +171,12 @@ export const handleQRScanResultTahfiz = async ({
 
     try {
       const attendanceId = santriRecord?.id || resolvedUserId || user.id;
+      if (!attendanceId) {
+        isProcessingTahfiz = false;
+        showErrorNotification('Error', 'User ID tidak valid!');
+        return false;
+      }
+
       const existingAbsensiPelajaran = sesi.dataAbsensi?.find(a => a.muridId === attendanceId);
 
       if (existingAbsensiPelajaran) {
@@ -170,7 +185,13 @@ export const handleQRScanResultTahfiz = async ({
         return false;
       }
 
-      const absensiPelajaranData = {
+      if (!sesi.id) {
+        isProcessingTahfiz = false;
+        showErrorNotification('Error', 'Sesi ID tidak valid!');
+        return false;
+      }
+
+      const absensiPelajaranData: Partial<AbsensiPelajaran> = {
         id: `absensi-tahfiz-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         muridId: attendanceId,
         status: 'hadir',
@@ -181,14 +202,25 @@ export const handleQRScanResultTahfiz = async ({
         keteranganAbsensi: 'Hadir',
       };
 
-      const response = await apiService.addAbsensiToSesiTahfiz(sesi.id, absensiPelajaranData);
+      // Use worker-enabled function from hook if available, otherwise fallback to API service
+      if (addAbsensiToSesiTahfizAPI) {
+        // Use hook function which includes worker support and data verification
+        await addAbsensiToSesiTahfizAPI(sesi.id, absensiPelajaranData);
+        // refreshSesiAbsensiTahfiz is already called inside addAbsensiToSesiTahfizAPI
+      } else {
+        // Fallback: Use worker-first strategy with fallback
+        const response = await apiService.submitAbsensiTahfizWithFallback(sesi.id, absensiPelajaranData);
 
-      if (!response.success) {
-        throw new Error(response.message || 'Gagal menyimpan absensi tahfiz');
+        if (!response.success) {
+          throw new Error(response.message || 'Gagal menyimpan absensi tahfiz');
+        }
+
+        // Wait a bit for worker to process, then refresh
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        clearSesiAbsensiTahfizCache();
+        await refreshSesiAbsensiTahfiz();
       }
-
-      clearSesiAbsensiTahfizCache();
-      await refreshSesiAbsensiTahfiz();
 
       showSuccessNotification('Absensi Berhasil!', `Tahfiz Qur'an - ${new Date().toLocaleTimeString('id-ID')}`);
 

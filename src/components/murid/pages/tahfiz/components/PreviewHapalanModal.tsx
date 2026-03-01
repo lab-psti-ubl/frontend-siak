@@ -43,7 +43,7 @@ const PreviewHapalanModal: React.FC<PreviewHapalanModalProps> = ({
   progress,
 }) => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [surahData, setSurahData] = useState<SurahData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -190,7 +190,7 @@ const PreviewHapalanModal: React.FC<PreviewHapalanModalProps> = ({
                 <div className="flex items-center gap-2 bg-white/20 rounded-lg px-4 py-2 border border-white/30">
                   <Calendar className="w-4 h-4 text-white" />
                   <span className="text-sm text-white font-medium">
-                    {new Date().toLocaleDateString('id-ID', { 
+                    {new Date().toLocaleDateString((language === 'ms' ? 'ms-MY' : 'id-ID'), { 
                       weekday: 'long', 
                       year: 'numeric', 
                       month: 'long', 

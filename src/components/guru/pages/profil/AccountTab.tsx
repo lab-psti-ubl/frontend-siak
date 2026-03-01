@@ -300,6 +300,19 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, kelasWali }) => {
             </div>
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
+                {t('dashboardGuru.accountTab.username')}
+              </label>
+              <input
+                type="text"
+                value={(user as any)?.username || '-'}
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
+                disabled
+                title={t('dashboardGuru.accountTab.usernameUntukLogin')}
+              />
+              <p className="text-xs text-slate-500 mt-1">{t('dashboardGuru.accountTab.usernameUntukLogin')}</p>
+            </div>
+            <div>
+              <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
                 {t('dashboardGuru.accountTab.nip')}
               </label>
               <input

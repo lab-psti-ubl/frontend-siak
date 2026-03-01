@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Clock, RefreshCw, BookOpen, Users, AlertCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import Card from '../../../ui/Card';
 import Badge from '../../../ui/Badge';
 import { useMonitoringKelas } from '../../../../hooks/useMonitoringKelas';
 import { SesiAbsensi, User } from '../../../../types';
 import {
-  getStatusDisplay,
   KelasMonitoring,
   MonitoringStatus,
 } from '../../../../utils/monitoringKelasUtils';
@@ -17,29 +16,42 @@ import { useTahunAjaran } from '../../../../hooks/useTahunAjaran';
 import { useMataPelajaran } from '../../../../hooks/useMataPelajaran';
 import { useJadwalPelajaran } from '../../../../hooks/useJadwalPelajaran';
 import { getTingkatKelasOptionsSync } from '../../../../utils/jenjangPendidikanUtils';
+import { usePengaturanSistem } from '../../../../hooks/usePengaturanSistem';
+import { useLanguage } from '../../../../context/LanguageContext';
+import MonitoringKelasTahfizSection from './MonitoringKelasTahfizSection';
 
 type StatusFilter = 'semua' | 'jadwal_kosong' | 'belum_ada_guru' | 'sudah_ada_guru' | 'sesi_ditutup';
 
 const MonitoringKelas: React.FC = () => {
+  const { t, language } = useLanguage();
+  const { systemType } = usePengaturanSistem();
   const { kelas } = useKelas();
   const { gurus } = useGurus();
   const { murid } = useMurid();
   const { activeTahunAjaran: activeTahunAjaranFromHook } = useTahunAjaran();
   const { mataPelajaran } = useMataPelajaran();
   const { jadwalPelajaran: jadwal } = useJadwalPelajaran();
+
+  // Tampilkan section sesuai tipe sistem; bila systemType belum loaded (null) default ke umum
+  const showUmum = systemType !== 'tahfiz'; // umum + umum_tahfiz + null
+  const showTahfiz = systemType === 'tahfiz' || systemType === 'sekolah_umum_tahfiz';
   
   const [sesiAbsensi, setSesiAbsensi] = useState<SesiAbsensi[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('semua');
-  const [currentTime, setCurrentTime] = useState<string>(
-    new Date().toLocaleTimeString('id-ID', {
+  const getTimeFormatted = useCallback(() => {
+    const locale = language === 'id' ? 'id-ID' : 'en-MY';
+    const hour12 = language === 'ms';
+    return new Date().toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-    })
-  );
+      hour12,
+    });
+  }, [language]);
+  const [currentTime, setCurrentTime] = useState<string>(getTimeFormatted);
 
   useEffect(() => {
     const fetchSesiAbsensi = async () => {
@@ -65,18 +77,10 @@ const MonitoringKelas: React.FC = () => {
   }, [gurus, murid]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(
-        new Date().toLocaleTimeString('id-ID', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        })
-      );
-    }, 1000);
-
+    setCurrentTime(getTimeFormatted());
+    const timer = setInterval(() => setCurrentTime(getTimeFormatted()), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [getTimeFormatted]);
 
   const activeTahunAjaran = activeTahunAjaranFromHook || undefined;
   
@@ -120,26 +124,11 @@ const MonitoringKelas: React.FC = () => {
     count: number;
     color: string;
   }> = [
-    { label: 'Semua', value: 'semua', count: stats.total, color: 'bg-gray-100' },
-    { label: 'Jadwal Kosong', value: 'jadwal_kosong', count: stats.jadwalKosong, color: 'bg-gray-50' },
-    {
-      label: 'Belum ada Guru',
-      value: 'belum_ada_guru',
-      count: stats.belumAdaGuru,
-      color: 'bg-yellow-50',
-    },
-    {
-      label: 'Sudah ada Guru',
-      value: 'sudah_ada_guru',
-      count: stats.sudahAdaGuru,
-      color: 'bg-emerald-50',
-    },
-    {
-      label: 'Sesi Ditutup',
-      value: 'sesi_ditutup',
-      count: stats.sesiDitutup,
-      color: 'bg-blue-50',
-    },
+    { label: t('monitoring.semua'), value: 'semua', count: stats.total, color: 'bg-gray-100' },
+    { label: t('monitoring.jadwalKosong'), value: 'jadwal_kosong', count: stats.jadwalKosong, color: 'bg-gray-50' },
+    { label: t('monitoring.belumAdaGuru'), value: 'belum_ada_guru', count: stats.belumAdaGuru, color: 'bg-yellow-50' },
+    { label: t('monitoring.sudahAdaGuru'), value: 'sudah_ada_guru', count: stats.sudahAdaGuru, color: 'bg-emerald-50' },
+    { label: t('monitoring.sesiDitutup'), value: 'sesi_ditutup', count: stats.sesiDitutup, color: 'bg-blue-50' },
   ];
 
   if (isLoading) {
@@ -147,11 +136,15 @@ const MonitoringKelas: React.FC = () => {
       <div className="w-full flex items-center justify-center py-20">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat data monitoring...</p>
+          <p className="text-gray-600">{t('monitoring.loading')}</p>
         </div>
       </div>
     );
   }
+
+  const onlyTahfiz = systemType === 'tahfiz';
+  const pageTitle = onlyTahfiz ? t('monitoring.titleTahfiz') : t('monitoring.title');
+  const pageSubtitle = onlyTahfiz ? t('monitoring.subtitleTahfiz') : t('monitoring.subtitle');
 
   return (
     <div className="w-full space-y-6 sm:space-y-8">
@@ -161,16 +154,18 @@ const MonitoringKelas: React.FC = () => {
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 sm:gap-8">
           <div className="flex-1">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 tracking-tight">Monitoring Kelas</h1>
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">Pantau status guru dan kelas mengajar secara real-time</p>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 tracking-tight">{pageTitle}</h1>
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">{pageSubtitle}</p>
           </div>
           <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-slate-600 pt-6 sm:pt-0 sm:pl-8">
             <div className="text-4xl sm:text-5xl font-bold font-mono text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-400">{currentTime}</div>
-            <p className="text-slate-400 text-xs sm:text-sm mt-2">Waktu Saat Ini</p>
+            <p className="text-slate-400 text-xs sm:text-sm mt-2">{t('monitoring.waktuSaatIni')}</p>
           </div>
         </div>
       </div>
 
+      {showUmum && (
+      <>
       <div className="grid grid-cols-2 sm:grid-cols-6 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
         {filters.map((filter, index) => {
           const isLast = index === filters.length - 1;
@@ -226,120 +221,253 @@ const MonitoringKelas: React.FC = () => {
         })}
       </div>
 
-
       <Card className="border border-gray-200 shadow-xl bg-white">
         <div className="p-6 sm:p-8 lg:p-10">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 flex items-center mb-2">
                 <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-teal-500 rounded-full mr-4"></div>
-                <span>Daftar Kelas</span>
+                <span>{t('monitoring.daftarKelas')}</span>
               </h2>
-              <p className="text-sm text-gray-500 ml-7">Total: <span className="font-semibold text-gray-700">{filteredData.length} kelas</span></p>
+              <p className="text-sm text-gray-500 ml-7">{t('monitoring.totalKelas', { count: filteredData.length })}</p>
             </div>
           </div>
 
           {filteredData.length > 0 ? (
-            <div className="overflow-x-auto -mx-6 sm:mx-0">
-              <div className="inline-block min-w-full align-middle px-6 sm:px-0">
-                <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 rounded-xl">
-                  <table className="min-w-full divide-y divide-gray-200">
+            <>
+              {/* Mobile: Card list */}
+              <div className="space-y-3 md:hidden">
+                {filteredData.map(kelasMonitor => (
+                  <KelasMonitoringCard key={kelasMonitor.kelasId} data={kelasMonitor} t={t} />
+                ))}
+              </div>
+              {/* Desktop: Table */}
+              <div className="hidden md:block overflow-x-auto -mx-6 sm:mx-0">
+                <div className="inline-block min-w-full align-middle px-6 sm:px-0">
+                  <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 rounded-xl">
+                    <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-to-r from-slate-50 to-gray-50">
                       <tr>
                         <th scope="col" className="px-4 sm:px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          Kelas
+                          {t('monitoring.kelas')}
                         </th>
                         <th scope="col" className="px-4 sm:px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          Status
+                          {t('monitoring.status')}
                         </th>
                         <th scope="col" className="px-4 sm:px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          Jam Pelajaran
+                          {t('monitoring.jamPelajaran')}
                         </th>
                         <th scope="col" className="px-4 sm:px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          Mata Pelajaran
+                          {t('monitoring.mataPelajaran')}
                         </th>
                         <th scope="col" className="px-4 sm:px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          Guru
+                          {t('monitoring.guru')}
                         </th>
                         <th scope="col" className="px-4 sm:px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          Sesi Info
+                          {t('monitoring.sesiInfo')}
                         </th>
                         <th scope="col" className="px-4 sm:px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          Jadwal Hari Ini
+                          {t('monitoring.jadwalHariIni')}
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {filteredData.map(kelasMonitor => (
-                        <KelasMonitoringRow key={kelasMonitor.kelasId} data={kelasMonitor} />
+                        <KelasMonitoringRow key={kelasMonitor.kelasId} data={kelasMonitor} t={t} />
                       ))}
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
+            </>
           ) : (
             <div className="text-center py-16 sm:py-20">
               <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-full mb-6">
                 <BookOpen className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400" />
               </div>
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Tidak Ada Data</h3>
-              <p className="text-gray-500 text-sm sm:text-base">Tidak ada kelas dengan status yang dipilih</p>
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">{t('monitoring.tidakAdaData')}</h3>
+              <p className="text-gray-500 text-sm sm:text-base">{t('monitoring.tidakAdaKelasStatus')}</p>
             </div>
           )}
         </div>
       </Card>
+      </>
+      )}
 
-      <Card className="border border-gray-200 shadow-xl bg-white">
-        <div className="p-6 sm:p-8 lg:p-10">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-500 to-teal-500 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-white" />
+      {showTahfiz && <MonitoringKelasTahfizSection />}
+
+      {/* Satu section Keterangan Status di akhir: umum & umum+tahfiz pakai label Guru, tahfiz saja pakai label Ustadz */}
+      {(showUmum || showTahfiz) && (
+        <Card className="border border-gray-200 shadow-xl bg-white">
+          <div className="p-6 sm:p-8 lg:p-10">
+            <div className="flex items-center gap-3 mb-8">
+              <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${onlyTahfiz ? 'bg-gradient-to-br from-violet-500 to-purple-600' : 'bg-gradient-to-br from-blue-500 to-teal-500'}`}>
+                <AlertCircle className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('monitoring.keteranganStatus')}</h3>
             </div>
-            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">Keterangan Status</h3>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
-            <StatusDescriptionCard
-              icon={<BookOpen className="w-6 h-6" />}
-              iconBgColor="bg-gray-100"
-              iconColor="text-gray-600"
-              title="Jadwal Kosong"
-              description="Tidak ada jadwal di jam saat ini"
-            />
-            <StatusDescriptionCard
-              icon={<Clock className="w-6 h-6" />}
-              iconBgColor="bg-amber-100"
-              iconColor="text-amber-600"
-              title="Belum ada Guru"
-              description="Guru belum membuka sesi"
-            />
-            <StatusDescriptionCard
-              icon={<CheckCircle2 className="w-6 h-6" />}
-              iconBgColor="bg-emerald-100"
-              iconColor="text-emerald-600"
-              title="Sudah ada Guru"
-              description="Guru sudah membuka sesi"
-            />
-            <StatusDescriptionCard
-              icon={<Users className="w-6 h-6" />}
-              iconBgColor="bg-blue-100"
-              iconColor="text-blue-600"
-              title="Sesi Ditutup"
-              description="Sesi sudah selesai"
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+              <StatusDescriptionCard
+                icon={<BookOpen className="w-6 h-6" />}
+                iconBgColor="bg-gray-100"
+                iconColor="text-gray-600"
+                title={t('monitoring.jadwalKosong')}
+                description={onlyTahfiz ? t('monitoring.descJadwalKosongTahfiz') : t('monitoring.descJadwalKosong')}
+              />
+              <StatusDescriptionCard
+                icon={<Clock className="w-6 h-6" />}
+                iconBgColor="bg-amber-100"
+                iconColor="text-amber-600"
+                title={onlyTahfiz ? t('monitoring.belumAdaUstadz') : t('monitoring.belumAdaGuru')}
+                description={onlyTahfiz ? t('monitoring.descBelumAdaUstadz') : t('monitoring.descBelumAdaGuru')}
+              />
+              <StatusDescriptionCard
+                icon={<CheckCircle2 className="w-6 h-6" />}
+                iconBgColor="bg-emerald-100"
+                iconColor="text-emerald-600"
+                title={onlyTahfiz ? t('monitoring.sudahAdaUstadz') : t('monitoring.sudahAdaGuru')}
+                description={onlyTahfiz ? t('monitoring.descSudahAdaUstadz') : t('monitoring.descSudahAdaGuru')}
+              />
+              <StatusDescriptionCard
+                icon={<Users className="w-6 h-6" />}
+                iconBgColor="bg-blue-100"
+                iconColor="text-blue-600"
+                title={onlyTahfiz ? t('monitoring.sesiTahfizDitutup') : t('monitoring.sesiDitutup')}
+                description={onlyTahfiz ? t('monitoring.descSesiTahfizDitutup') : t('monitoring.descSesiDitutup')}
+              />
+            </div>
           </div>
+        </Card>
+      )}
+
+    </div>
+  );
+};
+
+const getStatusLabelKey = (status: MonitoringStatus): string => {
+  const keyMap: Record<MonitoringStatus, string> = {
+    jadwal_kosong: 'monitoring.jadwalKosong',
+    belum_ada_guru: 'monitoring.belumAdaGuru',
+    sudah_ada_guru: 'monitoring.sudahAdaGuru',
+    sesi_ditutup: 'monitoring.statusSesiPelajaranDitutup',
+  };
+  return keyMap[status] || 'monitoring.jadwalKosong';
+};
+
+const KelasMonitoringCard: React.FC<KelasMonitoringRowProps> = ({ data, t }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const getStatusIcon = (status: MonitoringStatus) => {
+    const iconMap: Record<MonitoringStatus, React.ReactNode> = {
+      jadwal_kosong: <BookOpen className="w-5 h-5 text-gray-500" />,
+      belum_ada_guru: <Clock className="w-5 h-5 text-amber-600" />,
+      sudah_ada_guru: <CheckCircle2 className="w-5 h-5 text-emerald-600" />,
+      sesi_ditutup: <Users className="w-5 h-5 text-blue-600" />,
+    };
+    return iconMap[status];
+  };
+  const getStatusRowColor = (status: MonitoringStatus) => {
+    const colorMap: Record<MonitoringStatus, string> = {
+      jadwal_kosong: 'bg-white border-gray-200',
+      belum_ada_guru: 'bg-amber-50/50 border-amber-200',
+      sudah_ada_guru: 'bg-emerald-50/50 border-emerald-200',
+      sesi_ditutup: 'bg-blue-50/50 border-blue-200',
+    };
+    return colorMap[status];
+  };
+  const getStatusBadgeVariant = (status: MonitoringStatus): 'success' | 'warning' | 'secondary' | 'info' => {
+    switch (status) {
+      case 'jadwal_kosong': return 'secondary';
+      case 'belum_ada_guru': return 'warning';
+      case 'sudah_ada_guru': return 'success';
+      case 'sesi_ditutup': return 'info';
+      default: return 'secondary';
+    }
+  };
+  const hasJadwalHariIni = data.allJadwalHariIni && data.allJadwalHariIni.length > 0;
+
+  return (
+    <div className={`rounded-xl border shadow-sm overflow-hidden ${getStatusRowColor(data.currentStatus)}`}>
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {getStatusIcon(data.currentStatus)}
+            <span className="font-bold text-gray-900 truncate">{data.kelasName}</span>
+          </div>
+          <span className="flex-shrink-0">
+            <Badge variant={getStatusBadgeVariant(data.currentStatus)} size="sm">
+              {t(getStatusLabelKey(data.currentStatus))}
+            </Badge>
+          </span>
         </div>
-      </Card>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-500">{t('monitoring.jamPelajaran')}</span>
+            <span className="font-medium text-gray-800">
+              {data.jadwalInfo ? `${data.jadwalInfo.jamMulai} - ${data.jadwalInfo.jamSelesai}` : '-'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">{t('monitoring.mataPelajaran')}</span>
+            <span className="font-medium text-gray-800 truncate ml-2">
+              {data.jadwalInfo?.mataPelajaranName || '-'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">{t('monitoring.guru')}</span>
+            <span className="font-medium text-gray-800 truncate ml-2">
+              {data.jadwalInfo?.guruName || '-'}
+            </span>
+          </div>
+          {data.sesiInfo && (
+            <div className="flex justify-between items-start">
+              <span className="text-gray-500">{t('monitoring.sesiInfo')}</span>
+              <span className="text-gray-800 text-right">
+                {data.sesiInfo.jamBuka && <span className="text-emerald-700">{t('monitoring.buka')} {data.sesiInfo.jamBuka}</span>}
+                {data.sesiInfo.jamBuka && data.sesiInfo.jamTutup && ' · '}
+                {data.sesiInfo.jamTutup && <span className="text-blue-700">{t('monitoring.tutup')} {data.sesiInfo.jamTutup}</span>}
+              </span>
+            </div>
+          )}
+        </div>
+        {hasJadwalHariIni && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="mt-3 flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 w-full justify-between py-2"
+          >
+            <span>{t('monitoring.countJadwal', { count: data.allJadwalHariIni!.length })}</span>
+            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        )}
+        {isExpanded && hasJadwalHariIni && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <RefreshCw className="w-4 h-4 text-slate-600" />
+              <span className="text-sm font-bold text-gray-800">{t('monitoring.jadwalHariIni')}</span>
+            </div>
+            <div className="space-y-2">
+              {data.allJadwalHariIni!.map((jadwal, idx) => (
+                <div key={idx} className="flex items-center gap-2 p-2.5 bg-white rounded-lg border border-gray-100">
+                  <span className="bg-slate-700 text-white px-2 py-0.5 rounded text-xs font-bold">{jadwal.jamMulai}</span>
+                  <span className="text-sm text-gray-700 truncate flex-1">{jadwal.mataPelajaranName || '-'}</span>
+                  {jadwal.guruName && <span className="text-xs text-gray-500 truncate">({jadwal.guruName})</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
 interface KelasMonitoringRowProps {
   data: KelasMonitoring;
+  t: (key: string, params?: Record<string, any>) => string;
 }
 
-const KelasMonitoringRow: React.FC<KelasMonitoringRowProps> = ({ data }) => {
+const KelasMonitoringRow: React.FC<KelasMonitoringRowProps> = ({ data, t }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getStatusIcon = (status: MonitoringStatus) => {
@@ -392,7 +520,7 @@ const KelasMonitoringRow: React.FC<KelasMonitoringRowProps> = ({ data }) => {
         </td>
         <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
           <Badge variant={getStatusBadgeVariant(data.currentStatus)} size="sm">
-            {getStatusDisplay(data.currentStatus)}
+            {t(getStatusLabelKey(data.currentStatus))}
           </Badge>
         </td>
         <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
@@ -430,13 +558,13 @@ const KelasMonitoringRow: React.FC<KelasMonitoringRowProps> = ({ data }) => {
             <div className="text-sm space-y-1">
               {data.sesiInfo.jamBuka && (
                 <div className="text-gray-700">
-                  <span className="text-xs text-gray-500">Buka: </span>
+                  <span className="text-xs text-gray-500">{t('monitoring.buka')}: </span>
                   <span className="font-medium text-emerald-700">{data.sesiInfo.jamBuka}</span>
                 </div>
               )}
               {data.sesiInfo.jamTutup && (
                 <div className="text-gray-700">
-                  <span className="text-xs text-gray-500">Tutup: </span>
+                  <span className="text-xs text-gray-500">{t('monitoring.tutup')}: </span>
                   <span className="font-medium text-blue-700">{data.sesiInfo.jamTutup}</span>
                 </div>
               )}
@@ -451,7 +579,7 @@ const KelasMonitoringRow: React.FC<KelasMonitoringRowProps> = ({ data }) => {
               onClick={() => setIsExpanded(!isExpanded)}
               className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
             >
-              <span>{data.allJadwalHariIni!.length} jadwal</span>
+              <span>{t('monitoring.countJadwal', { count: data.allJadwalHariIni!.length })}</span>
               {isExpanded ? (
                 <ChevronUp className="w-4 h-4" />
               ) : (
@@ -469,7 +597,7 @@ const KelasMonitoringRow: React.FC<KelasMonitoringRowProps> = ({ data }) => {
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <RefreshCw className="w-4 h-4 text-slate-600" />
-                <h4 className="text-sm font-bold text-gray-800">Jadwal Hari Ini</h4>
+                <h4 className="text-sm font-bold text-gray-800">{t('monitoring.jadwalHariIni')}</h4>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {data.allJadwalHariIni!.map((jadwal, idx) => (

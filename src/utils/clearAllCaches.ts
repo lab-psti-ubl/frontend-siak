@@ -9,6 +9,9 @@ import { clearAllJadwalPelajaranCache } from '../hooks/useJadwalPelajaran';
 import { clearNilaiCache } from '../hooks/useNilai';
 import { refreshKokulikulerCache } from '../hooks/useKokulikuler';
 import { refreshERaportCache } from '../hooks/useERaport';
+// NOTE: Face recognition cache TIDAK di-clear saat logout
+// karena data wajah guru bersifat global dan tidak user-specific.
+// Cache hanya di-refresh otomatis saat TTL expired.
 
 // Import all clear cache functions from hooks
 import { clearMuridCache } from '../hooks/useMurid';
@@ -47,6 +50,7 @@ import { clearPengaturanNilaiMinimalCache } from '../hooks/usePengaturanNilaiMin
 import { clearPengaturanAbsenCache } from '../hooks/usePengaturanAbsen';
 import { clearProfilSekolahPublicCache } from '../hooks/useProfilSekolahPublic';
 import { clearCapaianPembelajaranCache } from '../hooks/useCapaianPembelajaran';
+import { clearPengaturanCache } from '../hooks/usePengaturanSistem';
 
 /**
  * Clears all application caches
@@ -54,6 +58,10 @@ import { clearCapaianPembelajaranCache } from '../hooks/useCapaianPembelajaran';
  */
 export const clearAllCaches = () => {
   try {
+    // NOTE: Face recognition cache TIDAK di-clear saat logout
+    // karena data wajah guru bersifat global, tidak user-specific,
+    // dan cache hanya di-refresh otomatis saat TTL expired.
+    
     // Clear all hook caches
     clearAbsensiCache();
     clearAllJadwalPelajaranCache();
@@ -94,6 +102,7 @@ export const clearAllCaches = () => {
     clearPengaturanAbsenCache();
     clearProfilSekolahPublicCache();
     clearCapaianPembelajaranCache();
+    clearPengaturanCache();
     
     // Clear caches that use refresh functions (async, but we call them without await for speed)
     refreshKokulikulerCache();

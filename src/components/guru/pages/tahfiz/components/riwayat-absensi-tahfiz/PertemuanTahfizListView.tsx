@@ -6,6 +6,8 @@ import { Calendar, Clock, Eye, Download, FileJson } from 'lucide-react';
 import { TahfizSchedule, SesiAbsensiTahfiz } from '../../../../../../types';
 import { exportToExcel, exportToPDF } from '../../../../../../utils/exportUtils';
 import { showSuccessToast, showErrorToast } from '../../../../../../components/ui/ToastContainer';
+import { useLanguage } from '../../../../../../context/LanguageContext';
+import { getDateLocale, getDayNames } from '../../../../../../utils/dateLocaleUtils';
 
 interface PertemuanTahfizListViewProps {
   kelasId: string;
@@ -24,6 +26,21 @@ const PertemuanTahfizListView: React.FC<PertemuanTahfizListViewProps> = ({
   onViewAbsensi,
   selectedTahun,
 }) => {
+  const { language } = useLanguage();
+  const dateLocale = getDateLocale(language);
+  const hariNames: Record<string, string> = useMemo(() => {
+    const dayNames = getDayNames(language);
+    return {
+      'minggu': dayNames[0],
+      'senin': dayNames[1],
+      'selasa': dayNames[2],
+      'rabu': dayNames[3],
+      'kamis': dayNames[4],
+      'jumat': dayNames[5],
+      'sabtu': dayNames[6],
+    };
+  }, [language]);
+
   const jadwal = jadwalTahfiz.find(j => j.id === jadwalId);
 
   const generateAllMeetings = () => {
@@ -38,16 +55,6 @@ const PertemuanTahfizListView: React.FC<PertemuanTahfizListViewProps> = ({
       status: 'mengajar' | 'tidak_mengajar';
       sesiId?: string;
     }> = [];
-
-    const hariNames: Record<string, string> = {
-      'senin': 'Senin',
-      'selasa': 'Selasa',
-      'rabu': 'Rabu',
-      'kamis': 'Kamis',
-      'jumat': 'Jumat',
-      'sabtu': 'Sabtu',
-      'minggu': 'Minggu',
-    };
 
     const hariToDay: Record<string, number> = {
       'minggu': 0,
@@ -125,7 +132,7 @@ const PertemuanTahfizListView: React.FC<PertemuanTahfizListViewProps> = ({
       month: 'long',
       day: 'numeric'
     };
-    return date.toLocaleDateString('id-ID', options);
+    return date.toLocaleDateString(dateLocale, options);
   };
 
   const formatTanggalShort = (tanggal: string) => {

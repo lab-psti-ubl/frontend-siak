@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api-schola.garnusa.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+const WORKER_BASE_URL = import.meta.env.VITE_WORKER_URL;
 
 class ApiService {
   /**
@@ -44,13 +45,40 @@ class ApiService {
       const response = await fetch(url, config);
       const data = await response.json();
 
-      // If token expired or invalid, remove it
+      // If token expired or invalid, try to refresh it first (for PWA persistence)
       if (response.status === 401 && token) {
+        // Try to refresh token before logging out
+        try {
+          const refreshResult = await this.refreshToken();
+          if (refreshResult.success && refreshResult.token) {
+            // Token refreshed successfully, retry the original request
+            const retryConfig: RequestInit = {
+              ...config,
+              headers: {
+                ...config.headers,
+                Authorization: `Bearer ${refreshResult.token}`,
+              },
+            };
+            const retryResponse = await fetch(url, retryConfig);
+            const retryData = await retryResponse.json();
+            
+            if (retryResponse.ok) {
+              return retryData;
+            }
+            // If retry still fails, fall through to logout
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+        }
+        
+        // If refresh failed or retry failed, remove token and redirect
         this.removeToken();
-        // Redirect to login if not already on login page
+        // Only redirect if not already on login page
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }
+        // Return error data instead of throwing to prevent unhandled errors
+        return data;
       }
 
       if (!response.ok) {
@@ -61,6 +89,45 @@ class ApiService {
     } catch (error) {
       console.error('API request error:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Request to worker service (separate base URL).
+   * Uses the same auth token header (if available) so worker can be secured later without changing frontend.
+   */
+  private async workerRequest<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    timeoutMs: number = 2500
+  ): Promise<T> {
+    const url = `${WORKER_BASE_URL}${endpoint}`;
+
+    const token = this.getToken();
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    const config: RequestInit = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options.headers,
+      },
+      signal: controller.signal,
+      ...options,
+    };
+
+    try {
+      const response = await fetch(url, config);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Worker request failed');
+      }
+
+      return data;
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   }
 
@@ -151,6 +218,75 @@ class ApiService {
     }>(`/auth/current-user?${params.toString()}`);
   }
 
+  async updateAdminAccount(data: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  }) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+      user?: any;
+    }>('/auth/admin/account', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async changeAdminPassword(data: {
+    currentPassword: string;
+    newPassword: string;
+  }) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+    }>('/auth/admin/change-password', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async refreshToken(): Promise<{
+    success: boolean;
+    token?: string;
+    user?: any;
+    message?: string;
+  }> {
+    const token = this.getToken();
+    if (!token) {
+      return {
+        success: false,
+        message: 'Token tidak ditemukan',
+      };
+    }
+
+    try {
+      const result = await this.publicRequest<{
+        success: boolean;
+        token?: string;
+        user?: any;
+        message?: string;
+      }>('/auth/refresh-token', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Store new token if refresh successful
+      if (result.success && result.token) {
+        this.setToken(result.token);
+      }
+
+      return result;
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Gagal refresh token',
+      };
+    }
+  }
+
   // Activation endpoints
   async getSystemActivation() {
     return this.request<{
@@ -158,6 +294,15 @@ class ApiService {
       activation?: any;
       message?: string;
     }>('/activation');
+  }
+
+  /** Ambil status aktivasi tanpa login (endpoint publik) */
+  async getSystemActivationPublic() {
+    return this.publicRequest<{
+      success: boolean;
+      activation?: any;
+      message?: string;
+    }>('/activation/status');
   }
 
   async checkSystemActive() {
@@ -186,6 +331,28 @@ class ApiService {
       message?: string;
     }>('/activation/initialize', {
       method: 'POST',
+    });
+  }
+
+  async deactivateSystem() {
+    return this.publicRequest<{
+      success: boolean;
+      message?: string;
+      activation?: any;
+    }>('/activation/deactivate', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  async updateActivationCode(currentCode: string, newCode: string) {
+    return this.publicRequest<{
+      success: boolean;
+      message?: string;
+      activation?: any;
+    }>('/activation/code', {
+      method: 'PUT',
+      body: JSON.stringify({ currentCode, newCode }),
     });
   }
 
@@ -267,6 +434,58 @@ class ApiService {
     }>(`/guru/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // Data Face Recognition (registrasi wajah guru)
+  async getFaceRecognitionList() {
+    return this.request<{
+      success: boolean;
+      list?: Array<{
+        id: string;
+        name: string;
+        nip: string;
+        status: 'completed' | 'not_completed';
+        registeredFacesCount: number;
+      }>;
+      count?: number;
+      message?: string;
+    }>('/data-face-recognition');
+  }
+
+  async getFaceRecognitionByGuruId(guruId: string) {
+    return this.request<{
+      success: boolean;
+      guru?: { id: string; name: string; nip?: string };
+      faceDescriptors?: string[];
+      registeredFacesCount?: number;
+      message?: string;
+    }>(`/data-face-recognition/guru/${guruId}`);
+  }
+
+  async saveGuruFaceDescriptors(guruId: string, faceDescriptors: string[]) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+      guruId?: string;
+      registeredFacesCount?: number;
+    }>('/data-face-recognition/register', {
+      method: 'POST',
+      body: JSON.stringify({ guruId, faceDescriptors }),
+    });
+  }
+
+  async getAllGuruFaceDescriptors() {
+    return this.request<{
+      success: boolean;
+      data?: Array<{
+        guruId: string;
+        name: string;
+        nip?: string;
+        faceDescriptors: string[];
+      }>;
+      count?: number;
+      message?: string;
+    }>('/data-face-recognition/descriptors');
   }
 
   // Ustadz endpoints
@@ -1647,6 +1866,88 @@ class ApiService {
     });
   }
 
+  /**
+   * Submit absensi tahfiz via worker first (enqueue to RabbitMQ). If worker is down / timeout / error,
+   * fallback to direct server API (write to DB).
+   *
+   * IMPORTANT: use the same payload for both paths so DB remains idempotent (no duplicates).
+   */
+  async submitAbsensiTahfizWithFallback(sesiId: string, absensiData: any) {
+    try {
+      // Worker endpoint: POST /worker/sesi-absensi-tahfiz
+      return await this.workerRequest<{
+        success: boolean;
+        message?: string;
+      }>('/sesi-absensi-tahfiz', {
+        method: 'POST',
+        body: JSON.stringify({ sesiId, absensiData }),
+      });
+    } catch (err) {
+      // Fallback to server API: POST /api/sesi-absensi-tahfiz/:sesiId/absensi
+      return await this.addAbsensiToSesiTahfiz(sesiId, absensiData);
+    }
+  }
+
+  /**
+   * Submit bulk absensi tahfiz with worker-first strategy (fallback to server).
+   * For bulk operations, we send each item to worker individually, then fallback to server bulk if worker fails.
+   * Worker endpoint: POST /worker/sesi-absensi-tahfiz (for each item)
+   * Fallback: POST /api/sesi-absensi-tahfiz/:sesiId/absensi/bulk
+   */
+  async bulkSubmitAbsensiTahfizWithFallback(sesiId: string, absensiList: any[]) {
+    if (absensiList.length === 0) {
+      throw new Error('absensiList tidak boleh kosong');
+    }
+    
+    // Try to send all items to worker one by one
+    let workerAvailable = false;
+    try {
+      // Test worker with first item
+      await this.workerRequest<{
+        success: boolean;
+        message?: string;
+      }>('/sesi-absensi-tahfiz', {
+        method: 'POST',
+        body: JSON.stringify({ sesiId, absensiData: absensiList[0] }),
+      }, 2000); // Shorter timeout for bulk test
+      
+      workerAvailable = true;
+      
+      // If worker works, send all items one by one to worker
+      for (let i = 0; i < absensiList.length; i++) {
+        const absensiData = absensiList[i];
+        try {
+          await this.workerRequest<{
+            success: boolean;
+            message?: string;
+          }>('/sesi-absensi-tahfiz', {
+            method: 'POST',
+            body: JSON.stringify({ sesiId, absensiData }),
+          });
+        } catch (itemErr) {
+          console.warn(`Worker failed for item ${i + 1}/${absensiList.length}, falling back to server bulk`);
+          // If any item fails, fallback to server bulk for remaining items
+          workerAvailable = false;
+          break;
+        }
+      }
+      
+      if (workerAvailable) {
+        // All items sent to worker successfully
+        return {
+          success: true,
+          message: 'Data absensi tahfiz telah dikirim ke worker untuk diproses',
+        };
+      }
+    } catch (err) {
+      // Worker not available or failed, will fallback to server
+      console.warn('Worker not available for bulk operation, using server fallback');
+    }
+    
+    // Fallback to server bulk API
+    return await this.bulkAddAbsensiToSesiTahfiz(sesiId, absensiList);
+  }
+
   // Absensi pelajaran management within sesi
   async addAbsensiToSesi(sesiId: string, absensiData: any) {
     return this.request<{
@@ -1670,6 +1971,87 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ absensiList }),
     });
+  }
+
+  /**
+   * Submit absensi pelajaran with worker-first strategy (fallback to server).
+   * Worker endpoint: POST /worker/sesi-absensi
+   * Fallback: POST /api/sesi-absensi/:sesiId/absensi
+   */
+  async submitAbsensiPelajaranWithFallback(sesiId: string, absensiData: any) {
+    try {
+      // Worker endpoint: POST /worker/sesi-absensi
+      return await this.workerRequest<{
+        success: boolean;
+        message?: string;
+      }>('/sesi-absensi', {
+        method: 'POST',
+        body: JSON.stringify({ sesiId, absensiData }),
+      });
+    } catch (err) {
+      // Fallback to server API: POST /api/sesi-absensi/:sesiId/absensi
+      return await this.addAbsensiToSesi(sesiId, absensiData);
+    }
+  }
+
+  /**
+   * Submit bulk absensi pelajaran with worker-first strategy (fallback to server).
+   * For bulk operations, we send each item to worker individually, then fallback to server bulk if worker fails.
+   * Worker endpoint: POST /worker/sesi-absensi (for each item)
+   * Fallback: POST /api/sesi-absensi/:sesiId/absensi/bulk
+   */
+  async bulkSubmitAbsensiPelajaranWithFallback(sesiId: string, absensiList: any[]) {
+    if (absensiList.length === 0) {
+      throw new Error('absensiList tidak boleh kosong');
+    }
+    
+    // Try to send all items to worker one by one
+    let workerAvailable = false;
+    try {
+      // Test worker with first item
+      await this.workerRequest<{
+        success: boolean;
+        message?: string;
+      }>('/sesi-absensi', {
+        method: 'POST',
+        body: JSON.stringify({ sesiId, absensiData: absensiList[0] }),
+      }, 2000); // Shorter timeout for bulk test
+      
+      workerAvailable = true;
+      
+      // If worker works, send all items one by one to worker
+      for (let i = 0; i < absensiList.length; i++) {
+        const absensiData = absensiList[i];
+        try {
+          await this.workerRequest<{
+            success: boolean;
+            message?: string;
+          }>('/sesi-absensi', {
+            method: 'POST',
+            body: JSON.stringify({ sesiId, absensiData }),
+          });
+        } catch (itemErr) {
+          console.warn(`Worker failed for item ${i + 1}/${absensiList.length}, falling back to server bulk`);
+          // If any item fails, fallback to server bulk for remaining items
+          workerAvailable = false;
+          break;
+        }
+      }
+      
+      if (workerAvailable) {
+        // All items sent to worker successfully
+        return {
+          success: true,
+          message: 'Data absensi pelajaran telah dikirim ke worker untuk diproses',
+        };
+      }
+    } catch (err) {
+      // Worker not available or failed, will fallback to server
+      console.warn('Worker not available for bulk operation, using server fallback');
+    }
+    
+    // Fallback to server bulk API
+    return await this.bulkAddAbsensiToSesi(sesiId, absensiList);
   }
 
   async removeAbsensiFromSesi(sesiId: string, absensiId: string) {
@@ -2066,6 +2448,36 @@ class ApiService {
     });
   }
 
+  /**
+   * Submit absensi guru: coba worker dulu, fallback ke API server jika gagal.
+   * - Gagal kirim ke worker (down, timeout, network error) → fallback POST /api/absensi-guru
+   * - Worker mengembalikan error (mis. 500 karena gagal simpan ke DB) → fallback POST /api/absensi-guru
+   * Payload sama untuk kedua path agar DB idempotent (no duplicates).
+   */
+  async submitAbsensiGuruWithFallback(data: any) {
+    try {
+      return await this.workerRequest<{
+        success: boolean;
+        message?: string;
+      }>('/absensi-guru', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (_err) {
+      // Fallback: simpan langsung lewat API server (POST /api/absensi-guru)
+      return await this.createAbsensiGuru(data);
+    }
+  }
+
+  /**
+   * Update absensi guru. Uses direct server API (PUT) - no worker involvement.
+   * Worker is for real-time absen (face/RFID); admin edits are manual and go directly to the server.
+   * This avoids net::ERR_FAILED when worker service is not running on port 4001.
+   */
+  async submitAbsensiGuruUpdateWithFallback(id: string, partialUpdate: any) {
+    return await this.updateAbsensiGuru(id, partialUpdate);
+  }
+
   async updateAbsensiGuru(id: string, data: any) {
     return this.request<{
       success: boolean;
@@ -2175,6 +2587,28 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  /**
+   * Submit absensi murid via worker first (enqueue to RabbitMQ). Jika worker down / timeout / error,
+   * fallback ke direct server API (tulis langsung ke DB lewat controller absensi).
+   *
+   * Payload mengikuti struktur yang sama dengan endpoint /absensi agar idempoten.
+   */
+  async submitAbsensiMuridWithFallback(data: any) {
+    try {
+      // Worker endpoint: POST /worker/absensi-murid
+      return await this.workerRequest<{
+        success: boolean;
+        message?: string;
+      }>('/absensi-murid', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      // Fallback ke server API langsung
+      return await this.createAbsensi(data);
+    }
   }
 
   async updateAbsensi(id: string, data: any) {
@@ -2417,11 +2851,23 @@ class ApiService {
         enableEarlyDeparture: boolean;
         language: string;
         systemType: string;
+        footerCompanyName?: string;
+        cbtEnabled?: boolean;
+        spmbEnabled?: boolean;
         createdAt: string;
         updatedAt: string;
       };
       message?: string;
     }>('/pengaturan-sistem');
+  }
+
+  // Public endpoint: hanya ambil footerCompanyName
+  async getFooterSettingsPublic() {
+    return this.publicRequest<{
+      success: boolean;
+      footerCompanyName: string;
+      message?: string;
+    }>('/pengaturan-sistem/footer');
   }
 
   async getEnableEarlyDeparture() {
@@ -2440,15 +2886,34 @@ class ApiService {
     }>('/pengaturan-sistem/language');
   }
 
-  async getSystemType() {
-    return this.request<{
+  // Public endpoint to get language without authentication (for login page)
+  async getLanguagePublic() {
+    return this.publicRequest<{
       success: boolean;
-      systemType: string;
+      language: string;
+      message?: string;
+    }>('/pengaturan-sistem/language');
+  }
+
+  /** Ambil tipe sistem dari backend (public, tanpa auth). Pengecekan sistem hanya di backend. */
+  async getSystemType() {
+    return this.publicRequest<{
+      success: boolean;
+      systemType: string | null;
       message?: string;
     }>('/pengaturan-sistem/system-type');
   }
 
-  async updatePengaturanSistem(data: { enableEarlyDeparture?: boolean; language?: string; systemType?: string; activationPassword?: string; isInitialSetup?: boolean }) {
+  async updatePengaturanSistem(data: {
+    enableEarlyDeparture?: boolean;
+    language?: string;
+    systemType?: string;
+    activationPassword?: string;
+    isInitialSetup?: boolean;
+    footerCompanyName?: string;
+    cbtEnabled?: boolean;
+    spmbEnabled?: boolean;
+  }) {
     return this.request<{
       success: boolean;
       message?: string;
@@ -2457,11 +2922,196 @@ class ApiService {
         enableEarlyDeparture: boolean;
         language: string;
         systemType: string;
+        footerCompanyName?: string;
+        cbtEnabled?: boolean;
+        spmbEnabled?: boolean;
         createdAt: string;
         updatedAt: string;
       };
     }>('/pengaturan-sistem', {
       method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Public endpoint: hanya ubah footerCompanyName
+  async updateFooterSettingsPublic(footerCompanyName: string) {
+    return this.publicRequest<{
+      success: boolean;
+      footerCompanyName?: string;
+      message?: string;
+    }>('/pengaturan-sistem/footer', {
+      method: 'PUT',
+      body: JSON.stringify({ footerCompanyName }),
+    });
+  }
+
+  // Public endpoint: ambil pengaturan CBT & SPMB (tanpa login)
+  async getCbtSpmbSettingsPublic() {
+    return this.publicRequest<{
+      success: boolean;
+      cbtEnabled?: boolean;
+      spmbEnabled?: boolean;
+      message?: string;
+    }>('/pengaturan-sistem/cbt-spmb');
+  }
+
+  // Public endpoint: ubah pengaturan CBT & SPMB (tanpa login, seperti footer)
+  async updateCbtSpmbSettingsPublic(data: { cbtEnabled?: boolean; spmbEnabled?: boolean }) {
+    return this.publicRequest<{
+      success: boolean;
+      cbtEnabled?: boolean;
+      spmbEnabled?: boolean;
+      message?: string;
+    }>('/pengaturan-sistem/cbt-spmb', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ====== SPMB endpoints ======
+
+  // Public: get active SPMB opening for registration page
+  async getActiveSpmbOpeningPublic() {
+    return this.publicRequest<{
+      success: boolean;
+      opening?: any | null;
+      message?: string;
+    }>('/spmb/opening-active');
+  }
+
+  // Public: submit SPMB registration
+  async submitSpmbRegistrationPublic(data: {
+    namaLengkap: string;
+    jenisKelamin?: 'L' | 'P';
+    umur?: number;
+    nisn?: string;
+    email?: string;
+    noWhatsappOrtu: string;
+    asalSekolah: string;
+    alamat: string;
+    pilihanJurusan?: string;
+    nikAnak?: string;
+    nomorKk?: string;
+    tempatLahir?: string;
+    tanggalLahir?: string;
+    namaOrangTua?: string;
+    nikOrangTua?: string;
+    pekerjaanOrangTua?: string;
+    noHpOrangTua?: string;
+    ringkasanNilaiRapor?: number;
+    dokumenKk?: string;
+    dokumenAktaKelahiran?: string;
+    dokumenKtpOrangTua?: string;
+    dokumenKartuImunisasi?: string;
+    dokumenPasFoto?: string;
+    dokumenIjazahAtauSkL?: string;
+    dokumenRapor?: string;
+    dokumenKip?: string;
+    dokumenSertifikatPrestasi?: string;
+    dokumenSuratKeteranganSehat?: string;
+  }) {
+    return this.publicRequest<{
+      success: boolean;
+      message?: string;
+      registration?: any;
+    }>('/spmb/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Admin: manage SPMB openings
+  async getSpmbOpenings(params?: { tahunAjaran?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    const queryString = queryParams.toString();
+
+    return this.request<{
+      success: boolean;
+      openings?: any[];
+      count?: number;
+      message?: string;
+    }>(`/spmb/openings${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async createSpmbOpening(data: {
+    tahunAjaran: string;
+    judul: string;
+    tanggalMulai: string;
+    tanggalSelesai: string;
+  }) {
+    return this.request<{
+      success: boolean;
+      opening?: any;
+      message?: string;
+    }>('/spmb/openings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateSpmbOpening(id: string, data: {
+    tahunAjaran?: string;
+    judul?: string;
+    tanggalMulai?: string;
+    tanggalSelesai?: string;
+    isActive?: boolean;
+  }) {
+    return this.request<{
+      success: boolean;
+      opening?: any;
+      message?: string;
+    }>(`/spmb/openings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteSpmbOpening(id: string) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+    }>(`/spmb/openings/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Admin: manage SPMB registrations
+  async getSpmbRegistrations(params?: { tahunAjaran?: string; status?: 'pending' | 'diterima' | 'ditolak' }) {
+    const queryParams = new URLSearchParams();
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    if (params?.status) queryParams.append('status', params.status);
+    const queryString = queryParams.toString();
+
+    return this.request<{
+      success: boolean;
+      registrations?: any[];
+      count?: number;
+      message?: string;
+    }>(`/spmb/registrations${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async updateSpmbRegistrationStatus(id: string, status: 'pending' | 'diterima' | 'ditolak') {
+    return this.request<{
+      success: boolean;
+      registration?: any;
+      message?: string;
+    }>(`/spmb/registrations/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async assignSpmbRegistrationsToClass(data: { kelasId: string; registrationIds: string[] }) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+      createdCount?: number;
+      createdMurid?: any[];
+      skipped?: { id: string; reason: string }[];
+    }>('/spmb/registrations/assign-to-class', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -2628,6 +3278,262 @@ class ApiService {
       body: JSON.stringify({ nilaiList }),
     });
   }
+
+  // CBT Kelas endpoints
+  async getAllCBTKelas(params?: {
+    guruId?: string;
+    tingkat?: number;
+    mataPelajaranId?: string;
+    semester?: number;
+    tahunAjaran?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.guruId) queryParams.append('guruId', params.guruId);
+    if (params?.tingkat) queryParams.append('tingkat', params.tingkat.toString());
+    if (params?.mataPelajaranId)
+      queryParams.append('mataPelajaranId', params.mataPelajaranId);
+    if (params?.semester)
+      queryParams.append('semester', params.semester.toString());
+    if (params?.tahunAjaran)
+      queryParams.append('tahunAjaran', params.tahunAjaran);
+
+    const queryString = queryParams.toString();
+    return this.request<{
+      success: boolean;
+      data?: any[];
+      count?: number;
+      message?: string;
+    }>(`/cbt-kelas${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async createCBTKelas(data: any) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>('/cbt-kelas', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCBTKelas(id: string, data: any) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>(`/cbt-kelas/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCBTKelas(id: string) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+    }>(`/cbt-kelas/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // CBT Bank Soal endpoints
+  async getAllCBTBankSoal(params?: {
+    cbtKelasId?: string;
+    guruId?: string;
+    tipe?: string;
+    includeGlobal?: boolean;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.cbtKelasId) queryParams.append('cbtKelasId', params.cbtKelasId);
+    if (params?.guruId) queryParams.append('guruId', params.guruId);
+    if (params?.tipe) queryParams.append('tipe', params.tipe);
+    if (params?.includeGlobal) queryParams.append('includeGlobal', '1');
+
+    const queryString = queryParams.toString();
+    return this.request<{
+      success: boolean;
+      data?: any[];
+      count?: number;
+      message?: string;
+    }>(`/cbt-bank-soal${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async createCBTBankSoal(data: any) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>('/cbt-bank-soal', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCBTBankSoal(id: string, data: any) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>(`/cbt-bank-soal/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCBTBankSoal(id: string) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+    }>(`/cbt-bank-soal/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getCBTBankSoalById(id: string) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>(`/cbt-bank-soal/${id}`);
+  }
+
+  // CBT Ujian endpoints
+  async getAllCBTUjian(params?: {
+    guruId?: string;
+    cbtKelasId?: string;
+    kelasId?: string;
+    tahunAjaran?: string;
+    semester?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.guruId) queryParams.append('guruId', params.guruId);
+    if (params?.cbtKelasId) queryParams.append('cbtKelasId', params.cbtKelasId);
+    if (params?.kelasId) queryParams.append('kelasId', params.kelasId);
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    if (params?.semester !== undefined)
+      queryParams.append('semester', params.semester.toString());
+
+    const queryString = queryParams.toString();
+    return this.request<{
+      success: boolean;
+      data?: any[];
+      count?: number;
+      message?: string;
+    }>(`/cbt-ujian${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async createCBTUjian(data: any) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>('/cbt-ujian', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCBTUjian(id: string, data: any) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>(`/cbt-ujian/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCBTUjian(id: string) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+    }>(`/cbt-ujian/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getCBTUjianById(id: string) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>(`/cbt-ujian/${id}`);
+  }
+
+  // CBT Ujian Attempt endpoints
+  async startCBTUjianAttempt(data: any) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>('/cbt-ujian-attempts/start', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCBTUjianAttempt(id: string, data: any) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>(`/cbt-ujian-attempts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAllCBTUjianAttempt(params?: { ujianId?: string; muridId?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params?.ujianId) queryParams.append('ujianId', params.ujianId);
+    if (params?.muridId) queryParams.append('muridId', params.muridId);
+
+    const queryString = queryParams.toString();
+    return this.request<{
+      success: boolean;
+      data?: any[];
+      count?: number;
+      message?: string;
+    }>(`/cbt-ujian-attempts${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async resetCBTUjianAttempt(data: { ujianId: string; muridId: string }) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>('/cbt-ujian-attempts/reset', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async allowEditCBTUjianAttempt(data: { ujianId: string; muridId: string }) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>('/cbt-ujian-attempts/allow-edit', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+   async gradeEssayCBTUjianAttempt(data: {
+     attemptId: string;
+     hasilEssay: { soalId: string; isCorrect: boolean }[];
+   }) {
+     return this.request<{
+       success: boolean;
+       data?: any;
+       message?: string;
+     }>('/cbt-ujian-attempts/grade-essay', {
+       method: 'POST',
+       body: JSON.stringify(data),
+     });
+   }
 
   // Status Kenaikan Kelas endpoints
   async getAllStatusKenaikanKelas() {

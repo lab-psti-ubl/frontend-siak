@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
-import { AlertCircle, Camera, BookOpen, Calendar, Clock, Users } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { AlertCircle, Camera, BookOpen, Calendar, Clock, Users, ZoomIn, X } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 import Modal from '../../../../ui/Modal';
 import Card from '../../../../ui/Card';
 import Badge from '../../../../ui/Badge';
@@ -31,12 +32,27 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
   sesiAbsensiTahfiz
 }) => {
   // All hooks must be called before any early returns (Rules of Hooks)
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   const { santri } = useSantri();
-  const { jurnalTahfiz } = useJurnalTahfiz({ 
-    jadwalId: selectedJadwal?.id,
-    tanggal: selectedJadwalDate,
-    kelasId: selectedJadwal?.kelasId
+  const [showPhotoPreview, setShowPhotoPreview] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<FotoMengajarTahfiz | null>(null);
+  // Fetch all jurnal tahfiz and filter client-side to get full document structure
+  const { jurnalTahfiz: allJurnalTahfiz } = useJurnalTahfiz({ 
+    tahun: new Date(selectedJadwalDate).getFullYear().toString()
   });
+  
+  // Filter jurnal tahfiz for this specific jadwal, kelas, and tanggal
+  const jurnalTahfiz = useMemo(() => {
+    if (!selectedJadwal || !allJurnalTahfiz) return [];
+    return allJurnalTahfiz.filter(j => 
+      j.jadwalId === selectedJadwal.id && 
+      j.kelasId === selectedJadwal.kelasId &&
+      j.pertemuan && 
+      Array.isArray(j.pertemuan) &&
+      j.pertemuan.some((p: any) => p.tanggal === selectedJadwalDate)
+    );
+  }, [allJurnalTahfiz, selectedJadwal, selectedJadwalDate]);
 
   // Get kelas and sesi - handle null cases
   const kelas = useMemo(() => {
@@ -76,6 +92,18 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
       .filter(Boolean) as User[];
   }, [kelas, santri]);
 
+  const hariNames: Record<string, string> = useMemo(() => {
+    const keys = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+    const base = new Date(2024, 0, 7);
+    const result: Record<string, string> = {};
+    keys.forEach((key, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      result[key] = d.toLocaleDateString(dateLocale, { weekday: 'long' });
+    });
+    return result;
+  }, [dateLocale]);
+
   // Early return after all hooks
   if (!selectedJadwal || !selectedGuru) return null;
 
@@ -112,24 +140,14 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
       month: 'long',
       day: 'numeric'
     };
-    return date.toLocaleDateString('id-ID', options);
-  };
-
-  const hariNames: Record<string, string> = {
-    'senin': 'Senin',
-    'selasa': 'Selasa',
-    'rabu': 'Rabu',
-    'kamis': 'Kamis',
-    'jumat': 'Jumat',
-    'sabtu': 'Sabtu',
-    'minggu': 'Minggu',
+    return date.toLocaleDateString(dateLocale, options);
   };
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Detail Jadwal Tahfiz"
+      title={t('detailAbsensiModal.detailJadwalTahfiz')}
       size="xl"
     >
       <div className="space-y-4">
@@ -137,7 +155,7 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
           <div className="space-y-3">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {kelas?.namaKelas || 'Kelas Tahfiz'}
+                {kelas?.namaKelas || t('detailAbsensiModal.kelasTahfiz')}
               </h3>
               <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                 <div className="flex items-center gap-2">
@@ -152,7 +170,7 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <Users size={16} />
-                  <span>Jadwal: <span className="capitalize font-medium">{hariNames[selectedJadwal.hari]}</span> - {selectedJadwal.jamMulai} - {selectedJadwal.jamSelesai}</span>
+                  <span>{t('detailAbsensiModal.jadwal')}: <span className="capitalize font-medium">{hariNames[selectedJadwal.hari]}</span> - {selectedJadwal.jamMulai} - {selectedJadwal.jamSelesai}</span>
                 </div>
               </div>
             </div>
@@ -161,36 +179,81 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
               <div className="pt-3 border-t border-gray-200">
                 <div className="flex items-center gap-2 mb-3">
                   <Badge variant="success" className="text-xs">
-                    Sesi Dibuka
+                    {t('detailAbsensiModal.sesiDibuka')}
                   </Badge>
                   {fotoMengajar ? (
-                    <Badge variant="info" className="text-xs">
+                    <Badge 
+                      variant="info" 
+                      className="text-xs cursor-pointer hover:bg-blue-600"
+                      onClick={() => {
+                        setSelectedPhoto(fotoMengajar);
+                        setShowPhotoPreview(true);
+                      }}
+                    >
                       <Camera size={12} className="mr-1" />
-                      Ada Foto
+                      {t('detailAbsensiModal.adaFoto')}
                     </Badge>
                   ) : (
                     <Badge variant="warning" className="text-xs">
                       <Camera size={12} className="mr-1" />
-                      Belum Foto
+                      {t('detailAbsensiModal.belumFoto')}
                     </Badge>
                   )}
                   {jurnal ? (
                     <Badge variant="success" className="text-xs cursor-pointer" onClick={() => jurnal?.file && onViewFile(jurnal.file)}>
                       <BookOpen size={12} className="mr-1" />
-                      Ada Jurnal
+                      {t('detailAbsensiModal.adaJurnal')}
                     </Badge>
                   ) : (
                     <Badge variant="default" className="text-xs">
                       <BookOpen size={12} className="mr-1" />
-                      Belum Jurnal
+                      {t('detailAbsensiModal.belumJurnal')}
                     </Badge>
                   )}
                 </div>
 
+                {/* Foto Mengajar Preview */}
+                {fotoMengajar && (
+                  <div className="mt-3">
+                    <Card className="p-3 bg-white border border-gray-200">
+                      <h5 className="text-sm font-bold text-gray-900 mb-2">{t('detailAbsensiModal.fotoBuktiMengajar')}</h5>
+                      <div 
+                        className="relative group text-center bg-white rounded-lg p-3 border-2 border-blue-100 cursor-pointer hover:border-blue-300 transition-all duration-200"
+                        onClick={() => {
+                          setSelectedPhoto(fotoMengajar);
+                          setShowPhotoPreview(true);
+                        }}
+                      >
+                        <img
+                          src={fotoMengajar.fotoBase64}
+                          alt="Bukti Mengajar"
+                          className="max-w-full max-h-48 sm:max-h-64 object-contain rounded-lg mx-auto shadow-sm group-hover:opacity-90 transition-opacity"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center rounded-lg">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity p-3 bg-white bg-opacity-90 rounded-full shadow-lg">
+                            <ZoomIn size={24} className="text-blue-600" />
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2 group-hover:text-blue-600 transition-colors">
+                          {t('detailAbsensiModal.klikUntukPreview')}
+                        </p>
+                        {fotoMengajar.keterangan && (
+                          <p className="text-xs text-gray-600 mt-1">
+                            {fotoMengajar.keterangan}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          Diambil: {new Date(fotoMengajar.waktuFoto).toLocaleString('id-ID')}
+                        </p>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
                 {jurnal && (
                   <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                     <p className="text-sm font-medium text-gray-900 mb-1">
-                      {jurnal.judul || 'Jurnal Mengajar'}
+                      {jurnal.judul || t('detailAbsensiModal.jurnalMengajar')}
                     </p>
                     {jurnal.deskripsi && (
                       <p className="text-xs text-gray-600">{jurnal.deskripsi}</p>
@@ -204,7 +267,7 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
               <div className="pt-3 border-t border-gray-200">
                 <Badge variant="danger" className="text-xs flex items-center gap-1 w-fit">
                   <AlertCircle size={12} />
-                  Belum Mengajar
+                  {t('detailAbsensiModal.belumMengajar')}
                 </Badge>
               </div>
             )}
@@ -213,17 +276,17 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
 
         {sesiDibuka && (
           <Card className="p-4">
-            <h4 className="font-semibold text-gray-900 mb-4">Daftar Absensi Santri</h4>
+            <h4 className="font-semibold text-gray-900 mb-4">{t('detailAbsensiModal.daftarAbsensiSantri')}</h4>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableCell>No</TableCell>
-                    <TableCell>Nama</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Waktu</TableCell>
-                    <TableCell>Metode</TableCell>
-                    <TableCell>Keterangan</TableCell>
+                    <TableCell>{t('detailAbsensiModal.no')}</TableCell>
+                    <TableCell>{t('detailAbsensiModal.nama')}</TableCell>
+                    <TableCell>{t('detailAbsensiModal.status')}</TableCell>
+                    <TableCell>{t('detailAbsensiModal.waktu')}</TableCell>
+                    <TableCell>{t('detailAbsensiModal.metode')}</TableCell>
+                    <TableCell>{t('detailAbsensiModal.keterangan')}</TableCell>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -240,7 +303,7 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
                               {attendance.status.toUpperCase()}
                             </Badge>
                           ) : (
-                            <Badge variant="default">Belum Absen</Badge>
+                            <Badge variant="default">{t('detailAbsensiModal.belumAbsen')}</Badge>
                           )}
                         </TableCell>
                         <TableCell className="text-xs sm:text-sm">
@@ -249,7 +312,7 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
                         <TableCell>
                           {attendance ? (
                             <Badge variant={attendance.method === 'qr' ? 'info' : 'default'} className="text-xs">
-                              {attendance.method === 'qr' ? 'QR Code' : 'Manual'}
+                              {attendance.method === 'qr' ? t('detailAbsensiModal.qrCode') : t('detailAbsensiModal.manual')}
                             </Badge>
                           ) : '-'}
                         </TableCell>
@@ -265,6 +328,62 @@ const JadwalTahfizDetailModal: React.FC<JadwalTahfizDetailModalProps> = ({
           </Card>
         )}
       </div>
+
+      {/* Photo Preview Modal */}
+      {selectedPhoto && (
+        <Modal
+          isOpen={showPhotoPreview}
+          onClose={() => {
+            setShowPhotoPreview(false);
+            setSelectedPhoto(null);
+          }}
+          title={t('detailAbsensiModal.previewFotoBuktiMengajar')}
+          size="lg"
+        >
+          <div className="space-y-4">
+            <div className="relative bg-gray-100 rounded-lg p-4 flex items-center justify-center min-h-[400px]">
+              <img
+                src={selectedPhoto.fotoBase64}
+                alt="Foto Bukti Mengajar"
+                className="max-w-full max-h-[500px] object-contain rounded-lg"
+              />
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+              {selectedPhoto.keterangan && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-700">{t('detailAbsensiModal.keterangan')}:</p>
+                  <p className="text-sm text-gray-900">{selectedPhoto.keterangan}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs font-semibold text-gray-700">{t('detailAbsensiModal.waktuFoto')}:</p>
+                <p className="text-sm text-gray-900">
+                  {new Date(selectedPhoto.waktuFoto).toLocaleString('id-ID', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowPhotoPreview(false);
+                  setSelectedPhoto(null);
+                }}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-medium text-gray-700 transition-colors flex items-center gap-2"
+              >
+                <X size={16} />
+                {t('detailAbsensiModal.tutup')}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </Modal>
   );
 };

@@ -16,7 +16,7 @@ import { usePengaturanSistem } from '../../../../hooks/usePengaturanSistem';
 import { generateQRCodeData, generateQRCodeURL, downloadQRCode } from '../../../../utils/qrCodeGenerator';
 
 const DataSantri: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { santri, refreshSantri } = useSantri();
   const { systemType } = usePengaturanSistem();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -354,7 +354,7 @@ const DataSantri: React.FC = () => {
                         variant="secondary"
                         onClick={() => handleViewQRCode(santriItem)}
                         className="!p-2 flex items-center justify-center"
-                        title={t('tahfiz.lihatQRCode') || 'Lihat QR Code'}
+                        title={t('tahfiz.lihatqrcode') || 'Lihat QR Code'}
                       >
                         <QrCode size={14} />
                       </Button>
@@ -480,7 +480,7 @@ const DataSantri: React.FC = () => {
                     className="flex-1 text-xs flex items-center justify-center"
                   >
                     <QrCode size={12} className="mr-1" />
-                    QR
+                    {t('tahfiz.qrCode') || 'QR Code'}
                   </Button>
                   <Button
                     size="sm"
@@ -606,7 +606,7 @@ const DataSantri: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">{t('tahfiz.bergabung')}:</span>
                     <span className="text-gray-700">
-                      {selectedSantri.createdAt ? new Date(selectedSantri.createdAt).toLocaleDateString('id-ID') : '-'}
+                      {selectedSantri.createdAt ? new Date(selectedSantri.createdAt).toLocaleDateString(language === 'ms' ? 'ms-MY' : 'id-ID') : '-'}
                     </span>
                   </div>
                 </div>
@@ -620,7 +620,7 @@ const DataSantri: React.FC = () => {
                 className="text-sm lg:text-base flex items-center justify-center"
               >
                 <QrCode size={16} className="mr-2" />
-                {t('tahfiz.lihatQRCode') || 'Lihat QR Code'}
+                {t('tahfiz.lihatqrcode') || 'Lihat QR Code'}
               </Button>
               <Button
                 variant="secondary"
@@ -723,7 +723,7 @@ const DataSantri: React.FC = () => {
               disabled={!qrCodeURL || qrCodeLoading}
             >
               <Download size={16} className="mr-2" />
-              {t('tahfiz.downloadQRCode') || 'Download QR Code'}
+              {t('tahfiz.downloadQRCode') || 'Unduh QR Code'}
             </Button>
           </div>
         )}

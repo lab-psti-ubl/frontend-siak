@@ -3,6 +3,8 @@ import { User, Kelas, Jurusan } from '../types';
 import { normalizeTeacherQRCode } from './qrCodeGenerator';
 import { DEFAULT_PROFILE_ICON } from './profilePlaceholder';
 
+type Language = 'id' | 'ms';
+
 export interface KartuPegawaiOptions {
   guru: User;
   kelas?: Kelas;
@@ -10,12 +12,13 @@ export interface KartuPegawaiOptions {
 }
 
 export function generateGuruKartuPegawai(
-  guru: User, 
-  kelas?: Kelas, 
+  guru: User,
+  kelas?: Kelas,
   jurusan?: Jurusan,
   backgroundDepan?: string,
   backgroundBelakang?: string,
-  orientation: 'potrait' | 'landscape' = 'potrait'
+  orientation: 'potrait' | 'landscape' = 'potrait',
+  language: Language = 'id'
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
@@ -25,8 +28,8 @@ export function generateGuruKartuPegawai(
       
       // Create both front and back cards
       Promise.all([
-        generateKartuPegawaiCard(guru, 'front', frontBackground, kelas, jurusan, orientation),
-        generateKartuPegawaiCard(guru, 'back', backBackground, kelas, jurusan, orientation)
+        generateKartuPegawaiCard(guru, 'front', frontBackground, kelas, jurusan, orientation, language),
+        generateKartuPegawaiCard(guru, 'back', backBackground, kelas, jurusan, orientation, language),
       ]).then(([frontBlob, backBlob]) => {
         // Create ZIP file
         createZipFile(guru, frontBlob, backBlob).then(() => {
@@ -40,12 +43,13 @@ export function generateGuruKartuPegawai(
 }
 
 function generateKartuPegawaiCard(
-  guru: User, 
+  guru: User,
   side: 'front' | 'back',
   backgroundImage?: string,
-  kelas?: Kelas, 
+  kelas?: Kelas,
   jurusan?: Jurusan,
-  orientation: 'potrait' | 'landscape' = 'potrait'
+  orientation: 'potrait' | 'landscape' = 'potrait',
+  language: Language = 'id'
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     try {
@@ -115,7 +119,7 @@ function generateKartuPegawaiCard(
         }
       } else {
         // Back side shows rules and regulations
-        generateKartuPegawaiBackTataTertibCanvas(ctx, width, height, backgroundImage, orientation).then(() => {
+        generateKartuPegawaiBackTataTertibCanvas(ctx, width, height, backgroundImage, orientation, language).then(() => {
           canvas.toBlob((blob) => {
             if (blob) {
               resolve(blob);
@@ -468,7 +472,8 @@ function generateKartuPegawaiBackTataTertibCanvas(
   width: number,
   height: number,
   backgroundImage: string | undefined,
-  orientation: 'potrait' | 'landscape' = 'potrait'
+  orientation: 'potrait' | 'landscape' = 'potrait',
+  language: Language = 'id'
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     // Load background image if provided
@@ -531,6 +536,23 @@ function generateKartuPegawaiBackTataTertibCanvas(
       // Padding for content
       const padding = width * 0.06;
 
+      const isMs = language === 'ms';
+      const titleText = isMs
+        ? 'PERATURAN & SYARAT PENGGUNAAN KAD'
+        : 'TATA TERTIB & KETENTUAN PENGGUNAAN KARTU';
+      const rule1 = isMs
+        ? 'Kad ini adalah milik rasmi sekolah dan hanya sah untuk pegawai yang masih aktif.'
+        : 'Kartu ini adalah milik resmi sekolah dan hanya berlaku untuk pegawai aktif.';
+      const rule2 = isMs
+        ? 'Pegawai wajib membawa kad ini setiap hari sepanjang berada di kawasan sekolah.'
+        : 'Pegawai wajib membawa kartu ini setiap hari selama berada di lingkungan sekolah';
+      const rule3 = isMs
+        ? 'Kad ini disepadukan dengan sistem pengurusan sekolah (iSchola).'
+        : 'Kartu ini terintegrasi dengan sistem manajemen sekolah (iSchola)';
+      const rule4 = isMs
+        ? 'Jika kad ini hilang atau rosak, pegawai wajib segera melapor ke bahagian Tata Usaha (TU).'
+        : 'Apabila kartu ini hilang atau rusak, pegawai wajib segera melapor ke bagian Tata Usaha (TU)';
+
       // Title
       ctx.fillStyle = 'white';
       ctx.font = `bold ${width * 0.045}px Arial, sans-serif`;
@@ -539,7 +561,7 @@ function generateKartuPegawaiBackTataTertibCanvas(
       const titleY = padding + (height * 0.08);
       
       // Wrap title if needed
-      const titleLines = wrapText(ctx, 'TATA TERTIB & KETENTUAN PENGGUNAAN KARTU', width - (padding * 2));
+      const titleLines = wrapText(ctx, titleText, width - (padding * 2));
       titleLines.forEach((line, index) => {
         ctx.fillText(line, width / 2, titleY + (index * (width * 0.04)));
       });
@@ -554,8 +576,6 @@ function generateKartuPegawaiBackTataTertibCanvas(
 
       let currentY = contentStartY;
 
-      // Rule 1 - Changed from "siswa" to "pegawai"
-      const rule1 = 'Kartu ini adalah milik resmi sekolah dan hanya berlaku untuk pegawai aktif.';
       const rule1Lines = wrapText(ctx, '1. ' + rule1, width - (padding * 2));
       rule1Lines.forEach((line) => {
         ctx.fillText(line, padding, currentY);
@@ -563,8 +583,6 @@ function generateKartuPegawaiBackTataTertibCanvas(
       });
       currentY += lineHeight * 0.3;
 
-      // Rule 2 - Changed from "Siswa" to "Pegawai"
-      const rule2 = 'Pegawai wajib membawa kartu ini setiap hari selama berada di lingkungan sekolah';
       const rule2Lines = wrapText(ctx, '2. ' + rule2, width - (padding * 2));
       rule2Lines.forEach((line) => {
         ctx.fillText(line, padding, currentY);
@@ -572,8 +590,6 @@ function generateKartuPegawaiBackTataTertibCanvas(
       });
       currentY += lineHeight * 0.3;
 
-      // Rule 3
-      const rule3 = 'Kartu ini terintegrasi dengan sistem manajemen sekolah (iSchola)';
       const rule3Lines = wrapText(ctx, '3. ' + rule3, width - (padding * 2));
       rule3Lines.forEach((line) => {
         ctx.fillText(line, padding, currentY);
@@ -581,8 +597,6 @@ function generateKartuPegawaiBackTataTertibCanvas(
       });
       currentY += lineHeight * 0.3;
 
-      // Rule 4 - Changed from "siswa" to "pegawai"
-      const rule4 = 'Apabila kartu ini hilang atau rusak, pegawai wajib segera melapor ke bagian Tata Usaha (TU)';
       const rule4Lines = wrapText(ctx, '4. ' + rule4, width - (padding * 2));
       rule4Lines.forEach((line) => {
         ctx.fillText(line, padding, currentY);
@@ -729,6 +743,7 @@ export async function generateAllGuruKartuPegawai(
   backgroundDepan?: string,
   backgroundBelakang?: string,
   orientation: 'potrait' | 'landscape' = 'potrait',
+  language: Language = 'id',
   onProgress?: (current: number, total: number) => void
 ): Promise<void> {
   // Import JSZip dynamically
@@ -750,8 +765,8 @@ export async function generateAllGuruKartuPegawai(
       
       // Generate front and back cards
       const [frontBlob, backBlob] = await Promise.all([
-        generateKartuPegawaiCard(guru, 'front', frontBackground, guruKelas, undefined, orientation),
-        generateKartuPegawaiCard(guru, 'back', backBackground, guruKelas, undefined, orientation)
+        generateKartuPegawaiCard(guru, 'front', frontBackground, guruKelas, undefined, orientation, language),
+        generateKartuPegawaiCard(guru, 'back', backBackground, guruKelas, undefined, orientation, language),
       ]);
       
       // Create folder for this guru

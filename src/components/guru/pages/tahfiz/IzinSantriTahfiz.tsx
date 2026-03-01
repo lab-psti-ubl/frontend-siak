@@ -19,7 +19,8 @@ import SuratIzinEmptyState from '../walikelas/components/surat-izin/SuratIzinEmp
 
 const IzinSantriTahfiz: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   const { suratIzin: allSuratIzin, loading: loadingSuratIzin, refreshSuratIzin } = useSuratIzin();
   const { gurus, loading: loadingGurus } = useGurus();
   const { murid, loading: loadingMurid } = useMurid();
@@ -74,7 +75,7 @@ const IzinSantriTahfiz: React.FC = () => {
 
     confirmationFunction(
       `${status === 'diterima' ? 'Terima' : 'Tolak'} Surat ${surat.jenis.charAt(0).toUpperCase() + surat.jenis.slice(1)}`,
-      `Apakah Anda yakin ingin ${actionText} surat ${surat.jenis} dari ${santriName}?\n\nPeriode: ${new Date(surat.tanggalMulai).toLocaleDateString('id-ID')} - ${new Date(surat.tanggalSelesai).toLocaleDateString('id-ID')}\nAlasan: ${surat.alasan}${status === 'diterima' ? '\n\n✓ Absensi santri akan otomatis diperbarui untuk periode ini' : ''}`,
+      `Apakah Anda yakin ingin ${actionText} surat ${surat.jenis} dari ${santriName}?\n\nPeriode: ${new Date(surat.tanggalMulai).toLocaleDateString(dateLocale)} - ${new Date(surat.tanggalSelesai).toLocaleDateString(dateLocale)}\nAlasan: ${surat.alasan}${status === 'diterima' ? '\n\n✓ Absensi santri akan otomatis diperbarui untuk periode ini' : ''}`,
       async () => {
         setIsVerifying(true);
         try {

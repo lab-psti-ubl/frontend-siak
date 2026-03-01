@@ -15,6 +15,7 @@ export interface Admin extends User {
 
 export interface Guru extends User {
   role: 'guru';
+  username?: string;
   nip: string;
   password: string;
   subject?: string;
@@ -109,6 +110,9 @@ export interface AbsensiPelajaran {
   method: 'qr' | 'manual' | 'admin-qr';
   statusAbsen?: 'hadir' | 'terlambat' | 'pulang_cepat' | 'tepat_waktu';
   keteranganAbsensi?: 'Hadir' | 'Izin' | 'Sakit' | 'Bolos' | 'Dispen' | 'Alfa';
+  // Informasi sumber data (untuk kebutuhan audit/fallback)
+  sumberData?: 'worker' | 'server';
+  sumberDataUpdatedAt?: string;
 }
 
 export interface SesiAbsensi {
@@ -353,6 +357,124 @@ export interface GuruMapel {
   createdAt: string;
 }
 
+// CBT (Computer Based Test)
+export interface CBTKelas {
+  id: string;
+  guruId: string;
+  tingkat: number;
+  mataPelajaranId: string;
+  semester: number;
+  tahunAjaran: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CBTQuestionType =
+  | 'pilihan_ganda'
+  | 'pilihan_ganda_kompleks'
+  | 'benar_salah'
+  | 'menjodohkan'
+  | 'essay';
+
+export interface CBTOption {
+  id: string;
+  text: string;
+  isCorrect?: boolean;
+}
+
+export interface CBTMatchingPair {
+  id: string;
+  left: string;
+  right: string;
+}
+
+/** Satu item soal di dalam array bank (embedded, tanpa ref ke kelas/bank) */
+export interface CBTSoalItem {
+  id: string;
+  tipe: CBTQuestionType;
+  pertanyaan: string;
+  poin: number;
+  opsi?: CBTOption[];
+  jawabanBenar?: any;
+  pasanganMenjodohkan?: CBTMatchingPair[];
+  menjodohkanScoring?: 'semua_benar' | 'minimal_benar';
+  menjodohkanMinimalBenar?: number;
+  gambar?: string | null;
+}
+
+export interface CBTBankSoal {
+  id: string;
+  cbtKelasId: string;
+  guruId: string;
+  judul: string;
+  kategoriId: string;
+  kategoriNama: string;
+  tipe: CBTQuestionType;
+  /** Semua soal di bank ini (misal 50 soal pilihan ganda = 50 item) */
+  soal?: CBTSoalItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CBTUjian {
+  id: string;
+  guruId: string;
+  cbtKelasId: string;
+  kelasId: string;
+  mataPelajaranId: string;
+  bankSoalId: string;
+  bankSoalJudul: string;
+  kategoriId: string;
+  kategoriNama: string;
+  /** Menandai apakah komponen nilai ini bertipe ganda (memiliki nilai ke-1, ke-2, dst) */
+  kategoriHasNilai?: boolean;
+  /** Untuk kategori ganda: tugas ke-1, ke-2, dst */
+  kategoriKe?: number | null;
+  tahunAjaran: string;
+  semester: number;
+  judulUjian: string;
+  tanggalMulai: string; // 'YYYY-MM-DD'
+  jamMulai: string; // 'HH:mm'
+  tanggalSelesai: string; // 'YYYY-MM-DD'
+  jamSelesai: string; // 'HH:mm'
+  durasiMenit: number;
+  acakSoal: boolean;
+  tunjukanHasilNilai: boolean;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CBTUjianResponse {
+  soalId: string;
+  tipe: CBTQuestionType;
+  selectedOptionIds?: string[];
+  jawabanBoolean?: boolean;
+  jawabanEssay?: string;
+  poinAuto?: number;
+  isCorrectAuto?: boolean;
+  /** Untuk essay manual: true = benar, false = salah (backend bisa pakai ini atau isCorrectAuto) */
+  isCorrect?: boolean;
+}
+
+export interface CBTUjianAttempt {
+  id: string;
+  ujianId: string;
+  muridId: string;
+  kelasId: string;
+  mataPelajaranId: string;
+  status: 'belum_mulai' | 'sedang' | 'selesai';
+  startedAt: string;
+  finishedAt?: string | null;
+  durasiMenit: number;
+  skorAuto?: number;
+  skorEssayManual?: number | null;
+  skorTotal?: number | null;
+  responses?: CBTUjianResponse[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Nilai {
   id: string;
   muridId: string;
@@ -553,6 +675,8 @@ export interface AlatRFID {
   namaAlat: string;
   lokasi: string;
   token: string;
+  /** Jenis absen: 'rfid' | 'facerecognition' */
+  jenisAbsen?: 'rfid' | 'facerecognition';
   status: 'aktif' | 'nonaktif';
   createdAt: string;
   updatedAt?: string;
@@ -829,4 +953,52 @@ export interface ERaport {
   }>;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SpmbOpening {
+  id: string;
+  tahunAjaran: string;
+  judul: string;
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface SpmbRegistration {
+  id: string;
+  openingId: string;
+  tahunAjaran: string;
+  namaLengkap: string;
+  jenisKelamin?: 'L' | 'P';
+  umur?: number;
+  nisn?: string;
+  email?: string;
+  noWhatsappOrtu: string;
+  asalSekolah: string;
+  alamat: string;
+  pilihanJurusan?: string;
+   nikAnak?: string;
+   nomorKk?: string;
+   tempatLahir?: string;
+   tanggalLahir?: string;
+   namaOrangTua?: string;
+   nikOrangTua?: string;
+   pekerjaanOrangTua?: string;
+   noHpOrangTua?: string;
+   ringkasanNilaiRapor?: number;
+   dokumenKk?: string;
+   dokumenAktaKelahiran?: string;
+   dokumenKtpOrangTua?: string;
+   dokumenKartuImunisasi?: string;
+   dokumenPasFoto?: string;
+   dokumenIjazahAtauSkL?: string;
+   dokumenRapor?: string;
+   dokumenKip?: string;
+   dokumenSertifikatPrestasi?: string;
+   dokumenSuratKeteranganSehat?: string;
+  assignedToClass?: boolean;
+  assignedClassId?: string;
+  status: 'pending' | 'diterima' | 'ditolak';
+  createdAt: string;
 }

@@ -16,6 +16,9 @@ export interface ScanResult {
     tanggalMulai: string;
     tanggalSelesai: string;
   } | null;
+  /** Status masuk/keluar dari record absensi guru (alfa, tidak_masuk, tidak_keluar) agar modal tidak menampilkan "sudah absen" jika status tidak valid. */
+  statusMasuk?: string;
+  statusKeluar?: string;
 }
 
 export interface ScanLogEntry {
@@ -95,10 +98,11 @@ export const getAbsenStatusMessage = (status: string, tipeAbsen: string): string
   if (status === 'terlambat' && tipeAbsen === 'masuk') {
     return 'Berhasil Absen Masuk Terlambat';
   }
-  if (status === 'pulang_cepat' && tipeAbsen === 'pulang' || tipeAbsen === 'keluar') {
-    return 'Berhasil Absen Pulang Cepat';
+  // Saat sistem pulang cepat aktif, absen pulang yang berhasil ditampilkan sebagai "Berhasil Absen Pulang" (bukan "Pulang Cepat")
+  if (status === 'pulang_cepat' && (tipeAbsen === 'pulang' || tipeAbsen === 'keluar')) {
+    return 'Berhasil Absen Pulang';
   }
-  if (status === 'tepat_waktu' && tipeAbsen === 'pulang' || tipeAbsen === 'keluar') {
+  if (status === 'tepat_waktu' && (tipeAbsen === 'pulang' || tipeAbsen === 'keluar')) {
     return 'Berhasil Absen Pulang';
   }
   return 'Absen Berhasil';
@@ -134,9 +138,9 @@ export const generateSpeechMessage = (namaUser: string, status: string, tipeAbse
     message = `${namaUser} sudah Masuk Tepat Waktu`;
   } else if (status === 'terlambat' && normalizedTipeAbsen === 'masuk') {
     message = `${namaUser} sudah Masuk Terlambat`;
-  } else if (status === 'pulang_cepat' && normalizedTipeAbsen === 'pulang' || tipeAbsen === 'keluar') {
-    message = `${namaUser} sudah Pulang Cepat`;
-  } else if (status === 'tepat_waktu' && normalizedTipeAbsen === 'pulang' || tipeAbsen === 'keluar') {
+  } else if (status === 'pulang_cepat' && (normalizedTipeAbsen === 'pulang' || tipeAbsen === 'keluar')) {
+    message = `${namaUser} sudah Absen Pulang`;
+  } else if (status === 'tepat_waktu' && (normalizedTipeAbsen === 'pulang' || tipeAbsen === 'keluar')) {
     message = `${namaUser} sudah Absen Pulang`;
   }
 

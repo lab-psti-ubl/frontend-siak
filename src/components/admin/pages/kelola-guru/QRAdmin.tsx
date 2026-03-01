@@ -9,7 +9,7 @@ import { Table, TableHeader, TableBody, TableRow, TableCell } from '../../../ui/
 import { useAuth } from '../../../../context/AuthContext';
 import { User, AbsensiGuru, PengaturanAbsen } from '../../../../types';
 import { generateAdminAttendanceQRCode, generateQRCodeURL, downloadQRCode, parseAdminAttendanceQRCode, parseTeacherAttendanceQRCode } from '../../../../utils/qrCodeGenerator';
-import { calculateAttendanceStatus, formatTimeDisplay } from '../../../../utils/absensiUtils';
+import { calculateAttendanceStatus, formatTimeDisplay, getTodayIndonesia, getCurrentTimeIndonesia } from '../../../../utils/absensiUtils';
 import { showSuccessNotification, showErrorNotification, showWarningNotification } from '../../../../utils/notificationUtils';
 import { apiService } from '../../../../services/apiService';
 import { useGurus } from '../../../../hooks/useGurus';
@@ -17,10 +17,13 @@ import { usePengaturanAbsen } from '../../../../hooks/usePengaturanAbsen';
 import { usePengaturanSistem } from '../../../../hooks/usePengaturanSistem';
 import { useIzinGuru } from '../../../../hooks/useIzinGuru';
 import { getGuruAbsensiForDate as getGuruAbsensiForDateUtil, getGuruIzinForDate, getKeteranganAbsensi } from './utils/absenGuruDataHelpers';
-import { isAttendanceDayAllowed, getDayNameInIndonesian } from '../../../../utils/attendanceDayValidation';
+import { isAttendanceDayAllowed, getDayName } from '../../../../utils/attendanceDayValidation';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 const QRAdmin: React.FC = () => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
   const { gurus: gurusData } = useGurus();
   const { pengaturanAbsen, activePengaturanAbsen: activePengaturanAbsenFromHook } = usePengaturanAbsen();
   const { enableEarlyDeparture } = usePengaturanSistem();
@@ -33,7 +36,7 @@ const QRAdmin: React.FC = () => {
   const [adminQRCodeURL, setAdminQRCodeURL] = useState<string>('');
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   const [isAdminQRModalOpen, setIsAdminQRModalOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getTodayIndonesia());
   const [lastScanResult, setLastScanResult] = useState<{guru: string, time: string, type: string} | null>(null);
   
   // State untuk scan result modal
@@ -46,7 +49,7 @@ const QRAdmin: React.FC = () => {
   
   const activePengaturan = activePengaturanAbsenFromHook;
   const gurus = users.filter(u => u.role === 'guru' && u.isActive !== false);
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayIndonesia();
 
   useEffect(() => {
     fetchAllData();
@@ -60,7 +63,6 @@ const QRAdmin: React.FC = () => {
   const fetchAllData = async () => {
     try {
       setIsLoading(true);
-      const today = new Date().toISOString().split('T')[0];
       
       const absensiGuruResponse = await apiService.getAbsensiGuruByTanggal(today);
 
@@ -117,43 +119,45 @@ const QRAdmin: React.FC = () => {
     const parsedTeacher = parseTeacherAttendanceQRCode(qrData);
 
     if (!parsedTeacher.isValid) {
+      const msg = t('qrAdminPage.qrInvalid');
       const result: ScanResult = {
-        statusMessage: 'QR Code bukan milik guru atau tidak valid!',
+        statusMessage: msg,
         isError: true,
         errorType: 'not_registered'
       };
       setScanResult(result);
       setShowResultModal(true);
-      showErrorNotification('QR Code Tidak Valid', 'QR Code bukan milik guru atau tidak valid!');
+      showErrorNotification(t('qrAdminPage.qrInvalidTitle'), msg);
       return;
     }
 
     const guru = users.find(u => u.id === parsedTeacher.guruId && u.role === 'guru') ||
       users.find(u => parsedTeacher.nip && u.nip === parsedTeacher.nip && u.role === 'guru');
     if (!guru) {
+      const msg = t('qrAdminPage.guruTidakDitemukan');
       const result: ScanResult = {
-        statusMessage: 'QR Code bukan milik guru atau guru tidak ditemukan!',
+        statusMessage: msg,
         isError: true,
         errorType: 'not_registered'
       };
       setScanResult(result);
       setShowResultModal(true);
-      showErrorNotification('Guru Tidak Ditemukan', 'QR Code bukan milik guru atau guru tidak ditemukan!');
+      showErrorNotification(t('qrAdminPage.guruTidakDitemukanTitle'), msg);
       return;
     }
 
     if (!activePengaturan) {
-      showErrorNotification('Pengaturan Tidak Ditemukan', 'Pengaturan absen belum dikonfigurasi!');
+      showErrorNotification(t('qrAdminPage.pengaturanTidakDitemukanTitle'), t('qrAdminPage.pengaturanTidakDitemukan'));
       return;
     }
 
     // Check if today is a work day for guru
     const pengaturanAbsenArray = activePengaturan ? [activePengaturan] : [];
     if (!isAttendanceDayAllowed(today, 'guru', pengaturanAbsenArray)) {
-      const dayName = getDayNameInIndonesian(today);
+      const dayName = getDayName(today, language);
       showErrorNotification(
-        'Absensi Tidak Diizinkan',
-        `Absensi tidak diizinkan pada hari ${dayName}. Silakan absen pada hari kerja yang telah ditentukan.`
+        t('absenSiswaGuru.notAllowedTodayTitle'),
+        t('qrAdminPage.absenTidakDiizinkan', { dayName })
       );
       return;
     }
@@ -162,12 +166,12 @@ const QRAdmin: React.FC = () => {
       // Fetch active tahun ajaran
       const tahunAjaranResponse = await apiService.getActiveTahunAjaran();
       if (!tahunAjaranResponse.success || !tahunAjaranResponse.tahunAjaran) {
-        showErrorNotification('Tahun Ajaran Tidak Ditemukan', 'Tahun ajaran aktif tidak ditemukan!');
+        showErrorNotification(t('absenSiswaGuru.noActiveYearTitle'), t('qrAdminPage.tahunAjaranTidakDitemukan'));
         return;
       }
 
       const activeTahunAjaran = tahunAjaranResponse.tahunAjaran;
-      const currentTime24 = new Date().toLocaleTimeString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit' });
+      const currentTime24 = getCurrentTimeIndonesia();
       
       // Check if guru has active izin/sakit/cuti for today
       const izinAktif = getGuruIzinForDate(izinGuru, guru.id, today);
@@ -176,7 +180,7 @@ const QRAdmin: React.FC = () => {
           user: guru,
           role: 'guru',
           timestamp: currentTime24,
-          statusMessage: `${guru.name} sedang ${izinAktif.jenis} hari ini`,
+          statusMessage: t('qrAdminPage.sedangIzin', { name: guru.name, jenis: izinAktif.jenis }),
           isError: false,
           izinInfo: {
             jenis: izinAktif.jenis,
@@ -187,7 +191,7 @@ const QRAdmin: React.FC = () => {
         };
         setScanResult(result);
         setShowResultModal(true);
-        showWarningNotification('Guru Sedang Izin', `${guru.name} sedang ${izinAktif.jenis} hari ini`);
+        showWarningNotification(t('qrAdminPage.sedangIzinTitle'), t('qrAdminPage.sedangIzin', { name: guru.name, jenis: izinAktif.jenis }));
         return;
       }
       
@@ -198,12 +202,69 @@ const QRAdmin: React.FC = () => {
         : null;
 
       if (existingAbsensi) {
-        if (!existingAbsensi.jamKeluar) {
+        // Update masuk jika belum ada jam masuk ATAU status masuk alfa/tidak_masuk (edit manual dari admin)
+        const bolehUpdateMasuk =
+          !existingAbsensi.jamMasuk ||
+          existingAbsensi.statusMasuk === 'alfa' ||
+          existingAbsensi.statusMasuk === 'tidak_masuk';
+        if (bolehUpdateMasuk) {
+          // Validasi: jangan absen masuk jika sudah lewat jam pulang
+          if (activePengaturan) {
+            const [currentHour, currentMinute] = getCurrentTimeIndonesia().split(':').map(Number);
+            const [jamPulangHour, jamPulangMinute] = activePengaturan.jamPulang.split(':').map(Number);
+            const currentTimeMinutes = currentHour * 60 + currentMinute;
+            const jamPulangMinutes = jamPulangHour * 60 + jamPulangMinute;
+            if (currentTimeMinutes > jamPulangMinutes) {
+              showErrorNotification(
+                t('absenSiswaGuru.cannotCheckInAfterOutTitle'),
+                t('qrAdminPage.tidakDapatAbsenMasuk', { jamPulang: activePengaturan.jamPulang, name: guru.name })
+              );
+              return;
+            }
+          }
+          const statusMasuk = calculateAttendanceStatus(currentTime24, activePengaturan, 'masuk');
+          const updateData = { jamMasuk: currentTime24, statusMasuk };
+          const updateResponse = await apiService.submitAbsensiGuruUpdateWithFallback(existingAbsensi.id, updateData);
+          if (updateResponse.success) {
+            await fetchAbsensiForDate(today);
+            setLastScanResult({ guru: guru.name, time: currentTime24, type: 'masuk' });
+            const statusLabel = statusMasuk === 'tepat_waktu' ? t('qrAdminPage.tepatWaktu') : statusMasuk === 'terlambat' ? t('qrAdminPage.terlambat') : statusMasuk;
+            const result: ScanResult = {
+              user: guru,
+              role: 'guru',
+              tipeAbsen: 'Masuk',
+              status: statusMasuk,
+              timestamp: currentTime24,
+              statusMessage: t('qrAdminPage.absenMasukBerhasil', { status: statusLabel }),
+              isError: false,
+            };
+            setScanResult(result);
+            setShowResultModal(true);
+            showSuccessNotification(t('absenSiswaPage.successMasukTitle'), `${guru.name} - ${currentTime24}`);
+          } else {
+            const result: ScanResult = {
+              user: guru,
+              role: 'guru',
+              tipeAbsen: 'Masuk',
+              timestamp: currentTime24,
+              statusMessage: updateResponse.message || t('qrAdminPage.gagalUpdateMasuk'),
+              isError: true,
+              errorType: 'absen_failed',
+            };
+            setScanResult(result);
+            setShowResultModal(true);
+            showErrorNotification(t('absenSiswaPage.saveFailedTitle'), updateResponse.message || t('qrAdminPage.gagalUpdateMasuk'));
+          }
+        } else {
+          // Update keluar jika belum ada jam keluar ATAU jam keluar ada tapi status alfa/tidak_keluar (edit manual dari admin)
+          const bolehUpdateKeluar =
+            !existingAbsensi.jamKeluar ||
+            existingAbsensi.statusKeluar === 'alfa' ||
+            existingAbsensi.statusKeluar === 'tidak_keluar';
+          if (bolehUpdateKeluar) {
           // Check enableEarlyDeparture restriction
           if (!enableEarlyDeparture && activePengaturan) {
-            const now = new Date();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
+            const [currentHour, currentMinute] = getCurrentTimeIndonesia().split(':').map(Number);
             const [jamPulangHour, jamPulangMinute] = activePengaturan.jamPulang.split(':').map(Number);
             
             const currentTimeMinutes = currentHour * 60 + currentMinute;
@@ -220,7 +281,7 @@ const QRAdmin: React.FC = () => {
                 user: guru,
                 role: 'guru',
                 timestamp: currentTime24,
-                statusMessage: `Absen pulang hanya dapat dilakukan mulai 15 menit sebelum jam pulang (${batasWaktuString}). Jam pulang: ${activePengaturan.jamPulang}`,
+                statusMessage: t('qrAdminPage.absenPulangTerlaluAwal', { batasWaktu: batasWaktuString, jamPulang: activePengaturan.jamPulang }),
                 isError: true,
                 errorType: 'early_departure',
                 departureTime: activePengaturan.jamPulang
@@ -229,8 +290,8 @@ const QRAdmin: React.FC = () => {
               setShowResultModal(true);
               
               showErrorNotification(
-                'Absen Pulang Tidak Diizinkan',
-                `Absen pulang hanya dapat dilakukan mulai 15 menit sebelum jam pulang (${batasWaktuString}). Jam pulang: ${activePengaturan.jamPulang}`
+                t('qrAdminPage.absenPulangTidakDiizinkanTitle'),
+                t('qrAdminPage.absenPulangTerlaluAwal', { batasWaktu: batasWaktuString, jamPulang: activePengaturan.jamPulang })
               );
               return;
             }
@@ -243,25 +304,25 @@ const QRAdmin: React.FC = () => {
             statusKeluar,
           };
           
-          const updateResponse = await apiService.updateAbsensiGuru(existingAbsensi.id, updateData);
+          const updateResponse = await apiService.submitAbsensiGuruUpdateWithFallback(existingAbsensi.id, updateData);
           if (updateResponse.success) {
             await fetchAbsensiForDate(today);
             setLastScanResult({ guru: guru.name, time: currentTime24, type: 'keluar' });
             
-            // Create ScanResult for success case
+            const statusKeluarLabel = statusKeluar === 'tepat_waktu' ? t('qrAdminPage.tepatWaktu') : statusKeluar === 'pulang_awal' ? t('qrAdminPage.pulangAwal') : statusKeluar;
             const result: ScanResult = {
               user: guru,
               role: 'guru',
               tipeAbsen: 'Keluar',
               status: statusKeluar,
               timestamp: currentTime24,
-              statusMessage: `Absen keluar berhasil. Status: ${statusKeluar === 'tepat_waktu' ? 'Tepat Waktu' : statusKeluar === 'pulang_awal' ? 'Pulang Awal' : statusKeluar}`,
+              statusMessage: t('qrAdminPage.absenKeluarBerhasil', { status: statusKeluarLabel }),
               isError: false
             };
             setScanResult(result);
             setShowResultModal(true);
             
-            showSuccessNotification('Absen Keluar Berhasil!', `${guru.name} - ${currentTime24}`);
+            showSuccessNotification(t('absenSiswaPage.successPulangTitle'), `${guru.name} - ${currentTime24}`);
           } else {
             // Create ScanResult for error case
             const result: ScanResult = {
@@ -269,35 +330,35 @@ const QRAdmin: React.FC = () => {
               role: 'guru',
               tipeAbsen: 'Keluar',
               timestamp: currentTime24,
-              statusMessage: updateResponse.message || 'Gagal memperbarui absensi keluar',
+              statusMessage: updateResponse.message || t('qrAdminPage.gagalUpdateKeluar'),
               isError: true,
               errorType: 'absen_failed'
             };
             setScanResult(result);
             setShowResultModal(true);
             
-            showErrorNotification('Gagal Update Absensi', updateResponse.message || 'Gagal memperbarui absensi keluar');
+            showErrorNotification(t('absenSiswaPage.saveFailedTitle'), updateResponse.message || t('qrAdminPage.gagalUpdateKeluar'));
           }
         } else {
+          const msg = t('qrAdminPage.sudahAbsenLengkap', { name: guru.name });
           const result: ScanResult = {
             user: guru,
             role: 'guru',
-            tipeAbsen: 'Sudah Terpenuhi',
+            tipeAbsen: t('qrAdminPage.sudahTerpenuhi'),
             timestamp: currentTime24,
-            statusMessage: `${guru.name} sudah melakukan absen masuk dan keluar hari ini!`,
+            statusMessage: msg,
             isError: false,
             status: 'sudah_terpenuhi'
           };
           setScanResult(result);
           setShowResultModal(true);
-          showWarningNotification('Sudah Absen Lengkap', `${guru.name} sudah melakukan absen masuk dan keluar hari ini!`);
+          showWarningNotification(t('absenSiswaGuru.alreadyCompletedTitle'), msg);
+        }
         }
       } else {
         // Check if current time has passed jam pulang
         if (activePengaturan) {
-          const now = new Date();
-          const currentHour = now.getHours();
-          const currentMinute = now.getMinutes();
+          const [currentHour, currentMinute] = getCurrentTimeIndonesia().split(':').map(Number);
           const [jamPulangHour, jamPulangMinute] = activePengaturan.jamPulang.split(':').map(Number);
           
           const currentTimeMinutes = currentHour * 60 + currentMinute;
@@ -305,8 +366,8 @@ const QRAdmin: React.FC = () => {
           
           if (currentTimeMinutes > jamPulangMinutes) {
             showErrorNotification(
-              'Tidak Dapat Absen Masuk', 
-              `Waktu absen masuk sudah melewati jam pulang (${activePengaturan.jamPulang}). ${guru.name} tidak dapat melakukan absen masuk.`
+              t('absenSiswaGuru.cannotCheckInAfterOutTitle'), 
+              t('qrAdminPage.tidakDapatAbsenMasuk', { jamPulang: activePengaturan.jamPulang, name: guru.name })
             );
             return;
           }
@@ -325,25 +386,25 @@ const QRAdmin: React.FC = () => {
           semester: activeTahunAjaran.semester,
         };
         
-        const createResponse = await apiService.createAbsensiGuru(newAbsensi);
+        const createResponse = await apiService.submitAbsensiGuruWithFallback(newAbsensi);
         if (createResponse.success) {
           await fetchAbsensiForDate(today);
           setLastScanResult({ guru: guru.name, time: currentTime24, type: 'masuk' });
           
-          // Create ScanResult for success case
+          const statusMasukLabel = statusMasuk === 'tepat_waktu' ? t('qrAdminPage.tepatWaktu') : statusMasuk === 'terlambat' ? t('qrAdminPage.terlambat') : statusMasuk;
           const result: ScanResult = {
             user: guru,
             role: 'guru',
             tipeAbsen: 'Masuk',
             status: statusMasuk,
             timestamp: currentTime24,
-            statusMessage: `Absen masuk berhasil. Status: ${statusMasuk === 'tepat_waktu' ? 'Tepat Waktu' : statusMasuk === 'terlambat' ? 'Terlambat' : statusMasuk}`,
+            statusMessage: t('qrAdminPage.absenMasukBerhasil', { status: statusMasukLabel }),
             isError: false
           };
           setScanResult(result);
           setShowResultModal(true);
           
-          showSuccessNotification('Absen Masuk Berhasil!', `${guru.name} - ${currentTime24}`);
+          showSuccessNotification(t('absenSiswaPage.successMasukTitle'), `${guru.name} - ${currentTime24}`);
         } else {
           // Create ScanResult for error case
           const result: ScanResult = {
@@ -351,19 +412,19 @@ const QRAdmin: React.FC = () => {
             role: 'guru',
             tipeAbsen: 'Masuk',
             timestamp: currentTime24,
-            statusMessage: createResponse.message || 'Gagal membuat absensi masuk',
+            statusMessage: createResponse.message || t('qrAdminPage.gagalBuatAbsensi'),
             isError: true,
             errorType: 'absen_failed'
           };
           setScanResult(result);
           setShowResultModal(true);
           
-          showErrorNotification('Gagal Create Absensi', createResponse.message || 'Gagal membuat absensi masuk');
+          showErrorNotification(t('absenSiswaPage.saveFailedTitle'), createResponse.message || t('qrAdminPage.gagalBuatAbsensi'));
         }
       }
     } catch (error: any) {
       console.error('Error processing QR scan:', error);
-      showErrorNotification('Error', error.message || 'Terjadi kesalahan saat memproses QR Code');
+      showErrorNotification(t('common.error'), error.message || t('qrAdminPage.errorProcessing'));
     }
   };
 
@@ -389,15 +450,15 @@ const QRAdmin: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'tepat_waktu':
-        return <Badge variant="success">Tepat Waktu</Badge>;
+        return <Badge variant="success">{t('qrAdminPage.tepatWaktu')}</Badge>;
       case 'terlambat':
-        return <Badge variant="warning">Terlambat</Badge>;
+        return <Badge variant="warning">{t('qrAdminPage.terlambat')}</Badge>;
       case 'pulang_awal':
-        return <Badge variant="warning">Pulang Awal</Badge>;
+        return <Badge variant="warning">{t('qrAdminPage.pulangAwal')}</Badge>;
       case 'tidak_masuk':
-        return <Badge variant="danger">Tidak Masuk</Badge>;
+        return <Badge variant="danger">{t('qrAdminPage.tidakMasuk')}</Badge>;
       case 'tidak_keluar':
-        return <Badge variant="danger">Tidak Keluar</Badge>;
+        return <Badge variant="danger">{t('qrAdminPage.tidakKeluar')}</Badge>;
       default:
         return <Badge variant="default">{status}</Badge>;
     }
@@ -430,7 +491,7 @@ const QRAdmin: React.FC = () => {
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat data QR Admin...</p>
+          <p className="text-gray-600">{t('qrAdminPage.loading')}</p>
         </div>
       </div>
     );
@@ -444,10 +505,10 @@ const QRAdmin: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1 sm:mb-2">
-                QR Code Admin
+                {t('qrAdminPage.title')}
               </h1>
               <p className="text-sm sm:text-base text-blue-100">
-                Kelola QR Code admin dan scan absensi guru
+                {t('qrAdminPage.subtitle')}
               </p>
             </div>
             <div className="flex-shrink-0">
@@ -472,15 +533,20 @@ const QRAdmin: React.FC = () => {
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 </div>
                 <div className="min-w-0">
-                  <p className="font-semibold text-blue-900 text-sm sm:text-base">Jam Kerja Hari Ini</p>
+                  <p className="font-semibold text-blue-900 text-sm sm:text-base">{t('qrAdminPage.jamKerjaHariIni')}</p>
                   <p className="text-xs sm:text-sm text-blue-700 mt-1">
-                    Masuk: {activePengaturan.jamMasuk} ({activePengaturan.toleransiMasuk} mnt) • Pulang: {activePengaturan.jamPulang} ({activePengaturan.toleransiPulang} mnt)
+                    {t('qrAdminPage.jamKerjaFormat', {
+                      jamMasuk: activePengaturan.jamMasuk,
+                      toleransiMasuk: activePengaturan.toleransiMasuk,
+                      jamPulang: activePengaturan.jamPulang,
+                      toleransiPulang: activePengaturan.toleransiPulang
+                    })}
                   </p>
                 </div>
               </div>
               <div className="text-center sm:text-right flex-shrink-0">
                 <p className="text-2xl sm:text-3xl font-bold text-blue-900">{attendanceRate}%</p>
-                <p className="text-xs sm:text-sm text-blue-700 mt-1">Tingkat Kehadiran</p>
+                <p className="text-xs sm:text-sm text-blue-700 mt-1">{t('qrAdminPage.tingkatKehadiran')}</p>
               </div>
             </div>
           </div>
@@ -496,9 +562,13 @@ const QRAdmin: React.FC = () => {
                 <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
               </div>
               <div className="min-w-0">
-                <p className="font-semibold text-emerald-900 text-sm sm:text-base">Scan Terakhir Berhasil</p>
+                <p className="font-semibold text-emerald-900 text-sm sm:text-base">{t('qrAdminPage.scanTerakhirBerhasil')}</p>
                 <p className="text-xs sm:text-sm text-emerald-700 mt-1">
-                  {lastScanResult.guru} • Absen {lastScanResult.type} pada {lastScanResult.time}
+                  {t('qrAdminPage.scanTerakhirText', {
+                    guru: lastScanResult.guru,
+                    type: lastScanResult.type === 'masuk' ? t('qrAdminPage.masuk') : t('qrAdminPage.keluar'),
+                    time: lastScanResult.time
+                  })}
                 </p>
               </div>
             </div>
@@ -515,7 +585,7 @@ const QRAdmin: React.FC = () => {
                 <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-blue-500 shadow-md group-hover:scale-110 transition-transform duration-200">
                   <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <p className="text-xs sm:text-sm ml-2 text-slate-600">Total Guru</p>
+                <p className="text-xs sm:text-sm ml-2 text-slate-600">{t('qrAdminPage.totalGuru')}</p>
               </div>
               <div>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{stats.totalGuru}</p>
@@ -531,7 +601,7 @@ const QRAdmin: React.FC = () => {
                 <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-emerald-500 shadow-md group-hover:scale-110 transition-transform duration-200">
                   <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <p className="text-xs sm:text-sm ml-2 text-slate-600">Sudah Masuk</p>
+                <p className="text-xs sm:text-sm ml-2 text-slate-600">{t('qrAdminPage.sudahMasuk')}</p>
               </div>
               <div>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{stats.sudahAbsenMasuk}</p>
@@ -547,7 +617,7 @@ const QRAdmin: React.FC = () => {
                 <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-orange-500 shadow-md group-hover:scale-110 transition-transform duration-200">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <p className="text-xs sm:text-sm ml-2 text-slate-600">Sudah Keluar</p>
+                <p className="text-xs sm:text-sm ml-2 text-slate-600">{t('qrAdminPage.sudahKeluar')}</p>
               </div>
               <div>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{stats.sudahAbsenKeluar}</p>
@@ -563,7 +633,7 @@ const QRAdmin: React.FC = () => {
                 <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-red-500 shadow-md group-hover:scale-110 transition-transform duration-200">
                   <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <p className="text-xs sm:text-sm ml-2 text-slate-600">Terlambat</p>
+                <p className="text-xs sm:text-sm ml-2 text-slate-600">{t('qrAdminPage.terlambat')}</p>
               </div>
               <div>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">{stats.terlambat}</p>
@@ -583,8 +653,8 @@ const QRAdmin: React.FC = () => {
                 <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-blue-800" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-white">QR Code Admin</h3>
-                <p className="text-xs sm:text-sm text-white">Untuk absensi masuk dan keluar guru</p>
+                <h3 className="text-base sm:text-lg font-bold text-white">{t('qrAdminPage.title')}</h3>
+                <p className="text-xs sm:text-sm text-white">{t('qrAdminPage.untukAbsensiGuru')}</p>
               </div>
             </div>
           </div>
@@ -612,7 +682,7 @@ const QRAdmin: React.FC = () => {
                 className="text-xs sm:text-sm flex items-center justify-center"
               >
                 <Eye size={14} className="sm:mr-2" />
-                <span >Lihat QR</span>
+                <span>{t('qrAdminPage.lihatQR')}</span>
               </Button>
               <Button
                 onClick={downloadAdminQR}
@@ -621,7 +691,7 @@ const QRAdmin: React.FC = () => {
                 className="text-xs sm:text-sm flex items-center justify-center"
               >
                 <Download size={14} className="sm:mr-2" />
-                <span >Download</span>
+                <span>{t('qrAdminPage.download')}</span>
               </Button>
             </div>
           </div>
@@ -635,27 +705,27 @@ const QRAdmin: React.FC = () => {
                 <Scan className="w-4 h-4 sm:w-5 sm:h-5 text-blue-800" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-white">Scan QR Guru</h3>
-                <p className="text-xs sm:text-sm text-white">Scan QR Code guru untuk mengabsen</p>
+                <h3 className="text-base sm:text-lg font-bold text-white">{t('qrAdminPage.scanQRGuru')}</h3>
+                <p className="text-xs sm:text-sm text-white">{t('qrAdminPage.scanQRGuruSubtitle')}</p>
               </div>
             </div>
           </div>
 
           <div className="p-4 sm:p-5 lg:p-6 space-y-4">
             <div className="p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h4 className="font-semibold text-blue-900 text-xs sm:text-sm mb-2">Cara Penggunaan:</h4>
+              <h4 className="font-semibold text-blue-900 text-xs sm:text-sm mb-2">{t('qrAdminPage.caraPenggunaan')}</h4>
               <ul className="text-xs sm:text-sm text-blue-800 space-y-1.5">
                 <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 flex-shrink-0"></span>
-                  <span>Guru scan QR Code admin untuk absen masuk/keluar</span>
+                  <span>{t('qrAdminPage.instruksi1')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 flex-shrink-0"></span>
-                  <span>Admin scan QR Code guru untuk mengabsen guru</span>
+                  <span>{t('qrAdminPage.instruksi2')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 flex-shrink-0"></span>
-                  <span>Sistem otomatis menentukan absen masuk atau keluar</span>
+                  <span>{t('qrAdminPage.instruksi3')}</span>
                 </li>
               </ul>
             </div>
@@ -667,8 +737,8 @@ const QRAdmin: React.FC = () => {
               className="text-xs sm:text-sm flex items-center justify-center"
             >
               <Scan size={16} className="mr-2" />
-              <span className="hidden sm:inline">Scan QR Code Guru</span>
-              <span className="sm:hidden">Mulai Scan</span>
+              <span className="hidden sm:inline">{t('qrAdminPage.scanQRCodeGuru')}</span>
+              <span className="sm:hidden">{t('qrAdminPage.mulaiScan')}</span>
             </Button>
           </div>
         </div>
@@ -678,7 +748,7 @@ const QRAdmin: React.FC = () => {
       <div className="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-200">
           <h3 className="text-lg font-semibold text-slate-900">
-            Absensi Guru - {new Date(selectedDate).toLocaleDateString('id-ID', {
+            {t('qrAdminPage.absensiGuru')} - {new Date(selectedDate).toLocaleDateString(dateLocale, {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
@@ -691,12 +761,12 @@ const QRAdmin: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableCell header>Guru</TableCell>
-                <TableCell header>Jam Masuk</TableCell>
-                <TableCell header>Status Masuk</TableCell>
-                <TableCell header>Jam Keluar</TableCell>
-                <TableCell header>Status Keluar</TableCell>
-                <TableCell header>Keterangan</TableCell>
+                <TableCell header>{t('qrAdminPage.guru')}</TableCell>
+                <TableCell header>{t('qrAdminPage.jamMasuk')}</TableCell>
+                <TableCell header>{t('qrAdminPage.statusMasuk')}</TableCell>
+                <TableCell header>{t('qrAdminPage.jamKeluar')}</TableCell>
+                <TableCell header>{t('qrAdminPage.statusKeluar')}</TableCell>
+                <TableCell header>{t('qrAdminPage.keterangan')}</TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -714,7 +784,7 @@ const QRAdmin: React.FC = () => {
                         </div>
                         <div>
                           <p className="font-medium text-slate-900 text-sm">{guru.name}</p>
-                          <p className="text-xs text-slate-500">NIP: {guru.nip}</p>
+                          <p className="text-xs text-slate-500">{t('qrAdminPage.nip')}: {guru.nip}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -731,7 +801,7 @@ const QRAdmin: React.FC = () => {
                     <TableCell>
                       {absensi?.statusMasuk ?
                         getStatusBadge(absensi.statusMasuk) :
-                        <Badge variant="danger">Tidak Masuk</Badge>
+                        <Badge variant="danger">{t('qrAdminPage.tidakMasuk')}</Badge>
                       }
                     </TableCell>
                     <TableCell>
@@ -747,7 +817,7 @@ const QRAdmin: React.FC = () => {
                     <TableCell>
                       {absensi?.statusKeluar ?
                         getStatusBadge(absensi.statusKeluar) :
-                        <Badge variant="danger">Tidak Keluar</Badge>
+                        <Badge variant="danger">{t('qrAdminPage.tidakKeluar')}</Badge>
                       }
                     </TableCell>
                     <TableCell>
@@ -765,8 +835,8 @@ const QRAdmin: React.FC = () => {
         {gurus.length === 0 && (
           <div className="text-center py-12">
             <Users className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">Belum ada data guru</h3>
-            <p className="text-slate-600">Tambahkan guru terlebih dahulu untuk melihat data absensi</p>
+            <h3 className="text-lg font-medium text-slate-900 mb-2">{t('qrAdminPage.belumAdaDataGuru')}</h3>
+            <p className="text-slate-600">{t('qrAdminPage.tambahGuruPertama')}</p>
           </div>
         )}
       </div>
@@ -776,7 +846,7 @@ const QRAdmin: React.FC = () => {
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-500">
             <h3 className="text-base font-semibold text-white">
-              Absensi Guru - {new Date(selectedDate).toLocaleDateString('id-ID', {
+              {t('qrAdminPage.absensiGuru')} - {new Date(selectedDate).toLocaleDateString(dateLocale, {
                 weekday: 'short',
                 month: 'short',
                 day: 'numeric'
@@ -800,7 +870,7 @@ const QRAdmin: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-900 text-sm truncate">{guru.name}</p>
-                        <p className="text-xs text-slate-600">NIP: {guru.nip}</p>
+                        <p className="text-xs text-slate-600">{t('qrAdminPage.nip')}: {guru.nip}</p>
                       </div>
                     </div>
 
@@ -810,7 +880,7 @@ const QRAdmin: React.FC = () => {
                       <div className="flex items-start justify-between text-xs">
                         <div className="flex items-center gap-2 text-slate-600">
                           <Clock size={12} className="flex-shrink-0" />
-                          <span>Jam Masuk</span>
+                          <span>{t('qrAdminPage.jamMasuk')}</span>
                         </div>
                         <div className="text-right">
                           {absensi?.jamMasuk ? (
@@ -823,11 +893,11 @@ const QRAdmin: React.FC = () => {
 
                       {/* Status Masuk */}
                       <div className="flex items-start justify-between text-xs">
-                        <span className="text-slate-600">Status Masuk</span>
+                        <span className="text-slate-600">{t('qrAdminPage.statusMasuk')}</span>
                         <div>
                           {absensi?.statusMasuk ?
                             getStatusBadge(absensi.statusMasuk) :
-                            <Badge variant="danger">Tidak Masuk</Badge>
+                            <Badge variant="danger">{t('qrAdminPage.tidakMasuk')}</Badge>
                           }
                         </div>
                       </div>
@@ -836,7 +906,7 @@ const QRAdmin: React.FC = () => {
                       <div className="flex items-start justify-between text-xs">
                         <div className="flex items-center gap-2 text-slate-600">
                           <Clock size={12} className="flex-shrink-0" />
-                          <span>Jam Keluar</span>
+                          <span>{t('qrAdminPage.jamKeluar')}</span>
                         </div>
                         <div className="text-right">
                           {absensi?.jamKeluar ? (
@@ -849,11 +919,11 @@ const QRAdmin: React.FC = () => {
 
                       {/* Status Keluar */}
                       <div className="flex items-start justify-between text-xs">
-                        <span className="text-slate-600">Status Keluar</span>
+                        <span className="text-slate-600">{t('qrAdminPage.statusKeluar')}</span>
                         <div>
                           {absensi?.statusKeluar ?
                             getStatusBadge(absensi.statusKeluar) :
-                            <Badge variant="danger">Tidak Keluar</Badge>
+                            <Badge variant="danger">{t('qrAdminPage.tidakKeluar')}</Badge>
                           }
                         </div>
                       </div>
@@ -861,7 +931,7 @@ const QRAdmin: React.FC = () => {
                       {/* Keterangan */}
                       <div className="pt-2 border-t border-slate-100">
                         <p className="text-xs text-slate-600">
-                          <span className="text-slate-500">Ket:</span> <span className="font-medium">{keterangan}</span>
+                          <span className="text-slate-500">{t('qrAdminPage.ket')}:</span> <span className="font-medium">{keterangan}</span>
                         </p>
                       </div>
                     </div>
@@ -872,8 +942,8 @@ const QRAdmin: React.FC = () => {
           ) : (
             <div className="text-center py-12 px-4">
               <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-              <h3 className="text-base font-medium text-slate-900 mb-1">Belum ada data guru</h3>
-              <p className="text-xs text-slate-600">Tambahkan guru terlebih dahulu untuk melihat data absensi</p>
+              <h3 className="text-base font-medium text-slate-900 mb-1">{t('qrAdminPage.belumAdaDataGuru')}</h3>
+              <p className="text-xs text-slate-600">{t('qrAdminPage.tambahGuruPertama')}</p>
             </div>
           )}
         </div>
@@ -883,7 +953,7 @@ const QRAdmin: React.FC = () => {
       <Modal
         isOpen={isAdminQRModalOpen}
         onClose={() => setIsAdminQRModalOpen(false)}
-        title="QR Code Admin"
+        title={t('qrAdminPage.modalTitle')}
         size="md"
       >
         <div className="text-center space-y-6">
@@ -902,26 +972,26 @@ const QRAdmin: React.FC = () => {
           </div>
           
           <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h4 className="font-medium text-yellow-900 mb-3">Cara Penggunaan:</h4>
+            <h4 className="font-medium text-yellow-900 mb-3">{t('qrAdminPage.caraPenggunaan')}</h4>
             <ul className="text-sm text-yellow-800 space-y-2 text-left">
               <li className="flex items-start">
                 <span className="w-2 h-2 bg-yellow-600 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Tampilkan QR Code ini kepada guru
+                {t('qrAdminPage.modalInstruksi1')}
               </li>
               <li className="flex items-start">
                 <span className="w-2 h-2 bg-yellow-600 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Guru scan QR Code ini untuk absen masuk/keluar
+                {t('qrAdminPage.modalInstruksi2')}
               </li>
               <li className="flex items-start">
                 <span className="w-2 h-2 bg-yellow-600 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Sistem otomatis menentukan jenis absensi
+                {t('qrAdminPage.modalInstruksi3')}
               </li>
             </ul>
           </div>
 
           <Button onClick={downloadAdminQR} fullWidth>
             <Download size={16} className="mr-2" />
-            Download QR Code
+            {t('qrAdminPage.downloadQRCode')}
           </Button>
         </div>
       </Modal>

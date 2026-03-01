@@ -10,6 +10,8 @@ interface AbsenGuruDetailModalProps {
   pengaturanAbsen?: PengaturanAbsen;
   getStatusBadge: (status: string) => React.ReactNode;
   formatTimeWithDot: (timeString: string | undefined) => string;
+  /** Locale for date display (e.g. 'id-ID' or 'ms-MY') */
+  dateLocale?: string;
 }
 
 const AbsenGuruDetailModal: React.FC<AbsenGuruDetailModalProps> = ({
@@ -20,11 +22,12 @@ const AbsenGuruDetailModal: React.FC<AbsenGuruDetailModalProps> = ({
   pengaturanAbsen,
   getStatusBadge,
   formatTimeWithDot,
+  dateLocale = 'id-ID',
 }) => {
   if (!isOpen) return null;
 
   const date = new Date(selectedDate);
-  const formattedDate = date.toLocaleDateString('id-ID', {
+  const formattedDate = date.toLocaleDateString(dateLocale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',

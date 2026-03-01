@@ -1,4 +1,5 @@
 import { AbsensiGuru, Absensi, PengaturanAbsen, User } from '../types';
+import { getTodayIndonesia, getCurrentTimeIndonesia } from '../utils/absensiUtils';
 
 export type SSEEventType = 'absen-update' | 'absen-auto-save' | 'connection-status' | 'absen-murid-update' | 'absen-auto-alfa';
 
@@ -10,7 +11,7 @@ export interface SSEEventPayload {
 
 type SSEListener = (event: SSEEventPayload) => void;
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 class SSEAbsenService {
   private listeners: Set<SSEListener> = new Set();
@@ -241,9 +242,8 @@ class SSEAbsenService {
     const users = JSON.parse(usersString);
     const izinGuru = izinGuruString ? JSON.parse(izinGuruString) : [];
 
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const today = now.toISOString().split('T')[0];
+    const currentTime = getCurrentTimeIndonesia();
+    const today = getTodayIndonesia();
 
     const jamPulang = pengaturanAbsen?.jamPulang || '16:00';
     const toleransiPulang = pengaturanAbsen?.toleransiPulang || 15;
@@ -349,9 +349,8 @@ class SSEAbsenService {
     const tahunAjaran: any[] = tahunAjaranString ? JSON.parse(tahunAjaranString) : [];
     const activeTahunAjaran = tahunAjaran.find((ta: any) => ta.isActive);
 
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const today = now.toISOString().split('T')[0];
+    const currentTime = getCurrentTimeIndonesia();
+    const today = getTodayIndonesia();
 
     const jamPulang = pengaturanAbsen?.jamPulang || '16:00';
     const jamPulangLimit = this.addMinutes(jamPulang, 0);

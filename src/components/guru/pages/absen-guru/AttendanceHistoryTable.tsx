@@ -6,6 +6,8 @@ import MonthYearPicker from './MonthYearPicker';
 import AbsenGuruDetailModal from './AbsenGuruDetailModal';
 import { AttendanceRecord } from './absenGuruUtils';
 import { useLanguage } from '../../../../context/LanguageContext';
+import { getDateLocale } from '../../../../utils/dateLocaleUtils';
+import { getTodayIndonesia } from '../../../../utils/absensiUtils';
 
 const getKeteranganText = (attendance?: AbsensiGuru): string => {
   if (!attendance) return '-';
@@ -45,9 +47,9 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
   const [selectedDateDetail, setSelectedDateDetail] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  // Helper untuk mengecek apakah tanggal adalah hari ini
+  // Helper untuk mengecek apakah tanggal adalah hari ini (waktu Indonesia)
   const isToday = (dateStr: string): boolean => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayIndonesia();
     return dateStr === today;
   };
 
@@ -180,6 +182,7 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
                 onYearSelect={onYearSelect}
                 onSetThisMonth={onSetThisMonth}
                 onClear={onClear}
+                language={language}
               />
             </div>
           </div>
@@ -432,6 +435,7 @@ const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
           pengaturanAbsen={undefined}
           getStatusBadge={getStatusBadge}
           formatTimeWithDot={formatTimeWithDot}
+          dateLocale={getDateLocale(language)}
         />
       )}
     </div>

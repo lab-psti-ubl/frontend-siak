@@ -25,10 +25,12 @@ import { showSuccessNotification, showErrorNotification } from '../../utils/noti
 import { sseAbsenService } from '../../services/sseAbsenService';
 import MuridMenuCards from './MuridMenuCards';
 import { isAttendanceDayAllowed, getDayNameInIndonesian } from '../../utils/attendanceDayValidation';
-import { getLocalTimeISOString } from '../../utils/absensiUtils';
+import { getLocalTimeISOString, getTodayIndonesia } from '../../utils/absensiUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 const MuridDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const murid = user as Murid | null;
   const navigate = useNavigate();
   const [isSubmittingMasuk, setIsSubmittingMasuk] = useState(false);
@@ -61,9 +63,12 @@ const MuridDashboard: React.FC = () => {
   const { sesiAbsensiTahfiz } = useSesiAbsensiTahfiz();
   const { ustadz } = useUstadz();
 
-  // Define today and currentDay early to avoid initialization errors
-  const today = new Date().toISOString().split('T')[0];
-  const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
+  // Define today and currentDay early to avoid initialization errors (gunakan waktu Indonesia)
+  const today = getTodayIndonesia();
+  // currentDay tetap pakai nama hari Indonesia untuk logika jadwal (data disimpan dengan 'senin', 'selasa', dst)
+  const currentDay = new Date().toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' }).toLowerCase();
+  // Locale untuk tampilan tanggal mengikuti bahasa UI
+  const dateLocale = language === 'ms' ? 'ms-MY' : 'id-ID';
 
   const isAlumni = isMuridAlumni(user || undefined, alumni);
   
@@ -1290,7 +1295,14 @@ const MuridDashboard: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-base sm:text-lg font-bold text-slate-900">Status Absen Kehadiran Hari Ini</h3>
-                  <p className="text-xs sm:text-sm text-slate-600">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  <p className="text-xs sm:text-sm text-slate-600">
+                    {new Date().toLocaleDateString(dateLocale, {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1425,7 +1437,12 @@ const MuridDashboard: React.FC = () => {
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-slate-900">Jadwal Tahfiz Hari Ini</h3>
                 <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                  {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  {new Date().toLocaleDateString(dateLocale, {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
                 </p>
               </div>
               <button
@@ -1608,11 +1625,12 @@ const MuridDashboard: React.FC = () => {
                 </div>
                 {progressStats.lastUpdate && (
                   <p className="text-xs text-slate-500 text-center">
-                    Terakhir diperbarui: {new Date(progressStats.lastUpdate).toLocaleDateString('id-ID', {
+                    Terakhir diperbarui:{' '}
+                    {new Date(progressStats.lastUpdate).toLocaleDateString(dateLocale, {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
-                      day: 'numeric'
+                      day: 'numeric',
                     })}
                   </p>
                 )}
@@ -2064,18 +2082,26 @@ const MuridDashboard: React.FC = () => {
       )}
 
       {/* Absen Masuk dan Pulang Hari Ini - Hanya untuk murid aktif - Hidden di mobile */}
-      {!isAlumni && (<div className="hidden lg:block bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-5 sm:px-6 py-4 border-b border-green-100">
-          <div className="flex items-center gap-3">
-            <div className="bg-green-600 rounded-lg p-2">
-              <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">Status Absen Kehadiran Hari Ini</h3>
-              <p className="text-xs sm:text-sm text-slate-600">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+      {!isAlumni && (
+        <div className="hidden lg:block bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-5 sm:px-6 py-4 border-b border-green-100">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-600 rounded-lg p-2">
+                <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900">Status Absen Kehadiran Hari Ini</h3>
+                <p className="text-xs sm:text-sm text-slate-600">
+                  {new Date().toLocaleDateString(dateLocale, {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
         <div className="p-4 sm:p-5 lg:p-6">
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {/* Masuk Status */}
@@ -2206,13 +2232,20 @@ const MuridDashboard: React.FC = () => {
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="bg-gradient-to-r from-blue-50 to-cyan-50 px-5 sm:px-6 py-4 border-b border-blue-100">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-600 rounded-lg p-2">
-                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-slate-900">Jadwal Hari Ini</h3>
-                <p className="text-xs sm:text-sm text-slate-600">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-              </div>
+            <div className="bg-blue-600 rounded-lg p-2">
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">Jadwal Hari Ini</h3>
+              <p className="text-xs sm:text-sm text-slate-600">
+                {new Date().toLocaleDateString(dateLocale, {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </p>
+            </div>
             </div>
           </div>
           <div className="p-4 sm:p-5 lg:p-6">
@@ -2494,11 +2527,11 @@ const MuridDashboard: React.FC = () => {
                         <div>
                           <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Tanggal Lulus</p>
                           <p className="text-lg font-bold text-blue-900">
-                            {new Date(alumniData.tanggalLulus).toLocaleDateString('id-ID', {
+                            {new Date(alumniData.tanggalLulus).toLocaleDateString(dateLocale, {
                               weekday: 'long',
                               year: 'numeric',
                               month: 'long',
-                              day: 'numeric'
+                              day: 'numeric',
                             })}
                           </p>
                         </div>

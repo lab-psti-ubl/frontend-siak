@@ -152,7 +152,7 @@ const DataUstadzKepalaSekolah: React.FC = () => {
               {searchTerm ? t('tahfiz.tidakAdaHasil') : t('tahfiz.belumAdaDataUstadz')}
             </h3>
             <p className="text-sm text-slate-600">
-              {searchTerm ? `${t('tahfiz.tidakDitemukanUstadz')} "${searchTerm}"` : t('tahfiz.dataUstadzAkanDitampilkan')}
+              {searchTerm ? t('tahfiz.tidakDitemukanUstadzDenganKataKunci', { searchTerm }) : t('tahfiz.dataUstadzAkanDitampilkan')}
             </p>
           </div>
         )}
@@ -222,10 +222,10 @@ const DataUstadzKepalaSekolah: React.FC = () => {
           <div className="text-center py-12 px-4">
             <Users className="w-12 h-12 mx-auto mb-4 text-slate-300" />
             <h3 className="text-base font-medium text-slate-900 mb-2">
-              {searchTerm ? 'Tidak ada hasil' : 'Belum ada data ustadz'}
+              {searchTerm ? t('tahfiz.tidakAdaHasilPencarian') : t('tahfiz.belumAdaDataUstadz')}
             </h3>
             <p className="text-xs text-slate-600">
-              {searchTerm ? `Tidak ditemukan ustadz dengan kata kunci "${searchTerm}"` : 'Data ustadz akan ditampilkan di sini'}
+              {searchTerm ? t('tahfiz.tidakDitemukanUstadzDenganKataKunci', { searchTerm }) : t('tahfiz.dataUstadzAkanDitampilkan')}
             </p>
           </div>
         )}

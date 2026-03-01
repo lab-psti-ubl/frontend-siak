@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { X, Download, FileText, BarChart3 } from 'lucide-react';
 import Button from '../../../../ui/Button';
 import { User, AbsensiGuru, SesiAbsensi, TahunAjaran, PengaturanAbsen, IzinGuru } from '../../../../../types';
+import { useLanguage } from '../../../../../context/LanguageContext';
+import { getMonthNames } from '../../../../../utils/dateLocaleUtils';
 import RekapAbsenGuruBulanTable from './RekapAbsenGuruBulanTable';
 import RekapAbsenGuruSemesterTable from './RekapAbsenGuruSemesterTable';
 import { generateRekapAbsenGuruPDF, generateRekapAbsenGuruExcel } from '../utils/exportRekapAbsenGuruUtils';
@@ -42,17 +44,14 @@ const RekapAbsenGuruModal: React.FC<RekapAbsenGuruModalProps> = ({
   tahunAjaranData,
   pengaturanAbsen = [],
 }) => {
+  const { language } = useLanguage();
+  const monthNames = getMonthNames(language);
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
   const [rekapMode, setRekapMode] = useState<'bulan' | 'semester'>('bulan');
   const [selectedTahunAjaran, setSelectedTahunAjaran] = useState<string>('');
   const [selectedSemester, setSelectedSemester] = useState<number>(1);
-
-  const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
 
   const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
 
@@ -197,7 +196,7 @@ const RekapAbsenGuruModal: React.FC<RekapAbsenGuruModalProps> = ({
   const handleExportPDF = async () => {
     try {
       if (rekapMode === 'bulan') {
-        await generateRekapAbsenGuruPDF(rekapData, namaSekolah || 'Sekolah', selectedMonth, selectedYear);
+        await generateRekapAbsenGuruPDF(rekapData, namaSekolah || 'Sekolah', selectedMonth, selectedYear, language);
       } else {
         const { tanggalMulai, tanggalSelesai } = getSemesterDates();
         await generateRekapSemesterGuruPDF(rekapSemesterData, namaSekolah || 'Sekolah', selectedTahunAjaran, selectedSemester, tanggalMulai, tanggalSelesai);
@@ -210,7 +209,7 @@ const RekapAbsenGuruModal: React.FC<RekapAbsenGuruModalProps> = ({
   const handleExportExcel = async () => {
     try {
       if (rekapMode === 'bulan') {
-        await generateRekapAbsenGuruExcel(rekapData, namaSekolah || 'Sekolah', selectedMonth, selectedYear);
+        await generateRekapAbsenGuruExcel(rekapData, namaSekolah || 'Sekolah', selectedMonth, selectedYear, language);
       } else {
         const { tanggalMulai, tanggalSelesai } = getSemesterDates();
         await generateRekapSemesterGuruExcel(rekapSemesterData, namaSekolah || 'Sekolah', selectedTahunAjaran, selectedSemester, tanggalMulai, tanggalSelesai);
@@ -397,6 +396,7 @@ const RekapAbsenGuruModal: React.FC<RekapAbsenGuruModalProps> = ({
                 absensiGuru={absensiGuru}
                 izinGuru={izinGuru}
                 tahunAjaranData={tahunAjaranData}
+                language={language}
               />
             ) : (
               <RekapAbsenGuruSemesterTable

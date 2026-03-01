@@ -11,6 +11,7 @@ interface KeteranganModalProps {
   keteranganInput: string;
   setKeteranganInput: (value: string) => void;
   onSave: () => void;
+  isSaving?: boolean;
 }
 
 const KeteranganModal: React.FC<KeteranganModalProps> = ({
@@ -20,6 +21,7 @@ const KeteranganModal: React.FC<KeteranganModalProps> = ({
   keteranganInput,
   setKeteranganInput,
   onSave,
+  isSaving = false,
 }) => {
   return (
     <Modal
@@ -36,6 +38,15 @@ const KeteranganModal: React.FC<KeteranganModalProps> = ({
             <p className="text-sm text-gray-600 mt-1">NISN: {selectedMurid.nisn}</p>
           </div>
 
+          {isSaving && (
+            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl">
+              <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" aria-label="Menyimpan data absensi" />
+              <p className="text-sm font-medium">
+                Menyimpan absensi melalui worker...
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Keterangan (Opsional)
@@ -46,6 +57,7 @@ const KeteranganModal: React.FC<KeteranganModalProps> = ({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               rows={3}
               placeholder="Masukkan keterangan tambahan (opsional)..."
+              disabled={isSaving}
             />
           </div>
 
@@ -54,6 +66,7 @@ const KeteranganModal: React.FC<KeteranganModalProps> = ({
               variant="secondary"
               onClick={onClose}
               fullWidth
+              disabled={isSaving}
             >
               Batal
             </Button>
@@ -61,9 +74,19 @@ const KeteranganModal: React.FC<KeteranganModalProps> = ({
               variant="primary"
               onClick={onSave}
               fullWidth
+              disabled={isSaving}
             >
-              <CheckCircle size={16} className="mr-2" />
-              Simpan Keterangan
+              {isSaving ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={16} className="mr-2" />
+                  Simpan Keterangan
+                </>
+              )}
             </Button>
           </div>
         </div>

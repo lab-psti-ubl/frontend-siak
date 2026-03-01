@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 import { JadwalPelajaran, User, Kelas, MataPelajaran, TahunAjaran, SesiAbsensi, JurnalMengajar, Absensi, RiwayatKelasMurid } from '../../../../../types';
 import KelasListView from '../../../../guru/pages/mengajar/components/riwayat-absensi-new/KelasListView';
 import MuridListView from '../../../../guru/pages/mengajar/components/riwayat-absensi-new/MuridListView';
@@ -32,7 +33,7 @@ interface LihatPertemuanViewProps {
 }
 
 const LihatPertemuanView: React.FC<LihatPertemuanViewProps> = ({ guru }) => {
-  // Use hooks with cache
+  const { t } = useLanguage();
   const { gurus } = useGurus();
   const { murid } = useMurid();
   const { kelas } = useKelas();
@@ -195,32 +196,32 @@ const LihatPertemuanView: React.FC<LihatPertemuanViewProps> = ({ guru }) => {
   };
 
   const getBreadcrumb = () => {
-    const breadcrumbs: string[] = ['Riwayat Pertemuan'];
+    const breadcrumbs: string[] = [t('detailAbsensiModal.riwayatPertemuan')];
 
     if (navigation.level === 'murid' || navigation.level === 'mapel') {
       const kelasData = kelas.find(k => k.id === navigation.kelasId);
-      breadcrumbs.push(kelasData?.name || 'Kelas');
-      breadcrumbs.push(navigation.level === 'murid' ? 'Data Murid' : 'Mata Pelajaran');
+      breadcrumbs.push(kelasData?.name || t('detailAbsensiModal.kelas'));
+      breadcrumbs.push(navigation.level === 'murid' ? t('detailAbsensiModal.dataMurid') : t('detailAbsensiModal.mataPelajaran'));
     } else if (navigation.level === 'pertemuan') {
       const kelasData = kelas.find(k => k.id === navigation.kelasId);
       const mapelData = mataPelajaran.find(m => m.id === navigation.mapelId);
-      breadcrumbs.push(kelasData?.name || 'Kelas');
-      breadcrumbs.push('Mata Pelajaran');
+      breadcrumbs.push(kelasData?.name || t('detailAbsensiModal.kelas'));
+      breadcrumbs.push(t('detailAbsensiModal.mataPelajaran'));
       breadcrumbs.push(mapelData?.name || 'Mapel');
     } else if (navigation.level === 'absensi') {
       const kelasData = kelas.find(k => k.id === navigation.kelasId);
       const mapelData = mataPelajaran.find(m => m.id === navigation.mapelId);
-      breadcrumbs.push(kelasData?.name || 'Kelas');
-      breadcrumbs.push('Mata Pelajaran');
+      breadcrumbs.push(kelasData?.name || t('detailAbsensiModal.kelas'));
+      breadcrumbs.push(t('detailAbsensiModal.mataPelajaran'));
       breadcrumbs.push(mapelData?.name || 'Mapel');
-      breadcrumbs.push('Detail Absensi');
+      breadcrumbs.push(t('detailAbsensiModal.detailAbsensiLabel'));
     } else if (navigation.level === 'rekap') {
       const kelasData = kelas.find(k => k.id === navigation.kelasId);
       const mapelData = mataPelajaran.find(m => m.id === navigation.mapelId);
-      breadcrumbs.push(kelasData?.name || 'Kelas');
-      breadcrumbs.push('Mata Pelajaran');
+      breadcrumbs.push(kelasData?.name || t('detailAbsensiModal.kelas'));
+      breadcrumbs.push(t('detailAbsensiModal.mataPelajaran'));
       breadcrumbs.push(mapelData?.name || 'Mapel');
-      breadcrumbs.push('Rekap Absensi Pertemuan');
+      breadcrumbs.push(t('detailAbsensiModal.rekapAbsensiPertemuan'));
     }
 
     return breadcrumbs;
@@ -255,7 +256,7 @@ const LihatPertemuanView: React.FC<LihatPertemuanViewProps> = ({ guru }) => {
         {navigation.level === 'kelas' && (
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
-              <label className="text-xs md:text-sm font-medium text-gray-700 whitespace-nowrap">Tahun:</label>
+              <label className="text-xs md:text-sm font-medium text-gray-700 whitespace-nowrap">{t('detailAbsensiModal.tahun')}:</label>
               <select
                 value={selectedTahunAjaran}
                 onChange={(e) => setSelectedTahunAjaran(e.target.value)}
@@ -267,7 +268,7 @@ const LihatPertemuanView: React.FC<LihatPertemuanViewProps> = ({ guru }) => {
               </select>
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-xs md:text-sm font-medium text-gray-700 whitespace-nowrap">Semester:</label>
+              <label className="text-xs md:text-sm font-medium text-gray-700 whitespace-nowrap">{t('detailAbsensiModal.semester')}:</label>
               <select
                 value={selectedSemester}
                 onChange={(e) => setSelectedSemester(Number(e.target.value))}
@@ -275,7 +276,7 @@ const LihatPertemuanView: React.FC<LihatPertemuanViewProps> = ({ guru }) => {
               >
                 {availableSemesters.map(sem => (
                   <option key={sem} value={sem}>
-                    {sem === 1 ? 'Ganjil (1)' : 'Genap (2)'}
+                    {sem === 1 ? `${t('detailAbsensiModal.ganjil')} (1)` : `${t('detailAbsensiModal.genap')} (2)`}
                   </option>
                 ))}
               </select>

@@ -23,6 +23,7 @@ interface DetailAbsensiModalProps {
   onEditAbsensi: (absensi: AbsensiPelajaran) => void;
   users: User[];
   refreshAbsensiGuru: () => Promise<void>;
+  loadingMuridIds?: Set<string>;
 }
 
 const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
@@ -38,6 +39,7 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
   onEditAbsensi,
   users,
   refreshAbsensiGuru,
+  loadingMuridIds = new Set(),
 }) => {
   const [showFilePreview, setShowFilePreview] = useState(false);
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
@@ -150,8 +152,8 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
       const updatedFotoMengajar = (todayAbsensi.fotoMengajar || []).filter(f => f.id !== selectedPhoto.id);
 
       // Update absensi guru
-      const response = await apiService.updateAbsensiGuru(todayAbsensi.id, {
-        fotoMengajar: updatedFotoMengajar
+      const response = await apiService.submitAbsensiGuruUpdateWithFallback(todayAbsensi.id, {
+        fotoMengajar: updatedFotoMengajar,
       });
 
       if (response.success) {
@@ -201,8 +203,8 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
       );
 
       // Update absensi guru
-      const response = await apiService.updateAbsensiGuru(todayAbsensi.id, {
-        fotoMengajar: updatedFotoMengajar
+      const response = await apiService.submitAbsensiGuruUpdateWithFallback(todayAbsensi.id, {
+        fotoMengajar: updatedFotoMengajar,
       });
 
       if (response.success) {
@@ -400,16 +402,23 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                             ) : '-'}
                           </TableCell>
                           <TableCell>
-                            {attendance && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => onEditAbsensi(attendance)}
-                                className="text-xs py-1 px-2 justify-center flex items-center"
-                              >
-                                <Edit size={12} className="mr-0.5" />
-                                Edit
-                              </Button>
+                            {loadingMuridIds.has(murid.id) ? (
+                              <div className="flex items-center justify-center gap-2 text-blue-600">
+                                <div className="h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                <span className="text-xs">Menyimpan...</span>
+                              </div>
+                            ) : (
+                              attendance && (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => onEditAbsensi(attendance)}
+                                  className="text-xs py-1 px-2 justify-center flex items-center"
+                                >
+                                  <Edit size={12} className="mr-0.5" />
+                                  Edit
+                                </Button>
+                              )
                             )}
                           </TableCell>
                         </TableRow>
@@ -488,15 +497,22 @@ const DetailAbsensiModal: React.FC<DetailAbsensiModalProps> = ({
                                   </div>
                                 </div>
 
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => onEditAbsensi(attendance)}
-                                  className="w-full text-xs py-2 justify-center flex items-center"
-                                >
-                                  <Edit size={14} className="mr-2" />
-                                  Edit Absensi
-                                </Button>
+                                {loadingMuridIds.has(murid.id) ? (
+                                  <div className="flex items-center justify-center gap-2 text-blue-600 py-2">
+                                    <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                    <span className="text-xs">Menyimpan...</span>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => onEditAbsensi(attendance)}
+                                    className="w-full text-xs py-2 justify-center flex items-center"
+                                  >
+                                    <Edit size={14} className="mr-2" />
+                                    Edit Absensi
+                                  </Button>
+                                )}
                               </>
                             )}
                           </div>

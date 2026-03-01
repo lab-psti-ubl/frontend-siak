@@ -9,12 +9,34 @@ interface ScanResultModalProps {
   onClose: () => void;
 }
 
+/** Untuk guru: jika status masuk/keluar alfa atau tidak_masuk/tidak_keluar, tampilkan label yang sesuai (bukan "sudah absen"). */
+function getGuruDisplayInfo(scanResult: ScanResult): { tipeAbsenLabel: string; statusMessage: string } {
+  const { role, tipeAbsen, statusMessage, statusMasuk, statusKeluar } = scanResult;
+  if (role !== 'guru') return { tipeAbsenLabel: tipeAbsen, statusMessage };
+  if (tipeAbsen === 'Tunggu') return { tipeAbsenLabel: 'Menunggu', statusMessage };
+
+  const masukInvalid = statusMasuk === 'alfa' || statusMasuk === 'tidak_masuk';
+  const keluarInvalid = statusKeluar === 'alfa' || statusKeluar === 'tidak_keluar';
+
+  if (tipeAbsen?.toLowerCase() === 'masuk' && masukInvalid) {
+    const label = statusMasuk === 'alfa' ? 'Alfa' : 'Tidak masuk';
+    return { tipeAbsenLabel: label, statusMessage: statusMasuk === 'alfa' ? 'Alfa (belum absen masuk)' : 'Belum absen masuk' };
+  }
+  if ((tipeAbsen?.toLowerCase() === 'keluar' || tipeAbsen?.toLowerCase() === 'pulang') && keluarInvalid) {
+    const label = statusKeluar === 'alfa' ? 'Alfa' : 'Tidak keluar';
+    return { tipeAbsenLabel: label, statusMessage: statusKeluar === 'alfa' ? 'Alfa (belum absen keluar)' : 'Belum absen keluar' };
+  }
+  return { tipeAbsenLabel: tipeAbsen, statusMessage };
+}
+
 const ScanResultModal: React.FC<ScanResultModalProps> = ({ scanResult, showModal, onClose }) => {
   if (!showModal || !scanResult) {
     return null;
   }
 
   const isSuccess = !scanResult.isError;
+  const guruDisplay = getGuruDisplayInfo(scanResult);
+  const isTunggu = scanResult.tipeAbsen === 'Tunggu';
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
@@ -253,7 +275,7 @@ const ScanResultModal: React.FC<ScanResultModalProps> = ({ scanResult, showModal
                       <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-2.5 sm:p-3 md:p-4 rounded-lg border border-emerald-200">
                         <p className="text-xs text-emerald-700 uppercase font-bold mb-1">Tipe Absen</p>
                         <p className="text-emerald-900 font-bold text-sm sm:text-base">
-                          {scanResult.tipeAbsen}
+                          {scanResult.role === 'guru' ? guruDisplay.tipeAbsenLabel : scanResult.tipeAbsen}
                         </p>
                       </div>
 
@@ -267,30 +289,30 @@ const ScanResultModal: React.FC<ScanResultModalProps> = ({ scanResult, showModal
 
                     <div
                       className={`p-3 sm:p-4 md:p-5 rounded-lg border-l-4 flex items-center gap-3 transition-all ${
-                        scanResult.status === 'sudah_terpenuhi'
+                        isTunggu
+                          ? 'bg-slate-50 border-slate-500'
+                          : scanResult.status === 'sudah_terpenuhi'
                           ? 'bg-amber-50 border-amber-600'
                           : scanResult.status === 'terlambat'
                           ? 'bg-orange-50 border-orange-600'
-                          : scanResult.status === 'pulang_cepat'
-                          ? 'bg-cyan-50 border-cyan-600'
                           : 'bg-emerald-50 border-emerald-600'
                       }`}
                     >
-                      {isSuccess && (
+                      {isSuccess && !isTunggu && (
                         <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 text-emerald-600 animate-pulse" />
                       )}
                       <p
                         className={`font-bold text-xs sm:text-sm md:text-base flex-1 ${
-                          scanResult.status === 'sudah_terpenuhi'
+                          isTunggu
+                            ? 'text-slate-900'
+                            : scanResult.status === 'sudah_terpenuhi'
                             ? 'text-amber-900'
                             : scanResult.status === 'terlambat'
                             ? 'text-orange-900'
-                            : scanResult.status === 'pulang_cepat'
-                            ? 'text-cyan-900'
                             : 'text-emerald-900'
                         }`}
                       >
-                        {scanResult.statusMessage}
+                        {scanResult.role === 'guru' ? guruDisplay.statusMessage : scanResult.statusMessage}
                       </p>
                     </div>
                   </div>
