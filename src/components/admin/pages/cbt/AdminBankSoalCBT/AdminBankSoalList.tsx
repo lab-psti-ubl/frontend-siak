@@ -5,15 +5,17 @@ import Badge from '../../../../ui/Badge';
 import { Table, TableHeader, TableBody, TableRow, TableCell } from '../../../../ui/Table';
 
 type CBTBankSoal = { id: string; judul: string; kategoriNama: string; tipe: string };
-type KelasAdmin = { tingkat: number; mataPelajaranId: string };
+type KelasAdmin = { tingkat: number; mataPelajaranId: string; jurusanId?: string };
 type TahunAjaran = { tahun: string; semester: number };
 
 type Props = {
   selectedKelasAdmin: KelasAdmin;
   bankSoal: CBTBankSoal[];
   activeTahunAjaran: TahunAjaran | undefined;
+  jurusanRequired?: boolean;
   tingkatLabel: (tingkat: number) => string;
   getMapelName: (id: string) => string;
+  getJurusanName?: (id?: string) => string;
   onBack: () => void;
   onAddBank: () => void;
   onSelectBank: (bank: CBTBankSoal) => void;
@@ -23,8 +25,10 @@ const AdminBankSoalList: React.FC<Props> = ({
   selectedKelasAdmin,
   bankSoal,
   activeTahunAjaran,
+  jurusanRequired = false,
   tingkatLabel,
   getMapelName,
+  getJurusanName,
   onBack,
   onAddBank,
   onSelectBank,
@@ -57,7 +61,13 @@ const AdminBankSoalList: React.FC<Props> = ({
               Bank Soal CBT • {getMapelName(selectedKelasAdmin.mataPelajaranId)}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500">
-              {tingkatLabel(selectedKelasAdmin.tingkat)} • Semester{' '}
+              {tingkatLabel(selectedKelasAdmin.tingkat)}
+              {jurusanRequired && (
+                <>
+                  {' '}• Jurusan {getJurusanName ? getJurusanName(selectedKelasAdmin.jurusanId) : selectedKelasAdmin.jurusanId || '-'}
+                </>
+              )}
+              {' '}• Semester{' '}
               {activeTahunAjaran?.semester ?? '-'} • Tahun Ajaran {activeTahunAjaran?.tahun ?? '-'}
             </p>
           </div>

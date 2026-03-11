@@ -82,7 +82,10 @@ class ApiService {
       }
 
       if (!response.ok) {
-        throw new Error(data.message || 'Request failed');
+        const error: any = new Error(data.message || 'Request failed');
+        error.status = response.status;
+        error.statusText = response.statusText;
+        throw error;
       }
 
       return data;
@@ -121,6 +124,15 @@ class ApiService {
       const response = await fetch(url, config);
       const data = await response.json();
 
+      // Jika worker mengembalikan 401 dan ada token, anggap sesi sudah tidak valid
+      if (response.status === 401 && token) {
+        this.removeToken();
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+        return data;
+      }
+
       if (!response.ok) {
         throw new Error(data.message || 'Worker request failed');
       }
@@ -139,6 +151,7 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
+    const token = this.getToken();
     
     const config: RequestInit = {
       headers: {
@@ -152,6 +165,15 @@ class ApiService {
       const response = await fetch(url, config);
       const data = await response.json();
 
+      // Jika mendapatkan 401 dan ada token (bukan login), anggap token sudah tidak valid -> logout paksa
+      if (response.status === 401 && token && endpoint !== '/auth/login') {
+        this.removeToken();
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+        return data as T;
+      }
+
       if (!response.ok) {
         // Return error data instead of throwing for login endpoint
         if (endpoint === '/auth/login') {
@@ -160,7 +182,10 @@ class ApiService {
             message: data.message || 'Email atau password salah'
           } as T;
         }
-        throw new Error(data.message || 'Request failed');
+        const error: any = new Error(data.message || 'Request failed');
+        error.status = response.status;
+        error.statusText = response.statusText;
+        throw error;
       }
 
       return data;
@@ -3396,6 +3421,54 @@ class ApiService {
       data?: any;
       message?: string;
     }>(`/cbt-bank-soal/${id}`);
+  }
+
+  // CBT Soal Input Assignment (Admin pilih guru penginput UTS/UAS)
+  async getAllCBTSoalInputAssignments(params?: {
+    tahunAjaran?: string;
+    semester?: number;
+    guruId?: string;
+    kategoriId?: string;
+    mataPelajaranId?: string;
+    tingkat?: number;
+    jurusanId?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    if (params?.semester !== undefined) queryParams.append('semester', params.semester.toString());
+    if (params?.guruId) queryParams.append('guruId', params.guruId);
+    if (params?.kategoriId) queryParams.append('kategoriId', params.kategoriId);
+    if (params?.mataPelajaranId) queryParams.append('mataPelajaranId', params.mataPelajaranId);
+    if (params?.tingkat !== undefined) queryParams.append('tingkat', params.tingkat.toString());
+    if (params?.jurusanId !== undefined) queryParams.append('jurusanId', params.jurusanId);
+
+    const queryString = queryParams.toString();
+    return this.request<{
+      success: boolean;
+      data?: any[];
+      count?: number;
+      message?: string;
+    }>(`/cbt-soal-input-assignments${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async createCBTSoalInputAssignment(data: any) {
+    return this.request<{
+      success: boolean;
+      data?: any;
+      message?: string;
+    }>('/cbt-soal-input-assignments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCBTSoalInputAssignment(id: string) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+    }>(`/cbt-soal-input-assignments/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // CBT Ujian endpoints

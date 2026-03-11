@@ -4,11 +4,14 @@ import Button from '../../../../../ui/Button';
 import Modal from '../../../../../ui/Modal';
 import { showErrorNotification } from '../../../../../../utils/notificationUtils';
 import type { SoalFormState } from '../types';
+import type { CBTConcreteQuestionType, CBTQuestionType } from '../../../../../types';
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  bankTipe?: CBTQuestionType;
+  allowedTipeOptions?: CBTConcreteQuestionType[];
   soalForm: SoalFormState;
   setSoalForm: React.Dispatch<React.SetStateAction<SoalFormState>>;
   onAddOpsi: () => void;
@@ -25,6 +28,8 @@ const AdminSoalFormModal: React.FC<Props> = ({
   isOpen,
   onClose,
   title,
+  bankTipe,
+  allowedTipeOptions,
   soalForm,
   setSoalForm,
   onAddOpsi,
@@ -36,6 +41,50 @@ const AdminSoalFormModal: React.FC<Props> = ({
   onRemovePair,
   onSave,
 }) => {
+  const tipeOptions: Array<{ value: CBTConcreteQuestionType; label: string }> = [
+    { value: 'pilihan_ganda', label: 'Pilihan Ganda' },
+    { value: 'pilihan_ganda_kompleks', label: 'Pilihan Ganda Kompleks (multi jawaban)' },
+    { value: 'benar_salah', label: 'Benar / Salah' },
+    { value: 'menjodohkan', label: 'Menjodohkan' },
+    { value: 'essay', label: 'Essay' },
+  ];
+
+  const effectiveAllowed =
+    bankTipe === 'custom' && Array.isArray(allowedTipeOptions) && allowedTipeOptions.length > 0
+      ? new Set(allowedTipeOptions)
+      : null;
+
+  const handleChangeTipe = (next: CBTConcreteQuestionType) => {
+    setSoalForm((prev) => {
+      const base: SoalFormState = { ...prev, tipe: next };
+      if (next === 'pilihan_ganda' || next === 'pilihan_ganda_kompleks') {
+        const opsi = Array.isArray(prev.opsi) && prev.opsi.length >= 2 ? prev.opsi : [
+          { id: 'opt-1', text: '', isCorrect: true },
+          { id: 'opt-2', text: '', isCorrect: false },
+        ];
+        return { ...base, opsi, jawabanBenarBoolean: undefined, jawabanEssay: undefined };
+      }
+      if (next === 'benar_salah') {
+        return { ...base, jawabanBenarBoolean: undefined, jawabanEssay: undefined };
+      }
+      if (next === 'menjodohkan') {
+        const pasangan = Array.isArray(prev.pasangan) && prev.pasangan.length >= 2 ? prev.pasangan : [
+          { id: 'pair-1', left: '', right: '' },
+          { id: 'pair-2', left: '', right: '' },
+        ];
+        return {
+          ...base,
+          pasangan,
+          menjodohkanScoring: prev.menjodohkanScoring || 'semua_benar',
+          menjodohkanMinimalBenar: prev.menjodohkanMinimalBenar || 1,
+          jawabanBenarBoolean: undefined,
+          jawabanEssay: undefined,
+        };
+      }
+      return { ...base, jawabanEssay: prev.jawabanEssay || '', jawabanBenarBoolean: undefined };
+    });
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="xl">
       <div className="space-y-4">
@@ -111,14 +160,30 @@ const AdminSoalFormModal: React.FC<Props> = ({
               <select
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 value={soalForm.tipe}
-                disabled
+                disabled={bankTipe !== 'custom'}
+                onChange={(e) => {
+                  if (bankTipe !== 'custom') return;
+                  const next = e.target.value as CBTConcreteQuestionType;
+                  if (effectiveAllowed && !effectiveAllowed.has(next)) {
+                    showErrorNotification('Tidak diperbolehkan', 'Tipe soal ini tidak termasuk di konfigurasi custom bank soal.');
+                    return;
+                  }
+                  handleChangeTipe(next);
+                }}
               >
-                <option value="pilihan_ganda">Pilihan Ganda</option>
-                <option value="pilihan_ganda_kompleks">Pilihan Ganda Kompleks (multi jawaban)</option>
-                <option value="benar_salah">Benar / Salah</option>
-                <option value="menjodohkan">Menjodohkan</option>
-                <option value="essay">Essay</option>
+                {tipeOptions
+                  .filter((o) => !effectiveAllowed || effectiveAllowed.has(o.value))
+                  .map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
               </select>
+              {bankTipe === 'custom' && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Bank soal ini bertipe <span className="font-semibold">custom</span>, Anda bisa memilih tipe soal sesuai kuota.
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">

@@ -170,7 +170,7 @@ export const createGuruFromImport = (guruData: GuruImportData): User => {
     name: guruData.nama.trim(),
     email: guruData.email.trim(),
     nip: guruData.nip.trim(),
-    password: 'cerdasdanreligius',
+    password: 'abc1234',
     phone: guruData.phone?.trim(),
     subject: guruData.subject?.trim(),
     role: 'guru',

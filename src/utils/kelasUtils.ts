@@ -204,8 +204,8 @@ export const processKenaikanKelasAndKelulusan = (
         const currentKelas = kelas.find(k => k.id === murid.kelasId);
         if (!currentKelas) return;
 
-        const currentJurusan = shouldShowJurusan() && currentKelas.jurusanId ? jurusan.find(j => j.id === currentKelas.jurusanId) : null;
-        if (shouldShowJurusan() && currentKelas.jurusanId && !currentJurusan) return;
+        const currentJurusan = shouldShowJurusanSync() && currentKelas.jurusanId ? jurusan.find(j => j.id === currentKelas.jurusanId) : null;
+        if (shouldShowJurusanSync() && currentKelas.jurusanId && !currentJurusan) return;
 
         // Generate raport data untuk semester genap
         const raportData = generateRaportData(
@@ -232,10 +232,10 @@ export const processKenaikanKelasAndKelulusan = (
         const currentTingkatLabel = formatTingkatKelasSync(currentKelas.tingkat);
         const targetTingkatLabel = formatTingkatKelasSync(targetTingkat);
 
-        const targetKelasName = currentKelas.name.replace(
-          new RegExp(`^${currentTingkatLabel}\\s`),
-          `${targetTingkatLabel} `
-        );
+        // Nama kelas target: 8A -> 9A, 8 A -> 9 A (dengan/tanpa spasi)
+        const escapedLabel = currentTingkatLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const tingkatLabelRegex = new RegExp(`^${escapedLabel}(\\s?)(.*)$`);
+        const targetKelasName = currentKelas.name.replace(tingkatLabelRegex, (_: string, optionalSpace: string, rest: string) => `${targetTingkatLabel}${optionalSpace}${rest}`);
 
         let kelasBaru = targetKelasName;
         let alasan = '';
@@ -732,11 +732,10 @@ export const handleWaliKelasTransitions = (
       const currentTingkatLabel = formatTingkatKelasSync(currentKelas.tingkat);
       const targetTingkatLabel = formatTingkatKelasSync(targetTingkat);
 
-      // Generate nama kelas target berdasarkan tingkat
-      const targetKelasName = currentKelas.name.replace(
-        new RegExp(`^${currentTingkatLabel}\\s`),
-        `${targetTingkatLabel} `
-      );
+      // Nama kelas target: 8A -> 9A, 8 A -> 9 A (konsisten dengan proses kenaikan)
+      const escapedLabel = currentTingkatLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const tingkatLabelRegex = new RegExp(`^${escapedLabel}(\\s?)(.*)$`);
+      const targetKelasName = currentKelas.name.replace(tingkatLabelRegex, (_: string, optionalSpace: string, rest: string) => `${targetTingkatLabel}${optionalSpace}${rest}`);
 
       console.log(`Mencari kelas target untuk wali kelas ${user.name}: dari ${currentKelas.name} (tingkat ${currentKelas.tingkat}) ke ${targetKelasName} (tingkat ${targetTingkat})`);
 

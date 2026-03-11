@@ -27,7 +27,49 @@ const PhotoPreviewModal: React.FC<PhotoPreviewModalProps> = ({
 
   const handleOpenInNewTab = () => {
     if (!photoUrl) return;
-    window.open(photoUrl, '_blank');
+
+    // Buka tab baru dengan halaman sederhana yang hanya menampilkan gambar.
+    const newWindow = window.open('', '_blank');
+    if (!newWindow) {
+      // Jika popup diblokir, biarkan user tetap bisa klik kanan pada gambar di modal.
+      alert('Gagal membuka tab baru. Mohon izinkan pop-up untuk situs ini.');
+      return;
+    }
+
+    const safeTitle = name || 'Foto Profil';
+    newWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="id">
+        <head>
+          <meta charset="UTF-8" />
+          <title>${safeTitle}</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <style>
+            body {
+              margin: 0;
+              padding: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background-color: #0f172a;
+              height: 100vh;
+            }
+            img {
+              max-width: 100%;
+              max-height: 100%;
+              object-fit: contain;
+              box-shadow: 0 10px 25px rgba(15,23,42,0.6);
+              border-radius: 16px;
+              background-color: #020617;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${photoUrl}" alt="${safeTitle}" />
+        </body>
+      </html>
+    `);
+    newWindow.document.close();
   };
 
   return (

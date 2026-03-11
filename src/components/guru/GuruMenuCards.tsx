@@ -29,6 +29,7 @@ import { usePengumumanKelulusan } from '../../hooks/usePengumumanKelulusan';
 import { useRiwayatWaliKelasData } from '../../hooks/useRiwayatWaliKelasData';
 import { useUstadz } from '../../hooks/useUstadz';
 import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
+import { useCBTSoalInputAssignments } from '../../hooks/useCBTSoalInputAssignments';
 import { User as UserType, Kelas, TahunAjaran, IzinGuru } from '../../types';
 import { isMaxTingkatSync } from '../../utils/jenjangPendidikanUtils';
 import { getTeacherTerm } from '../../utils/terminologyUtils';
@@ -66,7 +67,11 @@ const GuruMenuCards: React.FC = () => {
   const teacherTerm = getTeacherTerm(systemType);
   const isTahfizSystem = systemType === 'tahfiz';
   const isSekolahUmumTahfiz = systemType === 'sekolah_umum_tahfiz';
-  const isCbtEnabled = cbtEnabled ?? true;
+  // Default ke false saat belum ada nilai, supaya kartu CBT tidak sempat muncul sebentar
+  const isCbtEnabled = cbtEnabled === true;
+  const { assignments: cbtInputAssignments } = useCBTSoalInputAssignments({
+    enabled: isCbtEnabled && user?.role === 'guru',
+  });
 
   const activeIzinForSubstitute = (() => {
     const today = getTodayIndonesia();
@@ -146,6 +151,14 @@ const GuruMenuCards: React.FC = () => {
   ];
 
   const cbtCards: MenuCard[] = [
+    ...(cbtInputAssignments.length > 0 ? [{
+      id: 'cbt-bank-soal-utsuas',
+      label: 'Bank Soal UTS/UAS',
+      icon: BookOpen,
+      color: 'text-white',
+      bgColor: 'bg-gradient-to-br from-violet-600 to-violet-700',
+      route: '/dashboard/cbt-bank-soal-utsuas',
+    }] : []),
     {
       id: 'cbt-bank-soal',
       label: (t('guruMenu.bankSoalCBT') || t('sidebar.bankSoalCBT')) ?? 'Bank Soal CBT',

@@ -366,13 +366,12 @@ export function useBuatUjianCBT() {
         bankSoal: bank,
       });
       // Isi essayReview dari attempt yang sudah dikoreksi (supaya tombol aktif sesuai pilihan guru)
-      // Backend mengembalikan nilai terbalik: true=salah, false=benar. Jadi kita invert.
       const initial: Record<string, 'benar' | 'salah'> = {};
       attempt?.responses?.forEach((r) => {
         if (r.tipe === 'essay') {
           const raw = typeof r.isCorrect === 'boolean' ? r.isCorrect : r.isCorrectAuto;
           if (typeof raw === 'boolean') {
-            initial[r.soalId] = raw ? 'salah' : 'benar';
+            initial[r.soalId] = raw ? 'benar' : 'salah';
           }
         }
       });

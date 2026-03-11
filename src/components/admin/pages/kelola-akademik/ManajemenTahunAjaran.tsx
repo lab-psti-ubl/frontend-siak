@@ -48,6 +48,12 @@ const ManajemenTahunAjaran: React.FC = () => {
     setIsFormOpen(true);
   };
 
+  const isValidDateString = (value?: string) => {
+    if (!value) return false;
+    const d = new Date(value);
+    return !Number.isNaN(d.getTime());
+  };
+
   const handleDelete = (id: string) => {
     const taToDelete = tahunAjaran.find(ta => ta.id === id);
     if (!taToDelete) return;
@@ -91,6 +97,23 @@ const ManajemenTahunAjaran: React.FC = () => {
   };
 
   const handleActivate = async (id: string) => {
+    const taToActivate = tahunAjaran.find(ta => ta.id === id);
+    if (taToActivate) {
+      const hasValidDates = isValidDateString(taToActivate.tanggalMulai) && isValidDateString(taToActivate.tanggalSelesai) &&
+        taToActivate.tanggalMulai < taToActivate.tanggalSelesai;
+      if (!hasValidDates) {
+        showWarningConfirmation(
+          'Tanggal Tahun Ajaran Belum Valid',
+          `Untuk mengaktifkan tahun ajaran "${taToActivate.tahun} Semester ${taToActivate.semester}", Anda wajib mengisi Tanggal Mulai dan Tanggal Selesai yang valid.\n\nKlik "Edit Sekarang" untuk mengisi tanggal.`,
+          () => handleEdit(taToActivate),
+          {
+            confirmText: 'Edit Sekarang',
+            cancelText: 'Batal'
+          }
+        );
+        return;
+      }
+    }
     try {
       const response = await apiService.activateTahunAjaran(id);
       if (response.success) {

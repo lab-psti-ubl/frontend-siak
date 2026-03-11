@@ -3,16 +3,21 @@ import Button from '../../../../../ui/Button';
 import Modal from '../../../../../ui/Modal';
 
 type MataPelajaran = { id: string; name: string };
+type Jurusan = { id: string; nama: string };
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
   tingkatList: number[];
   mataPelajaran: MataPelajaran[];
+  jurusanRequired?: boolean;
+  jurusan?: Jurusan[];
   addKelasTingkat: number | '';
   addKelasMapelId: string;
+  addKelasJurusanId?: string;
   setAddKelasTingkat: (v: number | '') => void;
   setAddKelasMapelId: (v: string) => void;
+  setAddKelasJurusanId?: (v: string) => void;
   tingkatLabel: (tingkat: number) => string;
   onCreate: () => void;
 };
@@ -22,10 +27,14 @@ const AdminAddKelasModal: React.FC<Props> = ({
   onClose,
   tingkatList,
   mataPelajaran,
+  jurusanRequired = false,
+  jurusan = [],
   addKelasTingkat,
   addKelasMapelId,
+  addKelasJurusanId = '',
   setAddKelasTingkat,
   setAddKelasMapelId,
+  setAddKelasJurusanId,
   tingkatLabel,
   onCreate,
 }) => {
@@ -71,6 +80,29 @@ const AdminAddKelasModal: React.FC<Props> = ({
             ))}
           </select>
         </div>
+
+        {jurusanRequired && (
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+              Jurusan
+            </label>
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={addKelasJurusanId}
+              onChange={(e) => setAddKelasJurusanId?.(e.target.value)}
+            >
+              <option value="">Semua Jurusan</option>
+              {jurusan
+                .slice()
+                .sort((a, b) => (a.nama || '').localeCompare(b.nama || ''))
+                .map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {j.nama}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={onClose}>
             Batal

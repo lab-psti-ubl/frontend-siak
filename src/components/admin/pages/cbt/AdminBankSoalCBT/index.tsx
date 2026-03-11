@@ -47,8 +47,10 @@ const AdminBankSoalCBT: React.FC = () => {
           kelasCBTList={api.kelasCBTList}
           loadingAdminBanks={api.loadingAdminBanks}
           activeTahunAjaran={api.activeTahunAjaran}
+          jurusanRequired={api.jurusanRequired}
           tingkatLabel={api.tingkatLabel}
           getMapelName={api.getMapelName}
+          getJurusanName={api.getJurusanName}
           onOpenAddKelas={api.handleOpenAddKelasModal}
           onSelectKelas={api.setSelectedKelasAdmin}
         />
@@ -59,8 +61,10 @@ const AdminBankSoalCBT: React.FC = () => {
           selectedKelasAdmin={api.selectedKelasAdmin}
           bankSoal={api.bankSoal}
           activeTahunAjaran={api.activeTahunAjaran}
+          jurusanRequired={api.jurusanRequired}
           tingkatLabel={api.tingkatLabel}
           getMapelName={api.getMapelName}
+          getJurusanName={api.getJurusanName}
           onBack={() => {
             api.setSelectedKelasAdmin(null);
             api.setSelectedBank(null);
@@ -75,7 +79,9 @@ const AdminBankSoalCBT: React.FC = () => {
           selectedKelasAdmin={api.selectedKelasAdmin}
           selectedBank={api.selectedBank}
           soal={api.soal}
+          jurusanRequired={api.jurusanRequired}
           getMapelName={api.getMapelName}
+          getJurusanName={api.getJurusanName}
           tingkatLabel={api.tingkatLabel}
           onBack={() => api.setSelectedBank(null)}
           onAddSoal={api.handleOpenAddSoalModal}
@@ -91,10 +97,14 @@ const AdminBankSoalCBT: React.FC = () => {
         onClose={() => api.setIsAddKelasModalOpen(false)}
         tingkatList={api.tingkatList}
         mataPelajaran={api.mataPelajaran}
+        jurusanRequired={api.jurusanRequired}
+        jurusan={api.jurusan}
         addKelasTingkat={api.addKelasTingkat}
         addKelasMapelId={api.addKelasMapelId}
+        addKelasJurusanId={api.addKelasJurusanId}
         setAddKelasTingkat={api.setAddKelasTingkat}
         setAddKelasMapelId={api.setAddKelasMapelId}
+        setAddKelasJurusanId={api.setAddKelasJurusanId}
         tingkatLabel={api.tingkatLabel}
         onCreate={api.handleCreateKelasAdmin}
       />
@@ -108,6 +118,10 @@ const AdminBankSoalCBT: React.FC = () => {
         setSelectedKategoriId={api.setSelectedKategoriId}
         selectedJenisSoal={api.selectedJenisSoal}
         setSelectedJenisSoal={api.setSelectedJenisSoal}
+        totalSoal={api.totalSoal}
+        setTotalSoal={api.setTotalSoal}
+        customKuota={api.customKuota}
+        setCustomKuota={api.setCustomKuota}
         kategoriUTSUAS={api.kategoriUTSUAS}
         onCreate={api.handleCreateBankSoal}
       />
@@ -116,6 +130,8 @@ const AdminBankSoalCBT: React.FC = () => {
         isOpen={api.isAddSoalModalOpen}
         onClose={api.handleCloseSoalModal}
         title={api.editingSoal ? 'Edit Soal CBT' : 'Tambah Soal CBT'}
+        bankTipe={api.selectedBank?.tipe}
+        allowedTipeOptions={api.allowedCustomTypes}
         soalForm={api.soalForm}
         setSoalForm={api.setSoalForm}
         onAddOpsi={api.handleAddOpsi}

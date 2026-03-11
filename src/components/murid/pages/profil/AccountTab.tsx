@@ -29,6 +29,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
     email: '',
     whatsappOrtu: '',
   });
+  const [profileShareUrl, setProfileShareUrl] = useState<string>('');
 
   useEffect(() => {
     if (user) {
@@ -38,6 +39,19 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
         whatsappOrtu: user.whatsappOrtu || '',
       });
       setProfileImage(user.profileImage || null);
+      const baseUrl = window.location.origin;
+      const slugName = (user.name || 'foto-profil')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      const filename = `${slugName || 'foto-profil'}.jpg`;
+      setProfileShareUrl(
+        user.profileImage && user.nisn
+          ? `${baseUrl}/profile/murid/${user.nisn}/upload/${filename}/foto`
+          : ''
+      );
+    } else {
+      setProfileShareUrl('');
     }
   }, [user]);
 
@@ -237,6 +251,40 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
               )}
             </div>
           )}
+        </div>
+        <div className="mt-4 sm:mt-5">
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
+            URL Foto Profil (untuk dibagikan)
+          </label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={profileShareUrl}
+              readOnly
+              className="flex-1 px-4 py-2.5 sm:py-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-600 text-xs sm:text-sm"
+              placeholder="Foto profil belum diatur"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={async () => {
+                if (!profileShareUrl) {
+                  showErrorToast('Gagal', 'Tidak ada URL foto profil untuk disalin');
+                  return;
+                }
+                try {
+                  await navigator.clipboard.writeText(profileShareUrl);
+                  showSuccessToast('Berhasil', 'URL foto profil berhasil disalin');
+                } catch (error: any) {
+                  console.error('Error copying profile URL:', error);
+                  showErrorToast('Gagal', 'Tidak dapat menyalin URL. Silakan salin secara manual.');
+                }
+              }}
+              className="w-full sm:w-auto flex items-center justify-center text-xs sm:text-sm"
+            >
+              Salin URL
+            </Button>
+          </div>
         </div>
       </div>
 

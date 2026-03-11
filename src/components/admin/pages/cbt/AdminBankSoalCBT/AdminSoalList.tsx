@@ -6,13 +6,15 @@ import { Table, TableHeader, TableBody, TableRow, TableCell } from '../../../../
 
 type CBTSoalItem = { id: string; pertanyaan: string; poin: number };
 type CBTBankSoal = { id: string; judul: string; kategoriNama: string; tipe: string };
-type KelasAdmin = { tingkat: number; mataPelajaranId: string };
+type KelasAdmin = { tingkat: number; mataPelajaranId: string; jurusanId?: string };
 
 type Props = {
   selectedKelasAdmin: KelasAdmin;
   selectedBank: CBTBankSoal;
   soal: CBTSoalItem[];
+  jurusanRequired?: boolean;
   getMapelName: (id: string) => string;
+  getJurusanName?: (id?: string) => string;
   tingkatLabel: (tingkat: number) => string;
   onBack: () => void;
   onAddSoal: () => void;
@@ -26,7 +28,9 @@ const AdminSoalList: React.FC<Props> = ({
   selectedKelasAdmin,
   selectedBank,
   soal,
+  jurusanRequired = false,
   getMapelName,
+  getJurusanName,
   tingkatLabel,
   onBack,
   onAddSoal,
@@ -64,7 +68,13 @@ const AdminSoalList: React.FC<Props> = ({
             </h2>
             <p className="text-xs sm:text-sm text-slate-500">
               {tingkatLabel(selectedKelasAdmin.tingkat)} •{' '}
-              {getMapelName(selectedKelasAdmin.mataPelajaranId)} • Kategori{' '}
+              {getMapelName(selectedKelasAdmin.mataPelajaranId)}
+              {jurusanRequired && (
+                <>
+                  {' '}• Jurusan {getJurusanName ? getJurusanName(selectedKelasAdmin.jurusanId) : selectedKelasAdmin.jurusanId || '-'}
+                </>
+              )}
+              {' '}• Kategori{' '}
               {selectedBank.kategoriNama} • Jenis{' '}
               {selectedBank.tipe.replace(/_/g, ' ')}
             </p>

@@ -55,7 +55,8 @@ const MuridMenuCards: React.FC = () => {
   const studentTerm = getStudentTerm(systemType);
   const isTahfizSystem = systemType === 'tahfiz';
   const isSekolahUmumTahfiz = systemType === 'sekolah_umum_tahfiz';
-  const isCbtEnabled = cbtEnabled ?? true;
+  // Default ke false saat belum ada nilai, supaya kartu CBT tidak sempat muncul sebentar
+  const isCbtEnabled = cbtEnabled === true;
 
   const isAlumni = isMuridAlumni(user, alumni);
   

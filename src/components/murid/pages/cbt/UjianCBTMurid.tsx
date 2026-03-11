@@ -239,6 +239,11 @@ const UjianCBTMurid: React.FC = () => {
                   ujian.tunjukanHasilNilai &&
                   hasFinished &&
                   myAttempt?.skorTotal != null;
+                const hasEssay =
+                  hasFinished &&
+                  (myAttempt?.responses || []).some((r) => r.tipe === 'essay');
+                const shouldShowPendingEssay =
+                  ujian.tunjukanHasilNilai && hasFinished && myAttempt?.skorTotal == null && hasEssay;
                 const nisn = (user as any)?.nisn;
 
                 const statusBadgeClass = status.color.includes('emerald')
@@ -296,6 +301,11 @@ const UjianCBTMurid: React.FC = () => {
                             {shouldShowScore && (
                               <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold border bg-blue-50 text-blue-700 border-blue-200">
                                 Nilai: {myAttempt?.skorTotal}
+                              </span>
+                            )}
+                            {shouldShowPendingEssay && (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200">
+                                Menunggu koreksi essay
                               </span>
                             )}
                           </div>

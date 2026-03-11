@@ -32,4 +32,13 @@ export const defaultSoalState: SoalFormState = {
 export const getGlobalCBTBankSoalId = (tingkat: number, mataPelajaranId: string) =>
   `global-${tingkat}-${mataPelajaranId}`;
 
-export type KelasAdmin = { tingkat: number; mataPelajaranId: string };
+export const getGlobalCBTBankSoalIdWithJurusan = (
+  tingkat: number,
+  mataPelajaranId: string,
+  jurusanId?: string
+) => {
+  const j = String(jurusanId || '').trim();
+  return j ? `global-${tingkat}-${mataPelajaranId}--jur--${j}` : `global-${tingkat}-${mataPelajaranId}`;
+};
+
+export type KelasAdmin = { tingkat: number; mataPelajaranId: string; jurusanId?: string };

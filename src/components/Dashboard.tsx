@@ -10,6 +10,7 @@ import Footer from './layout/Footer';
 import AdminDashboard from './admin/AdminDashboard';
 import AdminMonitoringCBT from './admin/pages/cbt/AdminMonitoringCBT';
 import AdminBankSoalCBT from './admin/pages/cbt/AdminBankSoalCBT';
+import AdminPilihGuruCBT from './admin/pages/cbt/AdminPilihGuruCBT';
 import KepalaSekolahDashboard from './admin/KepalaSekolahDashboard';
 import ManajemenGuru from './admin/pages/kelola-guru/ManejemenGuru';
 import ManajemenKelas from './admin/pages/kelola-jurusan/ManjemenKelas';
@@ -83,6 +84,7 @@ import InfoKelulusanMurid from './murid/InfoKelulusanMurid';
 import RiwayatKelulusan from './guru/RiwayatKelulusan';
 import BankSoalCBT from './guru/pages/cbt/BankSoalCBT/index';
 import BuatUjianCBT from './guru/pages/cbt/BuatUjianCBT/index';
+import BankSoalUTSUAS from './guru/pages/cbt/BankSoalUTSUAS';
 
 import MuridDashboard from './murid/MuridDashboard';
 import JadwalMurid from './murid/JadwalMurid';
@@ -282,7 +284,9 @@ const Dashboard: React.FC = () => {
       'spmb-pendaftar': 'Data Pendaftar SPMB',
       'spmb-diterima': 'Data Diterima SPMB',
       'cbt-bank-soal': 'Bank Soal CBT',
+      'cbt-bank-soal-utsuas': 'Bank Soal UTS/UAS',
       'cbt-buat-ujian': 'Buat Ujian CBT',
+      'cbt-pilih-guru': 'Pilih Guru CBT',
     };
     const currentPageForTitle = getCurrentPage();
     return titles[currentPageForTitle] || 'Dashboard';
@@ -445,6 +449,7 @@ const Dashboard: React.FC = () => {
                     <Route path="/alumni-sekolah" element={<AlumniSekolah />} />
                     <Route path="/cbt-monitoring" element={<AdminMonitoringCBT />} />
                     <Route path="/cbt-bank-soal-admin" element={<AdminBankSoalCBT />} />
+                    <Route path="/cbt-pilih-guru" element={<AdminPilihGuruCBT />} />
                     {systemType === 'sekolah_umum_tahfiz' && (
                       <>
                         <Route path="/data-kelas-tahfiz" element={<DataKelasTahfiz />} />
@@ -485,6 +490,7 @@ const Dashboard: React.FC = () => {
                     <Route path="/absensi" element={<KelolaAbsensi />} />
                     <Route path="/input-nilai" element={<InputNilai />} />
                     <Route path="/cbt-bank-soal" element={<BankSoalCBT />} />
+                    <Route path="/cbt-bank-soal-utsuas" element={<BankSoalUTSUAS />} />
                     <Route path="/cbt-buat-ujian" element={<BuatUjianCBT />} />
                     <Route path="/capaian-pembelajaran" element={<CapaianPembelajaran />} />
                     <Route path="/riwayat-absensi" element={<RiwayatAbsensi />} />

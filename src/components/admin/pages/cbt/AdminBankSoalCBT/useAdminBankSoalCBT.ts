@@ -4,11 +4,33 @@ import { useTahunAjaran } from '../../../../../hooks/useTahunAjaran';
 import { useKelas } from '../../../../../hooks/useKelas';
 import { useMataPelajaran } from '../../../../../hooks/useMataPelajaran';
 import { useKomponenNilai } from '../../../../../hooks/useKomponenNilai';
+import { useJurusan } from '../../../../../hooks/useJurusan';
 import { useCBTBankSoal } from '../../../../../hooks/useCBTBankSoal';
 import { apiService } from '../../../../../services/apiService';
-import type { CBTBankSoal, CBTSoalItem, CBTQuestionType } from '../../../../../types';
+import type { CBTBankSoal, CBTConcreteQuestionType, CBTSoalItem, CBTQuestionType } from '../../../../../types';
 import { showSuccessNotification, showErrorNotification } from '../../../../../utils/notificationUtils';
-import { defaultSoalState, getGlobalCBTBankSoalId, type KelasAdmin, type SoalFormState } from './types';
+import { defaultSoalState, getGlobalCBTBankSoalIdWithJurusan, type KelasAdmin, type SoalFormState } from './types';
+import { shouldShowJurusanSync } from '../../../../../utils/jenjangPendidikanUtils';
+
+const parseGlobalCBTKelasId = (cbtKelasId: string) => {
+  const raw = String(cbtKelasId || '');
+  if (!raw.startsWith('global-')) return null;
+  const rest = raw.slice('global-'.length);
+  const m = rest.match(/^(\d+)-(.+)$/);
+  if (!m) return null;
+  const tingkat = parseInt(m[1], 10);
+  const remain = m[2];
+  const marker = '--jur--';
+  const idx = remain.lastIndexOf(marker);
+  if (idx >= 0) {
+    return {
+      tingkat,
+      mataPelajaranId: remain.slice(0, idx),
+      jurusanId: remain.slice(idx + marker.length),
+    };
+  }
+  return { tingkat, mataPelajaranId: remain, jurusanId: '' };
+};
 
 export function useAdminBankSoalCBT() {
   const { user } = useAuth();
@@ -16,9 +38,11 @@ export function useAdminBankSoalCBT() {
   const { kelas } = useKelas();
   const { mataPelajaran } = useMataPelajaran();
   const { komponenNilai } = useKomponenNilai();
+  const { jurusan } = useJurusan();
 
   const activeTahunAjaran = tahunAjaran.find((ta) => ta.isActive);
   const isAdmin = user?.role === 'admin';
+  const jurusanRequired = shouldShowJurusanSync();
 
   const tingkatList = useMemo(() => {
     const set = new Set<number>();
@@ -42,19 +66,34 @@ export function useAdminBankSoalCBT() {
   const [bankJudul, setBankJudul] = useState('');
   const [selectedKategoriId, setSelectedKategoriId] = useState('');
   const [selectedJenisSoal, setSelectedJenisSoal] = useState<CBTQuestionType>('pilihan_ganda');
+  const [totalSoal, setTotalSoal] = useState<number | ''>('');
+  const [customKuota, setCustomKuota] = useState<
+    Partial<Record<CBTConcreteQuestionType, number>>
+  >({});
   const [soalForm, setSoalForm] = useState<SoalFormState>(defaultSoalState);
   const [addKelasTingkat, setAddKelasTingkat] = useState<number | ''>('');
   const [addKelasMapelId, setAddKelasMapelId] = useState('');
+  const [addKelasJurusanId, setAddKelasJurusanId] = useState('');
 
-  const globalCBTKelasId = selectedKelasAdmin
-    ? getGlobalCBTBankSoalId(selectedKelasAdmin.tingkat, selectedKelasAdmin.mataPelajaranId)
+  const globalCBTKelasIdWithJurusan = selectedKelasAdmin
+    ? getGlobalCBTBankSoalIdWithJurusan(
+        selectedKelasAdmin.tingkat,
+        selectedKelasAdmin.mataPelajaranId,
+        selectedKelasAdmin.jurusanId
+      )
     : '';
 
   const { bankSoal, refreshBankSoal } = useCBTBankSoal(
-    globalCBTKelasId ? { cbtKelasId: globalCBTKelasId } : {}
+    globalCBTKelasIdWithJurusan ? { cbtKelasId: globalCBTKelasIdWithJurusan } : {}
   );
 
   const soal = selectedBank ? (selectedBank.soal ?? []) : [];
+  const allowedCustomTypes = useMemo(() => {
+    if (!selectedBank || selectedBank.tipe !== 'custom') return [];
+    const kuota = (selectedBank.customKuota || {}) as Record<string, unknown>;
+    const keys = Object.keys(kuota) as CBTConcreteQuestionType[];
+    return keys.filter((k) => Number((kuota as any)[k]) > 0);
+  }, [selectedBank]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -76,26 +115,33 @@ export function useAdminBankSoalCBT() {
     const seen = new Set<string>();
     const list: KelasAdmin[] = [];
     const add = (k: KelasAdmin) => {
-      const key = `${k.tingkat}-${k.mataPelajaranId}`;
+      const key = `${k.tingkat}-${k.mataPelajaranId}-${k.jurusanId || ''}`;
       if (seen.has(key)) return;
       seen.add(key);
       list.push(k);
     };
     allAdminBanks.forEach((b) => {
-      const m = b.cbtKelasId?.match(/^global-(\d+)-(.+)$/);
-      if (m) add({ tingkat: parseInt(m[1], 10), mataPelajaranId: m[2] });
+      const meta = parseGlobalCBTKelasId(b.cbtKelasId || '');
+      if (meta) add({ tingkat: meta.tingkat, mataPelajaranId: meta.mataPelajaranId, jurusanId: meta.jurusanId });
     });
     addedCombos.forEach((k) => add(k));
     return list.sort((a, b) => {
       if (a.tingkat !== b.tingkat) return a.tingkat - b.tingkat;
+      if ((a.jurusanId || '') !== (b.jurusanId || '')) {
+        const jA = jurusan.find((j) => j.id === a.jurusanId)?.nama || '';
+        const jB = jurusan.find((j) => j.id === b.jurusanId)?.nama || '';
+        return jA.localeCompare(jB);
+      }
       const nameA = mataPelajaran.find((m) => m.id === a.mataPelajaranId)?.name || '';
       const nameB = mataPelajaran.find((m) => m.id === b.mataPelajaranId)?.name || '';
       return nameA.localeCompare(nameB);
     });
-  }, [allAdminBanks, addedCombos, mataPelajaran]);
+  }, [allAdminBanks, addedCombos, mataPelajaran, jurusan]);
 
   const getMapelName = (id: string) =>
     mataPelajaran.find((m) => m.id === id)?.name || 'Mata Pelajaran';
+  const getJurusanName = (id?: string) =>
+    !id ? 'Semua Jurusan' : jurusan.find((j) => j.id === id)?.nama || 'Jurusan';
   const tingkatLabel = (tingkat: number) => `Kelas ${tingkat}`;
 
   const resetSoalForm = () => {
@@ -121,6 +167,7 @@ export function useAdminBankSoalCBT() {
   const handleOpenAddKelasModal = () => {
     setAddKelasTingkat('');
     setAddKelasMapelId('');
+    setAddKelasJurusanId('');
     setIsAddKelasModalOpen(true);
   };
 
@@ -129,9 +176,13 @@ export function useAdminBankSoalCBT() {
       showErrorNotification('Data belum lengkap', 'Pilih tingkat kelas dan mata pelajaran terlebih dahulu.');
       return;
     }
-    const combo: KelasAdmin = { tingkat: addKelasTingkat as number, mataPelajaranId: addKelasMapelId };
-    const key = `${combo.tingkat}-${combo.mataPelajaranId}`;
-    const exists = kelasCBTList.some((k) => `${k.tingkat}-${k.mataPelajaranId}` === key);
+    const combo: KelasAdmin = {
+      tingkat: addKelasTingkat as number,
+      mataPelajaranId: addKelasMapelId,
+      jurusanId: jurusanRequired ? (addKelasJurusanId || '') : '',
+    };
+    const key = `${combo.tingkat}-${combo.mataPelajaranId}-${combo.jurusanId || ''}`;
+    const exists = kelasCBTList.some((k) => `${k.tingkat}-${k.mataPelajaranId}-${k.jurusanId || ''}` === key);
     if (exists) {
       showErrorNotification('Sudah ada', 'Kombinasi tingkat dan mata pelajaran ini sudah ada di daftar.');
       return;
@@ -148,13 +199,19 @@ export function useAdminBankSoalCBT() {
     setBankJudul('');
     setSelectedKategoriId('');
     setSelectedJenisSoal('pilihan_ganda');
+    setTotalSoal('');
+    setCustomKuota({});
     setIsAddBankModalOpen(true);
   };
 
   const handleOpenAddSoalModal = () => {
     if (!selectedBank) return;
     resetSoalForm();
-    setSoalForm((prev) => ({ ...prev, tipe: selectedBank.tipe }));
+    const initialTipe =
+      selectedBank.tipe === 'custom'
+        ? (allowedCustomTypes[0] ?? 'pilihan_ganda')
+        : selectedBank.tipe;
+    setSoalForm((prev) => ({ ...prev, tipe: initialTipe }));
     setEditingSoal(null);
     setIsAddSoalModalOpen(true);
   };
@@ -251,6 +308,10 @@ export function useAdminBankSoalCBT() {
       showErrorNotification('Data belum lengkap', 'Isi judul bank soal dan pilih kategori nilai terlebih dahulu.');
       return;
     }
+    if (totalSoal === '' || totalSoal < 1) {
+      showErrorNotification('Data belum lengkap', 'Isi Total Soal (minimal 1).');
+      return;
+    }
     const kategori = komponenNilai.find((k) => k.id === selectedKategoriId);
     if (!kategori) {
       showErrorNotification('Data tidak valid', 'Kategori nilai yang dipilih tidak ditemukan.');
@@ -261,7 +322,35 @@ export function useAdminBankSoalCBT() {
       showErrorNotification('Tidak diperbolehkan', 'Bank soal CBT admin hanya untuk kategori UTS dan UAS.');
       return;
     }
-    const globalId = getGlobalCBTBankSoalId(selectedKelasAdmin.tingkat, selectedKelasAdmin.mataPelajaranId);
+    const globalId = getGlobalCBTBankSoalIdWithJurusan(
+      selectedKelasAdmin.tingkat,
+      selectedKelasAdmin.mataPelajaranId,
+      selectedKelasAdmin.jurusanId
+    );
+
+    if (selectedJenisSoal === 'custom') {
+      const entries = Object.entries(customKuota || {}).filter(([, v]) => v !== undefined);
+      if (entries.length === 0) {
+        showErrorNotification('Data belum lengkap', 'Untuk jenis soal Custom, pilih minimal 1 jenis soal.');
+        return;
+      }
+      let sum = 0;
+      for (const [, v] of entries) {
+        const n = Number(v);
+        if (!Number.isFinite(n) || n <= 0) {
+          showErrorNotification('Data belum lengkap', 'Kuota tiap jenis soal Custom harus diisi (minimal 1).');
+          return;
+        }
+        sum += n;
+      }
+      if (sum > totalSoal) {
+        showErrorNotification(
+          'Jumlah tidak valid',
+          `Total kuota Custom (${sum}) tidak boleh melebihi Total Soal (${totalSoal}).`
+        );
+        return;
+      }
+    }
     try {
       const response = await apiService.createCBTBankSoal({
         cbtKelasId: globalId,
@@ -270,6 +359,8 @@ export function useAdminBankSoalCBT() {
         kategoriId: kategori.id,
         kategoriNama: kategori.nama,
         tipe: selectedJenisSoal,
+        totalSoal,
+        customKuota: selectedJenisSoal === 'custom' ? customKuota : {},
       });
       if (!response.success) throw new Error(response.message || 'Gagal membuat bank soal CBT');
       showSuccessNotification('Berhasil', 'Bank soal CBT global berhasil ditambahkan.');
@@ -347,6 +438,36 @@ export function useAdminBankSoalCBT() {
 
   const handleCreateSoal = async () => {
     if (!selectedBank) return;
+    const bankTotal = selectedBank.totalSoal ?? null;
+    if (bankTotal !== null && bankTotal !== undefined) {
+      const current = (selectedBank.soal ?? []).length;
+      if (current >= bankTotal) {
+        showErrorNotification('Maksimal tercapai', `Jumlah soal di bank ini sudah ${current}/${bankTotal}.`);
+        return;
+      }
+    }
+    if (selectedBank.tipe === 'custom') {
+      const kuota = selectedBank.customKuota || {};
+      const allowed = allowedCustomTypes;
+      if (allowed.length > 0 && !allowed.includes(soalForm.tipe as any)) {
+        showErrorNotification('Tidak diperbolehkan', 'Tipe soal tidak termasuk konfigurasi custom bank soal.');
+        return;
+      }
+      const currentByType = (selectedBank.soal ?? []).filter((s) => s.tipe === soalForm.tipe).length;
+      const maxForType = Number((kuota as any)[soalForm.tipe] ?? 0);
+      if (maxForType > 0 && currentByType >= maxForType) {
+        showErrorNotification(
+          'Kuota habis',
+          `Kuota "${String(soalForm.tipe).replace(/_/g, ' ')}" sudah ${currentByType}/${maxForType}.`
+        );
+        return;
+      }
+    } else {
+      if (soalForm.tipe !== selectedBank.tipe) {
+        showErrorNotification('Tidak diperbolehkan', 'Tipe soal harus mengikuti tipe bank soal.');
+        return;
+      }
+    }
     if (!validateSoalForm()) return;
     const jawabanBenar = buildJawabanBenar();
     try {
@@ -382,6 +503,29 @@ export function useAdminBankSoalCBT() {
 
   const handleUpdateSoal = async () => {
     if (!editingSoal || !selectedBank) return;
+    if (selectedBank.tipe === 'custom') {
+      const kuota = selectedBank.customKuota || {};
+      const allowed = allowedCustomTypes;
+      if (allowed.length > 0 && !allowed.includes(soalForm.tipe as any)) {
+        showErrorNotification('Tidak diperbolehkan', 'Tipe soal tidak termasuk konfigurasi custom bank soal.');
+        return;
+      }
+      const withoutThis = (selectedBank.soal ?? []).filter((s) => s.id !== editingSoal.id);
+      const currentByType = withoutThis.filter((s) => s.tipe === soalForm.tipe).length;
+      const maxForType = Number((kuota as any)[soalForm.tipe] ?? 0);
+      if (maxForType > 0 && currentByType >= maxForType) {
+        showErrorNotification(
+          'Kuota habis',
+          `Kuota "${String(soalForm.tipe).replace(/_/g, ' ')}" sudah ${currentByType}/${maxForType}.`
+        );
+        return;
+      }
+    } else {
+      if (soalForm.tipe !== selectedBank.tipe) {
+        showErrorNotification('Tidak diperbolehkan', 'Tipe soal harus mengikuti tipe bank soal.');
+        return;
+      }
+    }
     if (!validateSoalForm()) return;
     const jawabanBenar = buildJawabanBenar();
     try {
@@ -442,16 +586,20 @@ export function useAdminBankSoalCBT() {
   return {
     isAdmin,
     activeTahunAjaran,
+    jurusanRequired,
+    jurusan,
     tingkatList,
     mataPelajaran,
     tingkatLabel,
     getMapelName,
+    getJurusanName,
     selectedKelasAdmin,
     setSelectedKelasAdmin,
     selectedBank,
     setSelectedBank,
     bankSoal,
     soal,
+    allowedCustomTypes,
     kelasCBTList,
     loadingAdminBanks,
     isAddKelasModalOpen,
@@ -470,12 +618,18 @@ export function useAdminBankSoalCBT() {
     setSelectedKategoriId,
     selectedJenisSoal,
     setSelectedJenisSoal,
+    totalSoal,
+    setTotalSoal,
+    customKuota,
+    setCustomKuota,
     soalForm,
     setSoalForm,
     addKelasTingkat,
     setAddKelasTingkat,
     addKelasMapelId,
     setAddKelasMapelId,
+    addKelasJurusanId,
+    setAddKelasJurusanId,
     kategoriUTSUAS,
     handleOpenAddKelasModal,
     handleCreateKelasAdmin,

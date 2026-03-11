@@ -40,6 +40,7 @@ import { useUstadz } from '../../hooks/useUstadz';
 import { useKelasTahfiz } from '../../hooks/useKelasTahfiz';
 import { useSantri } from '../../hooks/useSantri';
 import { usePengaturanSistem } from '../../hooks/usePengaturanSistem';
+import { useCBTSoalInputAssignments } from '../../hooks/useCBTSoalInputAssignments';
 import { Kelas, IzinGuru, Alumni } from '../../types';
 import { shouldShowJurusanSync, isMaxTingkatSync } from '../../utils/jenjangPendidikanUtils';
 import { getTodayIndonesia, getCurrentTimeIndonesia } from '../../utils/absensiUtils';
@@ -79,13 +80,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
   const { systemType, cbtEnabled, spmbEnabled } = usePengaturanSistem();
   const [expandedMenus, setExpandedMenus] = React.useState<string[]>([]);
   const showJurusan = shouldShowJurusanSync();
-  const isCbtEnabled = cbtEnabled ?? true;
-  const isSpmbEnabled = spmbEnabled ?? true;
+  // Default ke false saat nilai belum dimuat, supaya menu CBT/SPMB tidak sempat muncul sebentar
+  const isCbtEnabled = cbtEnabled === true;
+  const isSpmbEnabled = spmbEnabled === true;
   
   // Combine gurus and murid into users array for compatibility
   const users = React.useMemo(() => [...gurus, ...murid], [gurus, murid]);
 
   const isAlumni = user ? isMuridAlumni(user, alumni) : false;
+
+  const { assignments: cbtInputAssignments } = useCBTSoalInputAssignments({
+    enabled: user?.role === 'guru' && isCbtEnabled,
+  });
 
   const handleLogout = () => {
     logout();
@@ -335,6 +341,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
             subItems: [
               { id: 'cbt-monitoring', label: t('sidebar.monitoringCBT'), icon: Eye },
               { id: 'cbt-bank-soal-admin', label: t('sidebar.bankSoalCBT'), icon: BookOpen },
+              { id: 'cbt-pilih-guru', label: 'Pilih Guru CBT', icon: Users },
             ]
           }] : []),
           {
@@ -439,6 +446,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
             label: t('sidebar.kelolaCBT'),
             icon: ClipboardList,
             subItems: [
+              ...(cbtInputAssignments.length > 0
+                ? [{ id: 'cbt-bank-soal-utsuas', label: 'Bank Soal UTS/UAS', icon: BookOpen }]
+                : []),
               { id: 'cbt-bank-soal', label: t('sidebar.bankSoalCBT'), icon: BookOpen },
               { id: 'cbt-buat-ujian', label: t('sidebar.buatUjianCBT'), icon: FileText },
             ]

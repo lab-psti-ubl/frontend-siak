@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { QRScannerProvider } from './context/QRScannerContext';
 import { OnboardingTourProvider } from './context/OnboardingTourContext';
@@ -30,7 +30,21 @@ import InstallPWAButton from './components/pwa/InstallPWAButton';
 import SpmbRegistrationPage from './pages/SpmbRegistrationPage';
 import UjianCBTAksesPage from './pages/UjianCBTAksesPage';
 import KerjakanUjianCBT from './components/murid/pages/cbt/KerjakanUjianCBT';
+import InformasiSpmbPage from './pages/InformasiSpmbPage';
+import ProfileSekolahPage from './pages/ProfileSekolahPage';
+import PublicMuridPhotoPage from './pages/PublicMuridPhotoPage';
 
+
+const InstallPWAWrapper: React.FC = () => {
+  const location = useLocation();
+  const isPublicMuridPhotoPage = location.pathname.startsWith('/profile/murid/');
+
+  if (isPublicMuridPhotoPage) {
+    return null;
+  }
+
+  return <InstallPWAButton />;
+};
 
 const VerificationPageRoute: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -289,9 +303,21 @@ const VerificationPageRoute: React.FC = () => {
 
 /** Deteksi apakah error disebabkan oleh server/koneksi tidak tersedia (bukan karena sistem belum di-set). */
 function isServerConnectionError(error: unknown): boolean {
+  const anyError = error as any;
+
+  // HTTP 5xx dari backend dianggap sebagai masalah server
+  if (typeof anyError?.status === 'number') {
+    const status = anyError.status;
+    if (status >= 500 && status <= 599) {
+      return true;
+    }
+  }
+
   const msg = error instanceof Error ? error.message : String(error);
   const lower = msg.toLowerCase();
+
   return (
+    // Error jaringan/browser umum
     lower.includes('failed to fetch') ||
     lower.includes('network request failed') ||
     lower.includes('networkerror') ||
@@ -303,7 +329,12 @@ function isServerConnectionError(error: unknown): boolean {
     lower.includes('err_connection_refused') ||
     lower.includes('err_connection_reset') ||
     lower.includes('timeout') ||
-    lower.includes('etimedout')
+    lower.includes('etimedout') ||
+    // Pesan yang biasanya muncul ketika server 500 pada endpoint penting
+    lower.includes('internal server error') ||
+    lower.includes('terjadi kesalahan saat menginisialisasi aktivasi sistem') ||
+    lower.includes('gagal mengambil pengaturan bahasa') ||
+    lower.includes('gagal mengambil tipe sistem')
   );
 }
 
@@ -509,6 +540,9 @@ const AppContent: React.FC = () => {
         <Route path="/ujian-cbt/:nisnMurid" element={<UjianCBTAksesPage />} />
         <Route path="/ujian-cbt/:nisnMurid/kerjakan/:ujianId" element={<KerjakanUjianCBT />} />
         <Route path="/verification" element={<VerificationPageRoute />} />
+        <Route path="/informasi-spmb" element={<InformasiSpmbPage />} />
+        <Route path="/profile-sekolah" element={<ProfileSekolahPage />} />
+        <Route path="/profile/murid/:nisn/upload/:filename/foto" element={<PublicMuridPhotoPage />} />
         <Route path="/spmb" element={<SpmbRegistrationPage />} />
         <Route
           path="/dashboard/*"
@@ -537,7 +571,7 @@ function App() {
             <AppContent />
             <ToastContainer />
             <ConfirmationContainer />
-            <InstallPWAButton />
+            <InstallPWAWrapper />
           </QRScannerProvider>
         </LanguageProvider>
       </AuthProvider>

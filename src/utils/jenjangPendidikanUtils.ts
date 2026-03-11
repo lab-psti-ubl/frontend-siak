@@ -71,11 +71,13 @@ export const getActiveJenjangSync = (): 'SD' | 'SMP' | 'SMA/SMK' | null => {
   return null;
 };
 
+/** Jurusan hanya digunakan untuk jenjang SMA/SMK. SD dan SMP tidak menggunakan jurusan. */
 export const isJurusanRequired = async (): Promise<boolean> => {
   const jenjang = await getActiveJenjang();
   return jenjang === 'SMA/SMK';
 };
 
+/** Sinkron: jurusan hanya untuk SMA/SMK. */
 export const isJurusanRequiredSync = (): boolean => {
   const jenjang = getActiveJenjangSync();
   return jenjang === 'SMA/SMK';
@@ -210,6 +212,7 @@ export const getJenjangLabelSync = (): string => {
   }
 };
 
+/** Tampilkan field jurusan hanya untuk jenjang SMA/SMK. SD dan SMP tidak punya jurusan. */
 export const shouldShowJurusan = async (): Promise<boolean> => {
   return await isJurusanRequired();
 };

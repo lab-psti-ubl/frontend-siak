@@ -8,7 +8,13 @@ import { useCBTKelas } from '../../../../../hooks/useCBTKelas';
 import { useCBTBankSoal } from '../../../../../hooks/useCBTBankSoal';
 import { useKomponenNilai } from '../../../../../hooks/useKomponenNilai';
 import { apiService } from '../../../../../services/apiService';
-import type { CBTKelas, CBTBankSoal, CBTSoalItem, CBTQuestionType } from '../../../../../types';
+import type {
+  CBTConcreteQuestionType,
+  CBTKelas,
+  CBTBankSoal,
+  CBTSoalItem,
+  CBTQuestionType,
+} from '../../../../../types';
 import { showSuccessNotification, showErrorNotification } from '../../../../../utils/notificationUtils';
 import { defaultSoalState, type SoalFormState } from './types';
 
@@ -64,6 +70,10 @@ export function useBankSoalCBT() {
   const [bankJudul, setBankJudul] = useState('');
   const [selectedKategoriId, setSelectedKategoriId] = useState('');
   const [selectedJenisSoal, setSelectedJenisSoal] = useState<CBTQuestionType>('pilihan_ganda');
+  const [totalSoal, setTotalSoal] = useState<number | ''>('');
+  const [customKuota, setCustomKuota] = useState<
+    Partial<Record<CBTConcreteQuestionType, number>>
+  >({});
   const [soalForm, setSoalForm] = useState<SoalFormState>(defaultSoalState);
 
   const { cbtKelas, refreshCBTKelas } = useCBTKelas(
@@ -87,6 +97,12 @@ export function useBankSoalCBT() {
   );
 
   const soal = selectedBank ? (selectedBank.soal ?? []) : [];
+  const allowedCustomTypes = useMemo(() => {
+    if (!selectedBank || selectedBank.tipe !== 'custom') return [];
+    const kuota = (selectedBank.customKuota || {}) as Record<string, unknown>;
+    const keys = Object.keys(kuota) as CBTConcreteQuestionType[];
+    return keys.filter((k) => Number((kuota as any)[k]) > 0);
+  }, [selectedBank]);
 
   const tingkatLabel = (tingkat: number) => `Kelas ${tingkat}`;
   const getMapelName = (id: string) =>
@@ -113,6 +129,8 @@ export function useBankSoalCBT() {
     setBankJudul('');
     setSelectedKategoriId('');
     setSelectedJenisSoal('pilihan_ganda');
+    setTotalSoal('');
+    setCustomKuota({});
     setIsAddBankModalOpen(true);
   };
 
@@ -143,7 +161,11 @@ export function useBankSoalCBT() {
   const handleOpenAddSoalModal = () => {
     if (!selectedBank) return;
     resetSoalForm();
-    setSoalForm((prev) => ({ ...prev, tipe: selectedBank.tipe }));
+    const initialTipe =
+      selectedBank.tipe === 'custom'
+        ? (allowedCustomTypes[0] ?? 'pilihan_ganda')
+        : selectedBank.tipe;
+    setSoalForm((prev) => ({ ...prev, tipe: initialTipe }));
     setEditingSoal(null);
     setIsAddSoalModalOpen(true);
   };
@@ -237,6 +259,10 @@ export function useBankSoalCBT() {
       showErrorNotification('Data belum lengkap', 'Isi judul bank soal dan pilih kategori nilai terlebih dahulu.');
       return;
     }
+    if (totalSoal === '' || totalSoal < 1) {
+      showErrorNotification('Data belum lengkap', 'Isi Total Soal (minimal 1).');
+      return;
+    }
     const kategori = komponenNilai.find((k) => k.id === selectedKategoriId);
     if (!kategori) {
       showErrorNotification('Data tidak valid', 'Kategori nilai yang dipilih tidak ditemukan.');
@@ -269,6 +295,30 @@ export function useBankSoalCBT() {
         return;
       }
     }
+
+    if (selectedJenisSoal === 'custom') {
+      const entries = Object.entries(customKuota || {}).filter(([, v]) => v !== undefined);
+      if (entries.length === 0) {
+        showErrorNotification('Data belum lengkap', 'Untuk jenis soal Custom, pilih minimal 1 jenis soal.');
+        return;
+      }
+      let sum = 0;
+      for (const [, v] of entries) {
+        const n = Number(v);
+        if (!Number.isFinite(n) || n <= 0) {
+          showErrorNotification('Data belum lengkap', 'Kuota tiap jenis soal Custom harus diisi (minimal 1).');
+          return;
+        }
+        sum += n;
+      }
+      if (sum > totalSoal) {
+        showErrorNotification(
+          'Jumlah tidak valid',
+          `Total kuota Custom (${sum}) tidak boleh melebihi Total Soal (${totalSoal}).`
+        );
+        return;
+      }
+    }
     try {
       const response = await apiService.createCBTBankSoal({
         cbtKelasId: selectedCBTKelas.id,
@@ -277,6 +327,8 @@ export function useBankSoalCBT() {
         kategoriId: kategori.id,
         kategoriNama: kategori.nama,
         tipe: selectedJenisSoal,
+        totalSoal,
+        customKuota: selectedJenisSoal === 'custom' ? customKuota : {},
       });
       if (!response.success) throw new Error(response.message || 'Gagal membuat bank soal CBT');
       showSuccessNotification('Berhasil', 'Bank soal CBT berhasil ditambahkan.');
@@ -331,6 +383,37 @@ export function useBankSoalCBT() {
 
   const handleCreateSoal = async () => {
     if (!selectedCBTKelas || !selectedBank || !user || !activeTahunAjaran) return;
+    const bankTotal = selectedBank.totalSoal ?? null;
+    if (bankTotal !== null && bankTotal !== undefined) {
+      const current = (selectedBank.soal ?? []).length;
+      if (current >= bankTotal) {
+        showErrorNotification('Maksimal tercapai', `Jumlah soal di bank ini sudah ${current}/${bankTotal}.`);
+        return;
+      }
+    }
+    if (selectedBank.tipe === 'custom') {
+      const kuota = selectedBank.customKuota || {};
+      const allowed = allowedCustomTypes;
+      if (allowed.length > 0 && !allowed.includes(soalForm.tipe as any)) {
+        showErrorNotification('Tidak diperbolehkan', 'Tipe soal tidak termasuk konfigurasi custom bank soal.');
+        return;
+      }
+      const currentByType = (selectedBank.soal ?? []).filter((s) => s.tipe === soalForm.tipe).length;
+      const maxForType = Number((kuota as any)[soalForm.tipe] ?? 0);
+      if (maxForType > 0 && currentByType >= maxForType) {
+        showErrorNotification(
+          'Kuota habis',
+          `Kuota "${String(soalForm.tipe).replace(/_/g, ' ')}" sudah ${currentByType}/${maxForType}.`
+        );
+        return;
+      }
+    } else {
+      // Pastikan tipe sesuai bank untuk non-custom (safety)
+      if (soalForm.tipe !== selectedBank.tipe) {
+        showErrorNotification('Tidak diperbolehkan', 'Tipe soal harus mengikuti tipe bank soal.');
+        return;
+      }
+    }
     if (!validateSoalForm()) return;
     const jawabanBenar = buildJawabanBenar();
     try {
@@ -366,6 +449,29 @@ export function useBankSoalCBT() {
 
   const handleUpdateSoal = async () => {
     if (!editingSoal || !selectedCBTKelas || !selectedBank || !user) return;
+    if (selectedBank.tipe === 'custom') {
+      const kuota = selectedBank.customKuota || {};
+      const allowed = allowedCustomTypes;
+      if (allowed.length > 0 && !allowed.includes(soalForm.tipe as any)) {
+        showErrorNotification('Tidak diperbolehkan', 'Tipe soal tidak termasuk konfigurasi custom bank soal.');
+        return;
+      }
+      const withoutThis = (selectedBank.soal ?? []).filter((s) => s.id !== editingSoal.id);
+      const currentByType = withoutThis.filter((s) => s.tipe === soalForm.tipe).length;
+      const maxForType = Number((kuota as any)[soalForm.tipe] ?? 0);
+      if (maxForType > 0 && currentByType >= maxForType) {
+        showErrorNotification(
+          'Kuota habis',
+          `Kuota "${String(soalForm.tipe).replace(/_/g, ' ')}" sudah ${currentByType}/${maxForType}.`
+        );
+        return;
+      }
+    } else {
+      if (soalForm.tipe !== selectedBank.tipe) {
+        showErrorNotification('Tidak diperbolehkan', 'Tipe soal harus mengikuti tipe bank soal.');
+        return;
+      }
+    }
     if (!validateSoalForm()) return;
     const jawabanBenar = buildJawabanBenar();
     try {
@@ -417,7 +523,14 @@ export function useBankSoalCBT() {
   };
 
   const komponenNilaiForBank = useMemo(
-    () => komponenNilai.filter((k) => k.nama.toLowerCase() !== 'kehadiran'),
+    () =>
+      komponenNilai.filter((k) => {
+        const nama = k.nama.toLowerCase();
+        if (nama === 'kehadiran') return false;
+        if (nama.includes('uts')) return false;
+        if (nama.includes('uas')) return false;
+        return true;
+      }),
     [komponenNilai]
   );
 
@@ -432,6 +545,7 @@ export function useBankSoalCBT() {
     setSelectedBank,
     bankSoal,
     soal,
+    allowedCustomTypes,
     tingkatYangDiajar,
     mapelUntukTingkat,
     tingkatLabel,
@@ -456,6 +570,10 @@ export function useBankSoalCBT() {
     setSelectedKategoriId,
     selectedJenisSoal,
     setSelectedJenisSoal,
+    totalSoal,
+    setTotalSoal,
+    customKuota,
+    setCustomKuota,
     soalForm,
     setSoalForm,
     komponenNilaiForBank,

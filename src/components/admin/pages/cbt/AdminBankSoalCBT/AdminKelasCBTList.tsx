@@ -3,15 +3,17 @@ import { BookOpen, Layers, Plus, ListChecks, HelpCircle } from 'lucide-react';
 import Button from '../../../../ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableCell } from '../../../../ui/Table';
 
-type KelasAdmin = { tingkat: number; mataPelajaranId: string };
+type KelasAdmin = { tingkat: number; mataPelajaranId: string; jurusanId?: string };
 type TahunAjaran = { tahun: string; semester: number };
 
 type Props = {
   kelasCBTList: KelasAdmin[];
   loadingAdminBanks: boolean;
   activeTahunAjaran: TahunAjaran | undefined;
+  jurusanRequired?: boolean;
   tingkatLabel: (tingkat: number) => string;
   getMapelName: (id: string) => string;
+  getJurusanName?: (id?: string) => string;
   onOpenAddKelas: () => void;
   onSelectKelas: (k: KelasAdmin) => void;
 };
@@ -20,8 +22,10 @@ const AdminKelasCBTList: React.FC<Props> = ({
   kelasCBTList,
   loadingAdminBanks,
   activeTahunAjaran,
+  jurusanRequired = false,
   tingkatLabel,
   getMapelName,
+  getJurusanName,
   onOpenAddKelas,
   onSelectKelas,
 }) => {
@@ -77,6 +81,7 @@ const AdminKelasCBTList: React.FC<Props> = ({
                     <TableCell header className="w-16">No</TableCell>
                     <TableCell header>Tingkat</TableCell>
                     <TableCell header>Mata Pelajaran</TableCell>
+                    {jurusanRequired && <TableCell header>Jurusan</TableCell>}
                     <TableCell header>Semester</TableCell>
                     <TableCell header>Tahun Ajaran</TableCell>
                     <TableCell header className="w-52 min-w-[200px]">Aksi</TableCell>
@@ -84,10 +89,13 @@ const AdminKelasCBTList: React.FC<Props> = ({
                 </TableHeader>
                 <TableBody>
                   {kelasCBTList.map((item, index) => (
-                    <TableRow key={`${item.tingkat}-${item.mataPelajaranId}`}>
+                    <TableRow key={`${item.tingkat}-${item.mataPelajaranId}-${item.jurusanId || ''}`}>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>{tingkatLabel(item.tingkat)}</TableCell>
                       <TableCell>{getMapelName(item.mataPelajaranId)}</TableCell>
+                      {jurusanRequired && (
+                        <TableCell>{getJurusanName ? getJurusanName(item.jurusanId) : item.jurusanId || '-'}</TableCell>
+                      )}
                       <TableCell>
                         {activeTahunAjaran ? activeTahunAjaran.semester : '-'}
                       </TableCell>
@@ -113,7 +121,7 @@ const AdminKelasCBTList: React.FC<Props> = ({
             <div className="md:hidden space-y-3">
               {kelasCBTList.map((item, index) => (
                 <div
-                  key={`${item.tingkat}-${item.mataPelajaranId}`}
+                  key={`${item.tingkat}-${item.mataPelajaranId}-${item.jurusanId || ''}`}
                   className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-2"
                 >
                   <div className="flex justify-between items-start gap-2">
@@ -130,6 +138,11 @@ const AdminKelasCBTList: React.FC<Props> = ({
                   <p className="text-sm font-medium text-slate-800">
                     {tingkatLabel(item.tingkat)} • {getMapelName(item.mataPelajaranId)}
                   </p>
+                  {jurusanRequired && (
+                    <p className="text-xs text-slate-600">
+                      Jurusan: {getJurusanName ? getJurusanName(item.jurusanId) : item.jurusanId || '-'}
+                    </p>
+                  )}
                   <p className="text-xs text-slate-500">
                     Semester {activeTahunAjaran?.semester ?? '-'} • Tahun Ajaran {activeTahunAjaran?.tahun ?? '-'}
                   </p>

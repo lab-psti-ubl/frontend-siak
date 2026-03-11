@@ -50,8 +50,15 @@ export const usePengaturanSistem = () => {
 
     const cacheValid = token && isCacheValid();
 
-    if (cacheValid && globalPengaturanCache) {
-      // Use cached data
+    // Hanya gunakan cache jika sudah berisi nilai CBT & SPMB yang lengkap.
+    // Jika cache hanya di-prewarm dengan systemType saja (tanpa cbtEnabled/spmbEnabled),
+    // tetap lakukan fetch ke server agar status menu CBT/SPMB akurat setelah reload.
+    if (
+      cacheValid &&
+      globalPengaturanCache &&
+      typeof globalPengaturanCache.cbtEnabled === 'boolean' &&
+      typeof globalPengaturanCache.spmbEnabled === 'boolean'
+    ) {
       setEnableEarlyDeparture(globalPengaturanCache.enableEarlyDeparture);
       setSystemType(globalPengaturanCache.systemType);
       setCbtEnabled(globalPengaturanCache.cbtEnabled);
@@ -85,16 +92,36 @@ export const usePengaturanSistem = () => {
     
     globalPengaturanLoadingPromise = (async () => {
       try {
-        const [earlyDepartureResponse, systemTypeResponse, pengaturanResponse] = await Promise.all([
+        const [
+          earlyDepartureResponse,
+          systemTypeResponse,
+          pengaturanResponse,
+          cbtSpmbResponse,
+        ] = await Promise.all([
           apiService.getEnableEarlyDeparture(),
           apiService.getSystemType(),
           apiService.getPengaturanSistem().catch(() => null),
+          apiService.getCbtSpmbSettingsPublic().catch(() => null),
         ]);
         
         if (earlyDepartureResponse.success && systemTypeResponse.success) {
           const pengaturan = pengaturanResponse?.pengaturan;
-          const resolvedCbtEnabled = pengaturan?.cbtEnabled ?? true;
-          const resolvedSpmbEnabled = pengaturan?.spmbEnabled ?? true;
+
+          // Sumber kebenaran utama untuk CBT/SPMB adalah endpoint publik
+          // yang juga digunakan halaman Aktivasi iSchola
+          let resolvedCbtEnabled: boolean;
+          let resolvedSpmbEnabled: boolean;
+
+          if (cbtSpmbResponse && (cbtSpmbResponse as any).success) {
+            resolvedCbtEnabled = (cbtSpmbResponse as any).cbtEnabled ?? true;
+            resolvedSpmbEnabled = (cbtSpmbResponse as any).spmbEnabled ?? true;
+          } else if (pengaturan) {
+            resolvedCbtEnabled = pengaturan.cbtEnabled ?? true;
+            resolvedSpmbEnabled = pengaturan.spmbEnabled ?? true;
+          } else {
+            resolvedCbtEnabled = true;
+            resolvedSpmbEnabled = true;
+          }
 
           // systemType can be null if not set yet (for initial setup)
           const data = { 
@@ -150,16 +177,34 @@ export const usePengaturanSistem = () => {
     setError(null);
     
     try {
-      const [earlyDepartureResponse, systemTypeResponse, pengaturanResponse] = await Promise.all([
+      const [
+        earlyDepartureResponse,
+        systemTypeResponse,
+        pengaturanResponse,
+        cbtSpmbResponse,
+      ] = await Promise.all([
         apiService.getEnableEarlyDeparture(),
         apiService.getSystemType(),
         apiService.getPengaturanSistem().catch(() => null),
+        apiService.getCbtSpmbSettingsPublic().catch(() => null),
       ]);
       
       if (earlyDepartureResponse.success && systemTypeResponse.success) {
         const pengaturan = pengaturanResponse?.pengaturan;
-        const resolvedCbtEnabled = pengaturan?.cbtEnabled ?? true;
-        const resolvedSpmbEnabled = pengaturan?.spmbEnabled ?? true;
+
+        let resolvedCbtEnabled: boolean;
+        let resolvedSpmbEnabled: boolean;
+
+        if (cbtSpmbResponse && (cbtSpmbResponse as any).success) {
+          resolvedCbtEnabled = (cbtSpmbResponse as any).cbtEnabled ?? true;
+          resolvedSpmbEnabled = (cbtSpmbResponse as any).spmbEnabled ?? true;
+        } else if (pengaturan) {
+          resolvedCbtEnabled = pengaturan.cbtEnabled ?? true;
+          resolvedSpmbEnabled = pengaturan.spmbEnabled ?? true;
+        } else {
+          resolvedCbtEnabled = true;
+          resolvedSpmbEnabled = true;
+        }
 
         const data = { 
           enableEarlyDeparture: earlyDepartureResponse.enableEarlyDeparture ?? false,

@@ -374,7 +374,10 @@ export type CBTQuestionType =
   | 'pilihan_ganda_kompleks'
   | 'benar_salah'
   | 'menjodohkan'
-  | 'essay';
+  | 'essay'
+  | 'custom';
+
+export type CBTConcreteQuestionType = Exclude<CBTQuestionType, 'custom'>;
 
 export interface CBTOption {
   id: string;
@@ -410,8 +413,29 @@ export interface CBTBankSoal {
   kategoriId: string;
   kategoriNama: string;
   tipe: CBTQuestionType;
+  /** Maksimal jumlah soal yang boleh ditambahkan ke bank ini */
+  totalSoal?: number;
+  /**
+   * Jika tipe = 'custom', tentukan kuota per tipe soal (yang dipilih).
+   * Contoh: { pilihan_ganda: 10, essay: 5 }
+   */
+  customKuota?: Partial<Record<CBTConcreteQuestionType, number>>;
   /** Semua soal di bank ini (misal 50 soal pilihan ganda = 50 item) */
   soal?: CBTSoalItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CBTSoalInputAssignment {
+  id: string;
+  guruId: string;
+  kategoriId: string;
+  kategoriNama: string;
+  mataPelajaranId: string;
+  tingkat: number;
+  jurusanId?: string;
+  tahunAjaran: string;
+  semester: number;
   createdAt: string;
   updatedAt: string;
 }

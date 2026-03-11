@@ -82,7 +82,7 @@ const LihatUjianMuridModal: React.FC<Props> = ({
       if (r.tipe === 'essay') {
         const raw = typeof r.isCorrect === 'boolean' ? r.isCorrect : r.isCorrectAuto;
         if (typeof raw === 'boolean') {
-          out[r.soalId] = raw ? 'salah' : 'benar';
+          out[r.soalId] = raw ? 'benar' : 'salah';
         }
       }
     });
