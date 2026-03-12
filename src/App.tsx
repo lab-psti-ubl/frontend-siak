@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { QRScannerProvider } from './context/QRScannerContext';
 import { OnboardingTourProvider } from './context/OnboardingTourContext';
@@ -32,19 +32,8 @@ import UjianCBTAksesPage from './pages/UjianCBTAksesPage';
 import KerjakanUjianCBT from './components/murid/pages/cbt/KerjakanUjianCBT';
 import InformasiSpmbPage from './pages/InformasiSpmbPage';
 import ProfileSekolahPage from './pages/ProfileSekolahPage';
-import PublicMuridPhotoPage from './pages/PublicMuridPhotoPage';
+import MuridPublicPhotoPage from './pages/MuridPublicPhotoPage';
 
-
-const InstallPWAWrapper: React.FC = () => {
-  const location = useLocation();
-  const isPublicMuridPhotoPage = location.pathname.startsWith('/profile/murid/');
-
-  if (isPublicMuridPhotoPage) {
-    return null;
-  }
-
-  return <InstallPWAButton />;
-};
 
 const VerificationPageRoute: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -540,9 +529,9 @@ const AppContent: React.FC = () => {
         <Route path="/ujian-cbt/:nisnMurid" element={<UjianCBTAksesPage />} />
         <Route path="/ujian-cbt/:nisnMurid/kerjakan/:ujianId" element={<KerjakanUjianCBT />} />
         <Route path="/verification" element={<VerificationPageRoute />} />
+        <Route path="/profile/murid/:nisn/upload/:filename/foto" element={<MuridPublicPhotoPage />} />
         <Route path="/informasi-spmb" element={<InformasiSpmbPage />} />
         <Route path="/profile-sekolah" element={<ProfileSekolahPage />} />
-        <Route path="/profile/murid/:nisn/upload/:filename/foto" element={<PublicMuridPhotoPage />} />
         <Route path="/spmb" element={<SpmbRegistrationPage />} />
         <Route
           path="/dashboard/*"
@@ -571,7 +560,7 @@ function App() {
             <AppContent />
             <ToastContainer />
             <ConfirmationContainer />
-            <InstallPWAWrapper />
+            <InstallPWAButton />
           </QRScannerProvider>
         </LanguageProvider>
       </AuthProvider>

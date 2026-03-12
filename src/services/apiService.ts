@@ -1052,6 +1052,16 @@ class ApiService {
     }>(`/murid/${id}`);
   }
 
+  async getMuridProfilePhotoByNisn(nisn: string) {
+    return this.request<{
+      success: boolean;
+      profileImage?: string;
+      name?: string;
+      nisn?: string;
+      message?: string;
+    }>(`/murid/public/profile-photo/${encodeURIComponent(nisn)}`);
+  }
+
   async createMurid(data: any) {
     return this.request<{
       success: boolean;

@@ -173,10 +173,6 @@ const BankSoalUTSUAS: React.FC = () => {
         setSelectedKategoriId={(_v: string) => {}}
         selectedJenisSoal={api.selectedJenisSoal}
         setSelectedJenisSoal={api.setSelectedJenisSoal}
-        totalSoal={api.totalSoal}
-        setTotalSoal={api.setTotalSoal}
-        customKuota={api.customKuota}
-        setCustomKuota={api.setCustomKuota}
         komponenNilaiForBank={api.kategoriAssignment ? [api.kategoriAssignment] : []}
         onCreate={api.handleCreateBankSoal}
       />
@@ -185,8 +181,6 @@ const BankSoalUTSUAS: React.FC = () => {
         isOpen={api.isAddSoalModalOpen}
         onClose={api.handleCloseSoalModal}
         title={api.editingSoal ? 'Edit Soal CBT' : 'Tambah Soal CBT'}
-        bankTipe={api.selectedBank?.tipe}
-        allowedTipeOptions={api.allowedCustomTypes}
         soalForm={api.soalForm}
         setSoalForm={api.setSoalForm}
         onAddOpsi={api.handleAddOpsi}
