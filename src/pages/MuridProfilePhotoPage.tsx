@@ -1,18 +1,23 @@
-import React, { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, {useMemo, useState} from "react";
+import {useParams} from "react-router-dom";
 
 const MuridProfilePhotoPage: React.FC = () => {
-  const { nisn, fileName } = useParams<{ nisn: string; fileName: string }>();
+  const {nisn, fileName} = useParams<{nisn: string; fileName: string}>();
   const [hasError, setHasError] = useState(false);
 
   const imageUrl = useMemo(() => {
-    if (!nisn || !fileName) return '';
+    if (!nisn || !fileName) return "";
 
-    const apiBaseUrl = import.meta.env.VITE_API_URL || window.location.origin;
-    const backendBaseUrl = apiBaseUrl.replace(/\/api\/?$/, '');
+    // Gunakan base URL backend API secara eksplisit agar tidak tergantung pada routing frontend.
+    // Jika VITE_API_URL tidak diset, fallback ke origin + '/api'.
+    const rawApiBaseUrl =
+      import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
+    const apiBaseUrl = rawApiBaseUrl.replace(/\/$/, "");
 
-    return `${backendBaseUrl}/profile/murid/${encodeURIComponent(
-      nisn
+    // Endpoint backend disiapkan di server sebagai route public:
+    // GET /api/profile/murid/:nisn/upload/:fileName/foto
+    return `${apiBaseUrl}/profile/murid/${encodeURIComponent(
+      nisn,
     )}/upload/${encodeURIComponent(fileName)}/foto`;
   }, [nisn, fileName]);
 
@@ -31,4 +36,3 @@ const MuridProfilePhotoPage: React.FC = () => {
 };
 
 export default MuridProfilePhotoPage;
-
