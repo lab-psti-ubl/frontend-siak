@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User as UserType, Kelas } from '../../../../types';
-import { Upload, X, Save, Copy } from 'lucide-react';
+import { Upload, X, Save } from 'lucide-react';
 import Button from '../../../ui/Button';
 import { showSuccessToast, showErrorToast } from '../../../ui/ToastContainer';
 import PhotoPreviewModal from '../../../ui/PhotoPreviewModal';
@@ -24,6 +24,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPhotoPreviewOpen, setIsPhotoPreviewOpen] = useState(false);
+  const [isCopyingUrl, setIsCopyingUrl] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -39,6 +40,23 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
       });
       setProfileImage(user.profileImage || null);
     }
+  }, [user]);
+
+  const profileImagePublicUrl = useMemo(() => {
+    if (!user?.nisn || !user.name) return '';
+
+    // Gunakan origin frontend (React app) untuk URL publik seperti halaman RFID/SPMB
+    const appBaseUrl = window.location.origin;
+
+    const slugifiedName = user.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '') || 'foto-profil';
+
+    return `${appBaseUrl}/profile/murid/${encodeURIComponent(
+      user.nisn
+    )}/upload/${encodeURIComponent(slugifiedName)}.jpg/foto`;
   }, [user]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,6 +159,20 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
     }
   };
 
+  const handleCopyProfileUrl = async () => {
+    if (!profileImagePublicUrl) return;
+    try {
+      setIsCopyingUrl(true);
+      await navigator.clipboard.writeText(profileImagePublicUrl);
+      showSuccessToast('Berhasil', 'URL foto profil berhasil disalin!');
+    } catch (error: any) {
+      console.error('Error copying profile URL:', error);
+      showErrorToast('Gagal', error?.message || 'Tidak dapat menyalin URL. Silakan salin secara manual.');
+    } finally {
+      setIsCopyingUrl(false);
+    }
+  };
+
   const handleCancel = () => {
     if (user) {
       setFormData({
@@ -151,31 +183,6 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
       setProfileImage(user.profileImage || null);
     }
     setIsEditing(false);
-  };
-
-  const createSlugFromName = (rawName: string) => {
-    return rawName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'murid';
-  };
-
-  const publicPhotoUrl =
-    user?.nisn && typeof window !== 'undefined'
-      ? `${window.location.origin}/profile/murid/${encodeURIComponent(
-          user.nisn
-        )}/upload/${encodeURIComponent(createSlugFromName(user.name || 'murid'))}.jpg/foto`
-      : '';
-
-  const handleCopyPublicPhotoUrl = async () => {
-    if (!publicPhotoUrl) return;
-    try {
-      await navigator.clipboard.writeText(publicPhotoUrl);
-      showSuccessToast('Disalin', 'URL foto profil publik berhasil disalin.');
-    } catch (error: any) {
-      console.error('Error copying URL:', error);
-      showErrorToast('Gagal', 'Tidak dapat menyalin URL. Silakan salin manual.');
-    }
   };
 
   return (
@@ -219,80 +226,74 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
 
       <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl sm:rounded-2xl p-5 sm:p-6 border border-blue-100">
         <h4 className="text-sm sm:text-base font-bold text-blue-900 mb-4 sm:mb-6">Foto Profil</h4>
-        <div className="flex flex-col gap-4 sm:gap-5">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <button
-              type="button"
-              onClick={() => profileImage && setIsPhotoPreviewOpen(true)}
-              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-xl sm:rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center transition-all ${
-                profileImage ? 'cursor-pointer hover:shadow-lg hover:scale-105' : 'cursor-default'
-              }`}
-            >
-              {profileImage ? (
-                <img src={profileImage} alt="Foto Profil" className="w-full h-full object-cover" />
-              ) : (
-                <img
-                  src={DEFAULT_PROFILE_ICON}
-                  alt="Ikon profil default"
-                  className="w-12 h-12 sm:w-14 sm:h-14"
-                />
-              )}
-            </button>
-            {isEditing && (
-              <div className="flex flex-col gap-2 w-full sm:w-auto">
-                <label className="flex items-center justify-center px-4 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 cursor-pointer text-sm sm:text-base font-medium shadow-md hover:shadow-lg">
-                  <Upload size={16} className="mr-2" />
-                  <span>{isUploading ? 'Mengunggah...' : 'Ubah Foto'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={isUploading}
-                    className="hidden"
-                  />
-                </label>
-                {profileImage && (
-                  <button
-                    type="button"
-                    onClick={handleRemoveImage}
-                    className="flex items-center justify-center px-4 py-2.5 sm:py-3 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium"
-                  >
-                    <X size={16} className="mr-2" />
-                    Hapus Foto
-                  </button>
-                )}
-              </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+          <button
+            type="button"
+            onClick={() => profileImage && setIsPhotoPreviewOpen(true)}
+            className={`w-24 h-24 sm:w-28 sm:h-28 rounded-xl sm:rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center transition-all ${
+              profileImage ? 'cursor-pointer hover:shadow-lg hover:scale-105' : 'cursor-default'
+            }`}
+          >
+            {profileImage ? (
+              <img src={profileImage} alt="Foto Profil" className="w-full h-full object-cover" />
+            ) : (
+              <img
+                src={DEFAULT_PROFILE_ICON}
+                alt="Ikon profil default"
+                className="w-12 h-12 sm:w-14 sm:h-14"
+              />
             )}
-          </div>
-
-          {user?.nisn && (
-            <div className="mt-1 sm:mt-2">
-              <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
-                URL Foto Profil Publik
-              </label>
-              <div className="flex flex-col sm:flex-row gap-2">
+          </button>
+          {isEditing && (
+            <div className="flex flex-col gap-2 w-full sm:w-auto">
+              <label className="flex items-center justify-center px-4 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 cursor-pointer text-sm sm:text-base font-medium shadow-md hover:shadow-lg">
+                <Upload size={16} className="mr-2" />
+                <span>{isUploading ? 'Mengunggah...' : 'Ubah Foto'}</span>
                 <input
-                  type="text"
-                  readOnly
-                  value={publicPhotoUrl}
-                  className="w-full px-4 py-2.5 sm:py-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-600 text-xs sm:text-sm"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={isUploading}
+                  className="hidden"
                 />
-                <Button
+              </label>
+              {profileImage && (
+                <button
                   type="button"
-                  variant="secondary"
-                  onClick={handleCopyPublicPhotoUrl}
-                  className="flex items-center justify-center px-4 py-2.5 sm:py-3 text-xs sm:text-sm whitespace-nowrap"
+                  onClick={handleRemoveImage}
+                  className="flex items-center justify-center px-4 py-2.5 sm:py-3 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium"
                 >
-                  <Copy size={16} className="mr-1.5" />
-                  Salin URL
-                </Button>
-              </div>
-              <p className="mt-1 text-[11px] sm:text-xs text-slate-500">
-                Gunakan URL ini untuk menampilkan foto profil murid: {user.nisn}.
-              </p>
+                  <X size={16} className="mr-2" />
+                  Hapus Foto
+                </button>
+              )}
             </div>
           )}
         </div>
+        {user?.nisn && (
+          <div className="mt-6 space-y-2">
+            <label className="block text-xs sm:text-sm font-semibold text-blue-900">
+              URL Foto Profil (dapat disalin)
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <input
+                type="text"
+                readOnly
+                value={profileImagePublicUrl}
+                className="w-full px-3 py-2.5 sm:py-3 border border-blue-100 rounded-lg bg-blue-50/60 text-xs sm:text-sm text-blue-900 font-mono break-all"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleCopyProfileUrl}
+                disabled={!profileImagePublicUrl || isCopyingUrl}
+                className="flex items-center justify-center whitespace-nowrap px-4 py-2.5 sm:py-3"
+              >
+                {isCopyingUrl ? 'Menyalin...' : 'Salin URL'}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
@@ -391,7 +392,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
         onClose={() => setIsPhotoPreviewOpen(false)}
         photoUrl={profileImage}
         name={formData.name}
-        publicUrl={publicPhotoUrl || undefined}
+        openUrl={profileImagePublicUrl || undefined}
       />
     </form>
   );

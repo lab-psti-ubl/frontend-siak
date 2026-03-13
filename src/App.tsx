@@ -32,7 +32,7 @@ import UjianCBTAksesPage from './pages/UjianCBTAksesPage';
 import KerjakanUjianCBT from './components/murid/pages/cbt/KerjakanUjianCBT';
 import InformasiSpmbPage from './pages/InformasiSpmbPage';
 import ProfileSekolahPage from './pages/ProfileSekolahPage';
-import MuridPublicPhotoPage from './pages/MuridPublicPhotoPage';
+import MuridProfilePhotoPage from './pages/MuridProfilePhotoPage';
 
 
 const VerificationPageRoute: React.FC = () => {
@@ -529,10 +529,10 @@ const AppContent: React.FC = () => {
         <Route path="/ujian-cbt/:nisnMurid" element={<UjianCBTAksesPage />} />
         <Route path="/ujian-cbt/:nisnMurid/kerjakan/:ujianId" element={<KerjakanUjianCBT />} />
         <Route path="/verification" element={<VerificationPageRoute />} />
-        <Route path="/profile/murid/:nisn/upload/:filename/foto" element={<MuridPublicPhotoPage />} />
         <Route path="/informasi-spmb" element={<InformasiSpmbPage />} />
         <Route path="/profile-sekolah" element={<ProfileSekolahPage />} />
         <Route path="/spmb" element={<SpmbRegistrationPage />} />
+        <Route path="/profile/murid/:nisn/upload/:fileName/foto" element={<MuridProfilePhotoPage />} />
         <Route
           path="/dashboard/*"
           element={
