@@ -17,10 +17,13 @@ import PengaturanSistemTab from './components/PengaturanSistemTab';
 import PengaturanSettingsSummary from './components/PengaturanSettingsSummary';
 import PengaturanInfoSection from './components/PengaturanInfoSection';
 import PengaturanKelolaAkunTab from './components/PengaturanKelolaAkunTab';
+import { useAuth } from '../../../../context/AuthContext';
 
 const PengaturanAbsenComponent: React.FC = () => {
   const { t } = useLanguage();
   const { systemType } = usePengaturanSistem();
+  const { user } = useAuth();
+  const isSpmbAdmin = user?.role === 'adminspmb';
   const [pengaturanAbsen, setPengaturanAbsen] = useState<PengaturanAbsen[]>([]);
   const [pengaturanSKS, setPengaturanSKS] = useState<PengaturanSKS[]>([]);
   const [pengaturanIstirahat, setPengaturanIstirahat] = useState<PengaturanIstirahat[]>([]);
@@ -62,7 +65,7 @@ const PengaturanAbsenComponent: React.FC = () => {
     | 'jenjang_pendidikan'
     | 'pengaturan_sistem'
     | 'kelola_akun'
-  >('absen');
+  >(isSpmbAdmin ? 'kelola_akun' : 'absen');
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
 
   const activePengaturan = pengaturanAbsen.find(p => p.isActive);
@@ -161,25 +164,35 @@ const PengaturanAbsenComponent: React.FC = () => {
   }, [activePengaturanIstirahat]);
 
   // Define all tabs
-  const allTabs = [
-    { id: 'absen', label: t('settings.absen'), icon: Clock },
-    { id: 'sks', label: t('settings.sks'), icon: BookOpen },
-    { id: 'istirahat', label: t('settings.istirahat'), icon: Calendar },
-    { id: 'nilai', label: t('settings.nilai'), icon: BarChart3 },
-    { id: 'kepsek', label: t('settings.kepsek'), icon: User },
-    { id: 'profil_sekolah', label: t('settings.profil_sekolah'), icon: Building },
-    { id: 'background_kta', label: t('settings.background_kta'), icon: Image },
-    { id: 'jenjang_pendidikan', label: t('settings.jenjang_pendidikan'), icon: GraduationCap },
-    { id: 'pengaturan_sistem', label: t('settings.pengaturan_sistem'), icon: Cog },
-    { id: 'kelola_akun', label: t('settings.kelola_akun'), icon: User },
-  ];
+  const allTabs = isSpmbAdmin
+    ? [
+        { id: 'kelola_akun', label: t('settings.kelola_akun'), icon: User },
+      ]
+    : [
+        { id: 'absen', label: t('settings.absen'), icon: Clock },
+        { id: 'sks', label: t('settings.sks'), icon: BookOpen },
+        { id: 'istirahat', label: t('settings.istirahat'), icon: Calendar },
+        { id: 'nilai', label: t('settings.nilai'), icon: BarChart3 },
+        { id: 'kepsek', label: t('settings.kepsek'), icon: User },
+        { id: 'profil_sekolah', label: t('settings.profil_sekolah'), icon: Building },
+        { id: 'background_kta', label: t('settings.background_kta'), icon: Image },
+        { id: 'jenjang_pendidikan', label: t('settings.jenjang_pendidikan'), icon: GraduationCap },
+        { id: 'pengaturan_sistem', label: t('settings.pengaturan_sistem'), icon: Cog },
+        { id: 'kelola_akun', label: t('settings.kelola_akun'), icon: User },
+      ];
 
   // Filter tabs based on system type
   // For tahfiz school, only show: absen, istirahat, kepsek, profil_sekolah, background_kta, pengaturan_sistem, kelola_akun
   const isTahfiz = systemType === 'tahfiz';
-  const tabs = isTahfiz 
-    ? allTabs.filter(tab => ['absen', 'istirahat', 'kepsek', 'profil_sekolah', 'background_kta', 'pengaturan_sistem', 'kelola_akun'].includes(tab.id))
-    : allTabs;
+  const tabs = isSpmbAdmin
+    ? allTabs
+    : isTahfiz
+      ? allTabs.filter(tab =>
+          ['absen', 'istirahat', 'kepsek', 'profil_sekolah', 'background_kta', 'pengaturan_sistem', 'kelola_akun'].includes(
+            tab.id
+          )
+        )
+      : allTabs;
 
   // Ensure activeTab is valid for current system type
   React.useEffect(() => {
@@ -214,13 +227,40 @@ const PengaturanAbsenComponent: React.FC = () => {
     setIsMobileDetailView(false);
   };
 
-  if (isLoading) {
+  if (isLoading && !isSpmbAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">{t('settings.loadingSettings')}</p>
         </div>
+      </div>
+    );
+  }
+
+  // Tampilan khusus untuk adminspmb: hanya kelola akun (email & password)
+  if (isSpmbAdmin) {
+    return (
+      <div className="space-y-5 sm:space-y-6 lg:space-y-6">
+        <div className="bg-gradient-to-br from-blue-700 via-blue-700 to-blue-500 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden">
+          <div className="px-5 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8">
+            <div className="flex flex-col gap-2 sm:gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 sm:p-3 bg-white rounded-lg">
+                  <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-blue-700" />
+                </div>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">
+                  Pengaturan Akun Admin SPMB
+                </h1>
+              </div>
+              <p className="text-xs sm:text-sm text-blue-100">
+                Ubah email dan password akun SPMB Anda.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <PengaturanKelolaAkunTab />
       </div>
     );
   }

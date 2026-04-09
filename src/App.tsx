@@ -28,11 +28,19 @@ import { apiService } from './services/apiService';
 import { prewarmPengaturanCache } from './hooks/usePengaturanSistem';
 import InstallPWAButton from './components/pwa/InstallPWAButton';
 import SpmbRegistrationPage from './pages/SpmbRegistrationPage';
+import SpmbLoginPage from './pages/SpmbLoginPage';
+import SpmbRegisterPage from './pages/SpmbRegisterPage';
+import SpmbDashboardLayout from './pages/spmb/SpmbDashboardLayout';
 import UjianCBTAksesPage from './pages/UjianCBTAksesPage';
 import KerjakanUjianCBT from './components/murid/pages/cbt/KerjakanUjianCBT';
 import InformasiSpmbPage from './pages/InformasiSpmbPage';
 import ProfileSekolahPage from './pages/ProfileSekolahPage';
-import MuridProfilePhotoPage from './pages/MuridProfilePhotoPage';
+import BerandaProfileSekolah from './pages/profile-sekolah/BerandaProfileSekolah';
+import TentangKamiProfileSekolah from './pages/profile-sekolah/TentangKamiProfileSekolah';
+import BeritaListPage from './pages/profile-sekolah/BeritaListPage';
+import BeritaDetailPage from './pages/profile-sekolah/BeritaDetailPage';
+import PrestasiListPage from './pages/profile-sekolah/PrestasiListPage';
+import PrestasiDetailPage from './pages/profile-sekolah/PrestasiDetailPage';
 
 
 const VerificationPageRoute: React.FC = () => {
@@ -530,9 +538,19 @@ const AppContent: React.FC = () => {
         <Route path="/ujian-cbt/:nisnMurid/kerjakan/:ujianId" element={<KerjakanUjianCBT />} />
         <Route path="/verification" element={<VerificationPageRoute />} />
         <Route path="/informasi-spmb" element={<InformasiSpmbPage />} />
-        <Route path="/profile-sekolah" element={<ProfileSekolahPage />} />
-        <Route path="/spmb" element={<SpmbRegistrationPage />} />
-        <Route path="/profile/murid/:nisn/upload/:fileName/foto" element={<MuridProfilePhotoPage />} />
+        <Route path="/profile-sekolah" element={<ProfileSekolahPage />}>
+          <Route index element={<BerandaProfileSekolah />} />
+          <Route path="tentang" element={<TentangKamiProfileSekolah />} />
+          <Route path="berita" element={<BeritaListPage />} />
+          <Route path="berita/:id" element={<BeritaDetailPage />} />
+          <Route path="prestasi" element={<PrestasiListPage />} />
+          <Route path="prestasi/:id" element={<PrestasiDetailPage />} />
+          <Route path="*" element={<Navigate to="/profile-sekolah" replace />} />
+        </Route>
+        {/* Portal peserta SPMB terpisah dari login utama */}
+        <Route path="/spmb" element={<SpmbLoginPage />} />
+        <Route path="/spmb/register" element={<SpmbRegisterPage />} />
+        <Route path="/spmb/dashboard/*" element={<SpmbDashboardLayout />} />
         <Route
           path="/dashboard/*"
           element={
@@ -545,7 +563,7 @@ const AppContent: React.FC = () => {
             )
           }
         />
-        <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
+        <Route path="/" element={<Navigate to={user ? "/dashboard" : "/profile-sekolah"} replace />} />
       </Routes>
   );
 };

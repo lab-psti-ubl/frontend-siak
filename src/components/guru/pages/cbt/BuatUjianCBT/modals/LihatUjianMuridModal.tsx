@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from '../../../../../ui/Button';
 import Modal from '../../../../../ui/Modal';
@@ -29,6 +29,7 @@ function getResponseForSoal(attempt: CBTUjianAttempt | null, soalId: string): CB
 function isSoalAnswered(response: CBTUjianResponse | null): boolean {
   if (!response) return false;
   if (response.selectedOptionIds?.length) return true;
+  if (response.jawabanMenjodohkan?.length) return true;
   if (typeof response.jawabanBoolean === 'boolean') return true;
   if (response.jawabanEssay != null && String(response.jawabanEssay).trim() !== '') return true;
   return false;
@@ -289,13 +290,100 @@ const LihatUjianMuridModal: React.FC<Props> = ({
 
                   {/* Menjodohkan: tampilkan sederhana jika ada */}
                   {currentSoal.tipe === 'menjodohkan' && (
-                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                      <div className="text-xs font-semibold text-slate-600 mb-1">Jawaban murid</div>
-                      <div className="text-xs text-slate-700">
-                        {currentResponse?.selectedOptionIds?.length
-                          ? 'Pilihan tersimpan (menjodohkan)'
-                          : 'Belum dijawab'}
+                    <div className="space-y-3 pt-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="text-xs font-semibold text-slate-600">Jawaban murid (Menjodohkan)</div>
+                        {currentResponse?.jawabanMenjodohkan?.length ? (
+                          <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                            Terisi: {currentResponse.jawabanMenjodohkan.length}
+                          </span>
+                        ) : null}
                       </div>
+
+                      {(!currentSoal.pasanganMenjodohkan || currentSoal.pasanganMenjodohkan.length === 0) && (
+                        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                          <div className="text-sm text-amber-800">Soal ini belum memiliki pasangan menjodohkan.</div>
+                        </div>
+                      )}
+
+                      {currentSoal.pasanganMenjodohkan && currentSoal.pasanganMenjodohkan.length > 0 && (() => {
+                        const pairs = currentSoal.pasanganMenjodohkan || [];
+                        const answerMap = new Map<string, string>();
+                        (currentResponse?.jawabanMenjodohkan || []).forEach((x) => {
+                          if (!x?.leftId || !x?.rightId) return;
+                          answerMap.set(String(x.leftId), String(x.rightId));
+                        });
+
+                        const rightTextById = new Map<string, string>();
+                        pairs.forEach((p) => rightTextById.set(String(p.id), p.right));
+
+                        let benar = 0;
+                        pairs.forEach((p) => {
+                          const leftId = String(p.id);
+                          const chosen = answerMap.get(leftId) || '';
+                          if (chosen && chosen === leftId) benar += 1;
+                        });
+
+                        return (
+                          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                              <div className="text-xs font-semibold text-slate-700">
+                                Benar: {benar} / {pairs.length}
+                              </div>
+                              <div className="text-xs text-slate-600">
+                                Status otomatis: {currentResponse?.isCorrectAuto === true ? 'Benar' : currentResponse?.isCorrectAuto === false ? 'Salah' : '–'}
+                              </div>
+                            </div>
+
+                            <div className="divide-y divide-slate-100">
+                              {pairs.map((p, idx) => {
+                                const leftId = String(p.id);
+                                const chosenRightId = answerMap.get(leftId) || '';
+                                const chosenRightText = chosenRightId ? rightTextById.get(chosenRightId) : '';
+                                const isCorrect = !!chosenRightId && chosenRightId === leftId;
+
+                                return (
+                                  <div key={leftId} className="p-4 grid grid-cols-1 md:grid-cols-[1fr_1fr_120px] gap-3">
+                                    <div className="text-sm text-slate-900 leading-relaxed">
+                                      <span className="text-xs font-semibold text-slate-500 mr-2">{idx + 1}.</span>
+                                      {p.left}
+                                    </div>
+
+                                    <div className="text-sm text-slate-800 leading-relaxed">
+                                      {chosenRightId ? (
+                                        <span className="inline-flex items-start gap-2">
+                                          <span className="text-slate-500">→</span>
+                                          <span>{chosenRightText || '(jawaban tidak ditemukan)'}</span>
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-400">Belum dipilih</span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-start md:justify-end">
+                                      {chosenRightId ? (
+                                        <span
+                                          className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${
+                                            isCorrect
+                                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                              : 'bg-red-50 text-red-700 border-red-200'
+                                          }`}
+                                        >
+                                          {isCorrect ? 'Benar' : 'Salah'}
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border bg-slate-50 text-slate-500 border-slate-200">
+                                          –
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 

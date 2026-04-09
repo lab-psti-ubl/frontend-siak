@@ -7,8 +7,10 @@ import {
   ChevronDown,
   ClipboardList,
   FileText,
+  LogIn,
   Megaphone,
   Shield,
+  UserPlus,
   Upload,
   Users,
 } from 'lucide-react';
@@ -24,20 +26,26 @@ const fade = {
 };
 
 const steps = [
-  { icon: ClipboardList, title: 'Isi Formulir', desc: 'Lengkapi data diri dan informasi pendaftaran melalui sistem.' },
-  { icon: Upload, title: 'Unggah Dokumen', desc: 'Upload ijazah, rapor, dan dokumen pendukung lainnya.' },
+  { icon: UserPlus, title: 'Daftar Akun', desc: 'Buat akun peserta SPMB terlebih dahulu dengan data dasar (nama, NISN, email, password) di halaman registrasi.' },
+  { icon: LogIn, title: 'Masuk ke Portal', desc: 'Login menggunakan email dan password akun yang telah dibuat.' },
+  { icon: ClipboardList, title: 'Isi Formulir', desc: 'Lengkapi formulir pendaftaran di dashboard: data calon murid, orang tua, dan dokumen pendukung.' },
+  { icon: Upload, title: 'Unggah Dokumen', desc: 'Upload ijazah, rapor, KK, akta kelahiran, dan dokumen pendukung lainnya.' },
   { icon: Shield, title: 'Verifikasi & Seleksi', desc: 'Tim sekolah memverifikasi data dan melakukan seleksi.' },
-  { icon: Megaphone, title: 'Pengumuman', desc: 'Hasil seleksi diumumkan dan peserta melakukan daftar ulang.' },
+  { icon: Megaphone, title: 'Pengumuman', desc: 'Hasil seleksi diumumkan di portal peserta dan peserta melakukan daftar ulang.' },
 ];
 
 const faqs = [
+  {
+    q: 'Apakah saya harus mendaftar akun terlebih dahulu?',
+    a: 'Ya. Peserta wajib membuat akun SPMB terlebih dahulu di halaman registrasi (Daftar Akun). Setelah akun dibuat, Anda dapat login dan mengisi formulir pendaftaran di portal peserta.',
+  },
   {
     q: 'Bagaimana jika dokumen belum lengkap?',
     a: 'Panitia akan memberikan arahan dan batas waktu pemenuhan dokumen sesuai kebijakan sekolah.',
   },
   {
     q: 'Di mana hasil seleksi diumumkan?',
-    a: 'Melalui sistem SPMB ini dan kanal resmi sekolah.',
+    a: 'Melalui portal peserta SPMB (menu Pengumuman) dan kanal resmi sekolah.',
   },
   {
     q: 'Apakah data pendaftar aman?',
@@ -84,8 +92,8 @@ const InformasiSpmbPage: React.FC = () => {
               Informasi SPMB
             </h1>
             <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl mb-8">
-              Baca informasi mengenai tujuan, alur, dan ketentuan Seleksi Penerimaan Murid Baru sebelum
-              melanjutkan ke formulir pendaftaran.
+              Baca informasi mengenai tujuan, alur, dan ketentuan Seleksi Penerimaan Murid Baru. Peserta
+              wajib <strong>mendaftar akun terlebih dahulu</strong> sebelum dapat mengisi formulir pendaftaran.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 mb-10">
@@ -93,7 +101,7 @@ const InformasiSpmbPage: React.FC = () => {
                 onClick={handleDaftarClick}
                 className="flex items-center justify-center rounded-full gap-2 font-semibold text-sm px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white"
               >
-                Daftar Sekarang
+                Daftar / Masuk SPMB
                 <ArrowRight className="w-4 h-4" />
               </Button>
               <Button
@@ -101,7 +109,7 @@ const InformasiSpmbPage: React.FC = () => {
                 onClick={handleDaftarClick}
                 className="rounded-full text-sm px-6 py-2.5 border-slate-300 text-slate-800 hover:bg-slate-50"
               >
-                Lihat Formulir
+                Ke Portal Pendaftaran
               </Button>
             </div>
 
@@ -141,9 +149,9 @@ const InformasiSpmbPage: React.FC = () => {
         >
           <h2 className="text-xl sm:text-2xl font-bold mb-2 text-slate-900">Alur Pendaftaran</h2>
           <p className="text-sm text-slate-600 mb-8 max-w-xl">
-            Empat langkah sederhana untuk menyelesaikan pendaftaran SPMB.
+            Pendaftaran dimulai dengan membuat akun. Enam langkah untuk menyelesaikan pendaftaran SPMB.
           </p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-slate-200 rounded-2xl overflow-hidden border border-slate-200">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-slate-200 rounded-2xl overflow-hidden border border-slate-200">
             {steps.map((step, i) => (
               <motion.div
                 key={step.title}
@@ -180,9 +188,10 @@ const InformasiSpmbPage: React.FC = () => {
           </p>
           <div className="space-y-3">
             {[
+              'Peserta wajib mendaftar akun terlebih dahulu sebelum dapat mengisi formulir pendaftaran.',
               'Data yang diisikan harus benar, akurat, dan dapat dipertanggungjawabkan.',
               'Pendaftaran hanya dilakukan pada periode SPMB yang aktif.',
-              'Simpan bukti pendaftaran atau nomor registrasi dari sistem.',
+              'Simpan email dan password akun SPMB untuk login dan pantau status pendaftaran.',
               'Informasi biaya, jadwal, dan persyaratan mengikuti kebijakan sekolah.',
             ].map((item, i) => (
               <motion.div
@@ -238,14 +247,14 @@ const InformasiSpmbPage: React.FC = () => {
           <div>
             <h3 className="font-bold text-lg mb-1 text-slate-900">Siap mendaftar?</h3>
             <p className="text-sm text-slate-600">
-              Lanjutkan ke formulir pendaftaran SPMB dan lengkapi data Anda.
+              Daftar akun atau masuk ke portal SPMB untuk mengisi formulir pendaftaran.
             </p>
           </div>
           <Button
             onClick={handleDaftarClick}
             className="rounded-full gap-2 font-semibold flex-shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 text-sm"
           >
-            Buka Formulir
+            Daftar / Masuk SPMB
             <ArrowRight className="w-4 h-4" />
           </Button>
         </motion.section>

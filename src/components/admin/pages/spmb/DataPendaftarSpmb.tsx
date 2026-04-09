@@ -8,22 +8,35 @@ import { showErrorToast, showSuccessToast } from '../../../ui/ToastContainer';
 import { useJurusan } from '../../../../hooks/useJurusan';
 import { shouldShowJurusanSync } from '../../../../utils/jenjangPendidikanUtils';
 import { exportSpmbRegistrationsToExcel } from '../../../../utils/spmbExportUtils';
+import { useAuth } from '../../../../context/AuthContext';
 
 const DataPendaftarSpmb: React.FC = () => {
+  const { user } = useAuth();
   const [registrations, setRegistrations] = useState<SpmbRegistration[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filterTahunAjaran, setFilterTahunAjaran] = useState<string>('semua');
-  const [filterStatus, setFilterStatus] = useState<'semua' | 'pending' | 'diterima' | 'ditolak'>('semua');
+  const [filterTahunAjaran, setFilterTahunAjaran] = useState<string | null>(null);
+  const [openingTahunList, setOpeningTahunList] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<'semua' | 'belum_lengkap' | 'pending' | 'diterima' | 'ditolak'>('semua');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedRegistration, setSelectedRegistration] = useState<SpmbRegistration | null>(null);
   const [selectedJurusanId, setSelectedJurusanId] = useState<string>('');
   const showJurusan = shouldShowJurusanSync();
   const { jurusan, loading: jurusanLoading } = useJurusan();
+  const [kategoriStats, setKategoriStats] = useState<{
+    zonasi: number;
+    prestasi: number;
+    afirmasi: number;
+    perpindahan: number;
+    total: number;
+  } | null>(null);
+  const [kategoriLoading, setKategoriLoading] = useState(false);
 
   const loadRegistrations = async () => {
+    const tahun = filterTahunAjaran === null ? 'semua' : filterTahunAjaran;
     try {
       setLoading(true);
-      const res = await apiService.getSpmbRegistrations();
+      const params = tahun !== 'semua' ? { tahunAjaran: tahun } : undefined;
+      const res = await apiService.getSpmbRegistrations(params);
       if (res.success && res.registrations) {
         setRegistrations(res.registrations as SpmbRegistration[]);
       } else {
@@ -37,19 +50,63 @@ const DataPendaftarSpmb: React.FC = () => {
     }
   };
 
+  const loadKategoriStats = async () => {
+    if (user?.role !== 'adminspmb') return;
+    const tahun = filterTahunAjaran === null ? 'semua' : filterTahunAjaran;
+    try {
+      setKategoriLoading(true);
+      const res = await apiService.getSpmbApplicantStats(
+        tahun !== 'semua' ? { tahunAjaran: tahun } : undefined
+      );
+      if (res.success && res.stats) {
+        setKategoriStats(res.stats);
+      }
+    } catch (err) {
+      // abaikan error
+    } finally {
+      setKategoriLoading(false);
+    }
+  };
+
+  // Set default tahun ajaran dari pembukaan SPMB terbaru
   useEffect(() => {
-    loadRegistrations();
+    const init = async () => {
+      try {
+        const res = await apiService.getSpmbOpenings();
+        const openings = (res.success && res.openings) ? res.openings as Array<{ tahunAjaran: string; tanggalMulai?: string; createdAt?: string }> : [];
+        const sorted = [...openings].sort((a, b) => {
+          const dateA = a.tanggalMulai || a.createdAt || '';
+          const dateB = b.tanggalMulai || b.createdAt || '';
+          return dateB.localeCompare(dateA);
+        });
+        const list = sorted.map(o => o.tahunAjaran).filter(Boolean);
+        setOpeningTahunList(list);
+        setFilterTahunAjaran(list.length ? sorted[0].tahunAjaran : 'semua');
+      } catch {
+        setFilterTahunAjaran('semua');
+      }
+    };
+    init();
   }, []);
 
+  // Load data ketika filter tahun ajaran sudah diset
+  useEffect(() => {
+    if (filterTahunAjaran === null) return;
+    loadRegistrations();
+    loadKategoriStats();
+  }, [filterTahunAjaran, user?.role]);
+
   const tahunAjaranOptions = useMemo(() => {
-    const set = new Set<string>();
-    registrations.forEach(r => set.add(r.tahunAjaran));
-    return Array.from(set).sort().reverse();
-  }, [registrations]);
+    const source = openingTahunList.length ? openingTahunList : registrations.map(r => r.tahunAjaran);
+    const unique = Array.from(new Set(source.filter(Boolean)));
+    return unique.sort().reverse();
+  }, [openingTahunList, registrations]);
+
+  const tahunForFilter = filterTahunAjaran ?? 'semua';
 
   const baseFilteredRegistrations = useMemo(() => {
     return registrations.filter(r => {
-      if (filterTahunAjaran !== 'semua' && r.tahunAjaran !== filterTahunAjaran) {
+      if (tahunForFilter !== 'semua' && r.tahunAjaran !== tahunForFilter) {
         return false;
       }
       if (filterStatus !== 'semua' && r.status !== filterStatus) {
@@ -57,7 +114,7 @@ const DataPendaftarSpmb: React.FC = () => {
       }
       return true;
     });
-  }, [registrations, filterTahunAjaran, filterStatus]);
+  }, [registrations, tahunForFilter, filterStatus]);
 
   const registrationsByJurusan = useMemo(() => {
     if (!showJurusan) return baseFilteredRegistrations;
@@ -83,10 +140,11 @@ const DataPendaftarSpmb: React.FC = () => {
   const stats = useMemo(() => {
     const statsSource = showJurusan && !selectedJurusanId ? baseFilteredRegistrations : registrationsByJurusan;
     const total = statsSource.length;
+    const belumLengkap = statsSource.filter(r => r.status === 'belum_lengkap').length;
     const pending = statsSource.filter(r => r.status === 'pending').length;
     const accepted = statsSource.filter(r => r.status === 'diterima').length;
     const rejected = statsSource.filter(r => r.status === 'ditolak').length;
-    return { total, pending, accepted, rejected };
+    return { total, belumLengkap, pending, accepted, rejected };
   }, [baseFilteredRegistrations, registrationsByJurusan, showJurusan, selectedJurusanId]);
 
   const activeJurusan = useMemo(() => jurusan.filter(j => j.isActive), [jurusan]);
@@ -118,8 +176,8 @@ const DataPendaftarSpmb: React.FC = () => {
       return;
     }
     const tahun =
-      filterTahunAjaran !== 'semua'
-        ? filterTahunAjaran.replace(/\s+/g, '-')
+      tahunForFilter !== 'semua'
+        ? tahunForFilter.replace(/\s+/g, '-')
         : 'semua-tahun';
     exportSpmbRegistrationsToExcel(
       `data-pendaftar-spmb-${tahun}.xlsx`,
@@ -147,6 +205,13 @@ const DataPendaftarSpmb: React.FC = () => {
   };
 
   const getStatusBadge = (status: SpmbRegistration['status']) => {
+    if (status === 'belum_lengkap') {
+      return (
+        <span className="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200">
+          Belum Lengkap
+        </span>
+      );
+    }
     if (status === 'pending') {
       return (
         <span className="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
@@ -226,6 +291,22 @@ const DataPendaftarSpmb: React.FC = () => {
           <div className="p-4 sm:p-5 lg:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
+                <p className="text-xs sm:text-sm text-slate-600">Belum Lengkap</p>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mt-1">
+                  {stats.belumLengkap}
+                </p>
+              </div>
+              <div className="p-2 sm:p-3 rounded-lg bg-slate-100 group-hover:scale-110 transition-transform">
+                <FileX className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 overflow-hidden">
+          <div className="p-4 sm:p-5 lg:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
                 <p className="text-xs sm:text-sm text-slate-600">Menunggu</p>
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mt-1">
                   {stats.pending}
@@ -271,6 +352,44 @@ const DataPendaftarSpmb: React.FC = () => {
         </div>
       </div>
 
+      {/* Stats kategori pendaftar - hanya untuk adminspmb */}
+      {user?.role === 'adminspmb' && kategoriStats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+          <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 overflow-hidden">
+            <div className="p-4 sm:p-5 lg:p-6">
+              <p className="text-xs sm:text-sm text-slate-600">Zonasi</p>
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mt-1">
+                {kategoriLoading ? '-' : kategoriStats.zonasi}
+              </p>
+            </div>
+          </div>
+          <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 overflow-hidden">
+            <div className="p-4 sm:p-5 lg:p-6">
+              <p className="text-xs sm:text-sm text-slate-600">Prestasi</p>
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mt-1">
+                {kategoriLoading ? '-' : kategoriStats.prestasi}
+              </p>
+            </div>
+          </div>
+          <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 overflow-hidden">
+            <div className="p-4 sm:p-5 lg:p-6">
+              <p className="text-xs sm:text-sm text-slate-600">Afirmasi</p>
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mt-1">
+                {kategoriLoading ? '-' : kategoriStats.afirmasi}
+              </p>
+            </div>
+          </div>
+          <div className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 overflow-hidden">
+            <div className="p-4 sm:p-5 lg:p-6">
+              <p className="text-xs sm:text-sm text-slate-600">Perpindahan</p>
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mt-1">
+                {kategoriLoading ? '-' : kategoriStats.perpindahan}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search & Filter */}
       <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-5 lg:p-6 space-y-3 sm:space-y-4">
@@ -299,7 +418,7 @@ const DataPendaftarSpmb: React.FC = () => {
             </div>
             <div className="flex flex-wrap gap-3 items-center justify-end">
               <select
-                value={filterTahunAjaran}
+                value={filterTahunAjaran ?? 'semua'}
                 onChange={e => setFilterTahunAjaran(e.target.value)}
                 className="px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
               >
@@ -316,6 +435,7 @@ const DataPendaftarSpmb: React.FC = () => {
                 className="px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
               >
                 <option value="semua">Semua Status</option>
+                <option value="belum_lengkap">Belum Lengkap</option>
                 <option value="pending">Menunggu</option>
                 <option value="diterima">Diterima</option>
                 <option value="ditolak">Ditolak</option>

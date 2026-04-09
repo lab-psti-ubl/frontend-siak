@@ -31,6 +31,7 @@ const PembukaanSpmb: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [filterTahunAjaran, setFilterTahunAjaran] = useState<string>('semua');
   const [deactivatingId, setDeactivatingId] = useState<string>('');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [tahunAjaranDropdown] = useState<string[]>(() => generateNext10TahunAjaran());
   const [formData, setFormData] = useState({
     tahunAjaran: generateDefaultTahunAjaran(),
@@ -103,6 +104,45 @@ const PembukaanSpmb: React.FC = () => {
     return openings.filter(o => o.tahunAjaran === filterTahunAjaran);
   }, [openings, filterTahunAjaran]);
 
+  const resetForm = () => {
+    setFormData({
+      tahunAjaran: generateDefaultTahunAjaran(),
+      judul: 'Penerimaan Peserta Didik Baru',
+      tanggalMulai: '',
+      tanggalSelesai: '',
+    });
+    setEditingId(null);
+  };
+
+  const handleEditOpening = (opening: SpmbOpening) => {
+    setFormData({
+      tahunAjaran: opening.tahunAjaran,
+      judul: opening.judul,
+      tanggalMulai: opening.tanggalMulai,
+      tanggalSelesai: opening.tanggalSelesai,
+    });
+    setEditingId(opening.id);
+    if (typeof window !== 'undefined') {
+      const scrollContainer = document.querySelector(
+        '.main-content-scroll > main.overflow-y-auto'
+      ) as HTMLElement | null;
+
+      if (scrollContainer) {
+        scrollContainer.scrollTo({
+          top: 0,
+          left: 0,
+          behavior: 'smooth',
+        });
+      } else {
+        window.scrollTo({
+          top: 0,
+          left: 0,
+          behavior: 'smooth',
+        });
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -113,15 +153,26 @@ const PembukaanSpmb: React.FC = () => {
 
     try {
       setLoading(true);
-      const res = await apiService.createSpmbOpening({
+      const payload = {
         tahunAjaran: formData.tahunAjaran,
         judul: formData.judul,
         tanggalMulai: formData.tanggalMulai,
         tanggalSelesai: formData.tanggalSelesai,
-      });
+      };
+
+      const res = editingId
+        ? await apiService.updateSpmbOpening(editingId, payload)
+        : await apiService.createSpmbOpening(payload);
 
       if (res.success) {
-        showSuccessToast('Berhasil', res.message || 'Pembukaan SPMB berhasil ditambahkan');
+        showSuccessToast(
+          'Berhasil',
+          res.message ||
+            (editingId ? 'Pembukaan SPMB berhasil diperbarui' : 'Pembukaan SPMB berhasil ditambahkan')
+        );
+        if (editingId) {
+          setEditingId(null);
+        }
         setFormData(prev => ({
           ...prev,
           judul: prev.judul,
@@ -216,17 +267,27 @@ const PembukaanSpmb: React.FC = () => {
           </div>
 
           <div className="flex justify-end space-x-3">
+            {editingId && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={resetForm}
+                disabled={loading}
+              >
+                Batalkan Edit
+              </Button>
+            )}
             <Button
               type="submit"
               className="flex items-center justify-center"
               disabled={loading}
             >
               {loading ? (
-                <span>Menyimpan...</span>
+                <span>{editingId ? 'Menyimpan Perubahan...' : 'Menyimpan...'}</span>
               ) : (
                 <>
                   <Save size={16} className="mr-2" />
-                  Simpan Pembukaan
+                  {editingId ? 'Simpan Perubahan' : 'Simpan Pembukaan'}
                 </>
               )}
             </Button>
@@ -299,7 +360,16 @@ const PembukaanSpmb: React.FC = () => {
                           {!opening.isActive ? 'Dimatikan' : isNow ? 'Sedang dibuka' : 'Di luar periode'}
                         </span>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2 space-x-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleEditOpening(opening)}
+                          disabled={loading}
+                        >
+                          Edit
+                        </Button>
                         {opening.isActive ? (
                           <Button
                             type="button"
@@ -312,7 +382,7 @@ const PembukaanSpmb: React.FC = () => {
                             {deactivatingId === opening.id ? 'Mematikan...' : 'Matikan'}
                           </Button>
                         ) : (
-                          <span className="text-xs text-gray-500">-</span>
+                          <span className="text-xs text-gray-500 align-middle">-</span>
                         )}
                       </td>
                     </tr>

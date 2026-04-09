@@ -8,16 +8,13 @@ interface PhotoPreviewModalProps {
   onClose: () => void;
   photoUrl: string | null;
   name: string;
-  /** URL publik opsional untuk dibuka di tab baru (misal halaman khusus) */
-  openUrl?: string;
 }
 
 const PhotoPreviewModal: React.FC<PhotoPreviewModalProps> = ({
   isOpen,
   onClose,
   photoUrl,
-  name,
-  openUrl,
+  name
 }) => {
   const handleDownload = () => {
     if (!photoUrl) return;
@@ -29,9 +26,8 @@ const PhotoPreviewModal: React.FC<PhotoPreviewModalProps> = ({
   };
 
   const handleOpenInNewTab = () => {
-    const targetUrl = openUrl || photoUrl;
-    if (!targetUrl) return;
-    window.open(targetUrl, '_blank');
+    if (!photoUrl) return;
+    window.open(photoUrl, '_blank');
   };
 
   return (

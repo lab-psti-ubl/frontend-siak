@@ -31,14 +31,18 @@ class ApiService {
     
     // Get token from localStorage
     const token = this.getToken();
-    
+
+    const isFormData = options.body instanceof FormData;
+
+    const headers: HeadersInit = {
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...(!isFormData && { 'Content-Type': 'application/json' }),
+      ...options.headers,
+    };
+
     const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
       ...options,
+      headers,
     };
 
     try {
@@ -268,6 +272,91 @@ class ApiService {
     }>('/auth/admin/change-password', {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  }
+
+  async spmbRegister(data: {
+    namaLengkap: string;
+    nisn: string;
+    jenisKelamin: 'L' | 'P';
+    asalSekolah: string;
+    tempatLahir: string;
+    tanggalLahir: string;
+    kategoriPendaftar: 'zonasi' | 'prestasi' | 'afirmasi' | 'perpindahan';
+    email: string;
+    password: string;
+  }) {
+    return this.publicRequest<{
+      success: boolean;
+      message?: string;
+      user?: any;
+      token?: string;
+    }>('/spmb-auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async spmbLogin(data: { email: string; password: string }) {
+    return this.publicRequest<{
+      success: boolean;
+      message?: string;
+      user?: any;
+      token?: string;
+    }>('/spmb-auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getSpmbCurrentUser() {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('spmbToken') : null;
+    return this.publicRequest<{
+      success: boolean;
+      user?: any;
+      message?: string;
+    }>('/spmb-auth/me', {
+      method: 'GET',
+      headers: token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : undefined,
+    });
+  }
+
+  async getMySpmbRegistration() {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('spmbToken') : null;
+    return this.publicRequest<{
+      success: boolean;
+      registration?: any;
+      message?: string;
+    }>('/spmb/my-registration', {
+      method: 'GET',
+      headers: token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : undefined,
+    });
+  }
+
+  async getSpmbApplicantStats(params?: { tahunAjaran?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params?.tahunAjaran) queryParams.append('tahunAjaran', params.tahunAjaran);
+    const queryString = queryParams.toString();
+    return this.request<{
+      success: boolean;
+      stats?: {
+        zonasi: number;
+        prestasi: number;
+        afirmasi: number;
+        perpindahan: number;
+        total: number;
+      };
+      message?: string;
+    }>(`/spmb-auth/stats${queryString ? `?${queryString}` : ''}`, {
+      method: 'GET',
     });
   }
 
@@ -1074,6 +1163,22 @@ class ApiService {
     });
   }
 
+  async uploadMuridProfileImage(id: string, file: File) {
+    const formData = new FormData();
+    formData.append('profileImage', file);
+
+    return this.request<{
+      success: boolean;
+      message?: string;
+      murid?: any;
+      path?: string;
+      url?: string;
+    }>(`/murid/${id}/profile-image`, {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
   async toggleMuridStatus(id: string) {
     return this.request<{
       success: boolean;
@@ -1543,6 +1648,142 @@ class ApiService {
     }>('/background-kta', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Landingpage Sekolah - Berita (public + admin)
+  async getLandingBeritaPublic() {
+    return this.publicRequest<{
+      success: boolean;
+      berita?: any[];
+      message?: string;
+    }>('/landing-berita/public');
+  }
+
+  async getLandingBeritaPublicById(id: string) {
+    return this.publicRequest<{
+      success: boolean;
+      berita?: any;
+      message?: string;
+    }>(`/landing-berita/public/${id}`);
+  }
+
+  async getAllLandingBerita() {
+    return this.request<{
+      success: boolean;
+      berita?: any[];
+      message?: string;
+    }>('/landing-berita');
+  }
+
+  async createLandingBerita(data: any) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+      berita?: any;
+    }>('/landing-berita', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateLandingBerita(id: string, data: any) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+      berita?: any;
+    }>(`/landing-berita/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteLandingBerita(id: string) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+    }>(`/landing-berita/${id}`, { method: 'DELETE' });
+  }
+
+  async uploadLandingBeritaImage(file: File) {
+    const form = new FormData();
+    form.append('image', file);
+    return this.request<{
+      success: boolean;
+      message?: string;
+      path?: string;
+      url?: string;
+    }>('/landing-berita/upload', {
+      method: 'POST',
+      body: form,
+    });
+  }
+
+  // Landingpage Sekolah - Prestasi (public + admin)
+  async getLandingPrestasiPublic() {
+    return this.publicRequest<{
+      success: boolean;
+      prestasi?: any[];
+      message?: string;
+    }>('/landing-prestasi/public');
+  }
+
+  async getLandingPrestasiPublicById(id: string) {
+    return this.publicRequest<{
+      success: boolean;
+      prestasi?: any;
+      message?: string;
+    }>(`/landing-prestasi/public/${id}`);
+  }
+
+  async getAllLandingPrestasi() {
+    return this.request<{
+      success: boolean;
+      prestasi?: any[];
+      message?: string;
+    }>('/landing-prestasi');
+  }
+
+  async createLandingPrestasi(data: any) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+      prestasi?: any;
+    }>('/landing-prestasi', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateLandingPrestasi(id: string, data: any) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+      prestasi?: any;
+    }>(`/landing-prestasi/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteLandingPrestasi(id: string) {
+    return this.request<{
+      success: boolean;
+      message?: string;
+    }>(`/landing-prestasi/${id}`, { method: 'DELETE' });
+  }
+
+  async uploadLandingPrestasiImage(file: File) {
+    const form = new FormData();
+    form.append('image', file);
+    return this.request<{
+      success: boolean;
+      message?: string;
+      path?: string;
+      url?: string;
+    }>('/landing-prestasi/upload', {
+      method: 'POST',
+      body: form,
     });
   }
 
@@ -3100,6 +3341,25 @@ class ApiService {
     }>(`/spmb/openings/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  async getSpmbStatsByTahunAjaran() {
+    return this.request<{
+      success: boolean;
+      stats?: Array<{
+        tahunAjaran: string;
+        total: number;
+        belumLengkap: number;
+        pending: number;
+        diterima: number;
+        ditolak: number;
+        zonasi: number;
+        prestasi: number;
+        afirmasi: number;
+        perpindahan: number;
+      }>;
+      message?: string;
+    }>('/spmb/stats-by-tahun');
   }
 
   // Admin: manage SPMB registrations

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User as UserType, Kelas } from '../../../../types';
 import { Upload, X, Save } from 'lucide-react';
 import Button from '../../../ui/Button';
@@ -24,7 +24,6 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPhotoPreviewOpen, setIsPhotoPreviewOpen] = useState(false);
-  const [isCopyingUrl, setIsCopyingUrl] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -42,24 +41,7 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
     }
   }, [user]);
 
-  const profileImagePublicUrl = useMemo(() => {
-    if (!user?.nisn || !user.name) return '';
-
-    // Gunakan origin frontend (React app) untuk URL publik seperti halaman RFID/SPMB
-    const appBaseUrl = window.location.origin;
-
-    const slugifiedName = user.name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/gi, '-')
-      .replace(/^-+|-+$/g, '') || 'foto-profil';
-
-    return `${appBaseUrl}/profile/murid/${encodeURIComponent(
-      user.nisn
-    )}/upload/${encodeURIComponent(slugifiedName)}.jpg/foto`;
-  }, [user]);
-
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
@@ -69,32 +51,24 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
     }
 
     setIsUploading(true);
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64String = e.target?.result as string;
-      setProfileImage(base64String);
-
-      // Update profile image immediately via API
-      try {
-        const response = await apiService.updateMurid(user.id, {
-          profileImage: base64String,
-        });
-        if (response.success && response.murid) {
-          // Refresh cache dari MongoDB melalui hook
-          await refreshMurid(true); // clearAllCaches = true untuk refresh semua cache
-          // Update AuthContext dengan data baru
-          setUser(response.murid);
-          showSuccessToast('Berhasil', 'Foto profil berhasil diubah!');
-        } else {
-          showErrorToast('Gagal', response.message || 'Gagal mengubah foto profil');
-        }
-      } catch (error: any) {
-        console.error('Error updating profile image:', error);
-        showErrorToast('Error', error.message || 'Terjadi kesalahan saat mengubah foto profil');
+    try {
+      const response = await apiService.uploadMuridProfileImage(user.id, file);
+      if (response.success && response.murid) {
+        setProfileImage(response.murid.profileImage || null);
+        // Refresh cache dari MongoDB melalui hook
+        await refreshMurid(true); // clearAllCaches = true untuk refresh semua cache
+        // Update AuthContext dengan data baru
+        setUser(response.murid);
+        showSuccessToast('Berhasil', 'Foto profil berhasil diubah!');
+      } else {
+        showErrorToast('Gagal', response.message || 'Gagal mengubah foto profil');
       }
+    } catch (error: any) {
+      console.error('Error updating profile image:', error);
+      showErrorToast('Error', error.message || 'Terjadi kesalahan saat mengubah foto profil');
+    } finally {
       setIsUploading(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleRemoveImage = async () => {
@@ -156,20 +130,6 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
       showErrorToast('Gagal', errorMessage);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleCopyProfileUrl = async () => {
-    if (!profileImagePublicUrl) return;
-    try {
-      setIsCopyingUrl(true);
-      await navigator.clipboard.writeText(profileImagePublicUrl);
-      showSuccessToast('Berhasil', 'URL foto profil berhasil disalin!');
-    } catch (error: any) {
-      console.error('Error copying profile URL:', error);
-      showErrorToast('Gagal', error?.message || 'Tidak dapat menyalin URL. Silakan salin secara manual.');
-    } finally {
-      setIsCopyingUrl(false);
     }
   };
 
@@ -270,30 +230,6 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
             </div>
           )}
         </div>
-        {user?.nisn && (
-          <div className="mt-6 space-y-2">
-            <label className="block text-xs sm:text-sm font-semibold text-blue-900">
-              URL Foto Profil (dapat disalin)
-            </label>
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-              <input
-                type="text"
-                readOnly
-                value={profileImagePublicUrl}
-                className="w-full px-3 py-2.5 sm:py-3 border border-blue-100 rounded-lg bg-blue-50/60 text-xs sm:text-sm text-blue-900 font-mono break-all"
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleCopyProfileUrl}
-                disabled={!profileImagePublicUrl || isCopyingUrl}
-                className="flex items-center justify-center whitespace-nowrap px-4 py-2.5 sm:py-3"
-              >
-                {isCopyingUrl ? 'Menyalin...' : 'Salin URL'}
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
@@ -392,7 +328,6 @@ const AccountTab: React.FC<AccountTabProps> = ({ user, myKelas, isSantriNotFromM
         onClose={() => setIsPhotoPreviewOpen(false)}
         photoUrl={profileImage}
         name={formData.name}
-        openUrl={profileImagePublicUrl || undefined}
       />
     </form>
   );

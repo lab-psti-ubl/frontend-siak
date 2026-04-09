@@ -324,16 +324,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
               { id: 'jadwal', label: t('sidebar.jadwalPelajaran'), icon: Calendar },
             ]
           },
-          ...(isSpmbEnabled ? [{
-            id: 'spmb',
-            label: 'SPMB',
-            icon: ClipboardList,
-            subItems: [
-              { id: 'spmb-pembukaan', label: 'Pembukaan SPMB', icon: Calendar },
-              { id: 'spmb-pendaftar', label: 'Data Pendaftar', icon: Users },
-              { id: 'spmb-diterima', label: 'Data Diterima', icon: CheckCircle },
-            ],
-          }] : []),
           ...(isCbtEnabled ? [{
             id: 'kelola-cbt-admin',
             label: t('sidebar.kelolaCBT'),
@@ -391,6 +381,29 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, isOpen, on
         adminMenuItems.push({ id: 'pengaturan', label: t('sidebar.pengaturan'), icon: Settings });
 
         return adminMenuItems;
+      case 'adminspmb': {
+        const spmbMenuItems: MenuItem[] = [
+          { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },
+        ];
+
+        if (isSpmbEnabled) {
+          spmbMenuItems.push({
+            id: 'spmb',
+            label: 'SPMB',
+            icon: ClipboardList,
+            subItems: [
+              { id: 'spmb-pembukaan', label: 'Pembukaan SPMB', icon: Calendar },
+              { id: 'spmb-pendaftar', label: 'Data Pendaftar', icon: Users },
+              { id: 'spmb-diterima', label: 'Data Diterima', icon: CheckCircle },
+            ],
+          });
+        }
+
+        // Pengaturan akun (ubah email/password) untuk adminspmb
+        spmbMenuItems.push({ id: 'pengaturan', label: t('sidebar.pengaturan'), icon: Settings });
+
+        return spmbMenuItems;
+      }
       case 'guru': {
         const guruMenus: MenuItem[] = [
           { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },

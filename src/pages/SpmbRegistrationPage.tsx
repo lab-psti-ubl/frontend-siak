@@ -23,6 +23,7 @@ const SpmbRegistrationPage: React.FC = () => {
     umur: '',
     nikAnak: '',
     nisn: '',
+    kategoriPendaftar: '',
     email: '',
     noWhatsappOrtu: '',
     nomorKk: '',
@@ -47,6 +48,8 @@ const SpmbRegistrationPage: React.FC = () => {
     dokumenSertifikatPrestasi: '',
     dokumenSuratKeteranganSehat: '',
   });
+
+  const [isSpmbPortal, setIsSpmbPortal] = useState(false);
 
   const { profilSekolah } = useProfilSekolahPublic();
 
@@ -133,6 +136,38 @@ const SpmbRegistrationPage: React.FC = () => {
     loadOpening();
   }, []);
 
+  // Jika diakses dari portal peserta SPMB (memiliki spmbToken), prefilling data dari akun dan kunci field utama
+  useEffect(() => {
+    const preloadFromSpmbAccount = async () => {
+      try {
+        const token =
+          typeof window !== 'undefined' ? localStorage.getItem('spmbToken') : null;
+        if (!token) return;
+
+        const res = await apiService.getSpmbCurrentUser();
+        if (res.success && res.user) {
+          const u = res.user as any;
+          setFormData(prev => ({
+            ...prev,
+            namaLengkap: u.namaLengkap || prev.namaLengkap,
+            nisn: u.nisn || prev.nisn,
+            jenisKelamin: (u.jenisKelamin as '' | 'L' | 'P') || prev.jenisKelamin,
+            asalSekolah: u.asalSekolah || prev.asalSekolah,
+            tempatLahir: u.tempatLahir || prev.tempatLahir,
+            tanggalLahir: u.tanggalLahir || prev.tanggalLahir,
+            kategoriPendaftar: u.kategoriPendaftar || prev.kategoriPendaftar,
+            email: u.email || prev.email,
+          }));
+          setIsSpmbPortal(true);
+        }
+      } catch (err) {
+        console.error('Gagal preload data dari akun SPMB:', err);
+      }
+    };
+
+    preloadFromSpmbAccount();
+  }, []);
+
   // Ambil jenjang pendidikan dari konfigurasi (menggunakan cache/localStorage)
   useEffect(() => {
     const loadJenjang = async () => {
@@ -198,6 +233,7 @@ const SpmbRegistrationPage: React.FC = () => {
         umur: formData.umur ? Number(formData.umur) : undefined,
         nikAnak: formData.nikAnak || undefined,
         nisn: formData.nisn || undefined,
+        kategoriPendaftar: formData.kategoriPendaftar || undefined,
         email: formData.email || undefined,
         noWhatsappOrtu: formData.noWhatsappOrtu,
         nomorKk: formData.nomorKk || undefined,
@@ -232,6 +268,7 @@ const SpmbRegistrationPage: React.FC = () => {
           umur: '',
           nikAnak: '',
           nisn: '',
+          kategoriPendaftar: '',
           email: '',
           noWhatsappOrtu: '',
           nomorKk: '',
@@ -405,9 +442,10 @@ const SpmbRegistrationPage: React.FC = () => {
                   <input
                     type="text"
                     value={formData.namaLengkap}
-                    onChange={e => setFormData({ ...formData, namaLengkap: e.target.value })}
+                  onChange={e => setFormData({ ...formData, namaLengkap: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Masukkan nama lengkap"
+                  disabled={isSpmbPortal}
                   />
                 </div>
 
@@ -421,6 +459,7 @@ const SpmbRegistrationPage: React.FC = () => {
                       setFormData({ ...formData, jenisKelamin: e.target.value as '' | 'L' | 'P' })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isSpmbPortal}
                   >
                     <option value="">Pilih jenis kelamin</option>
                     <option value="L">Laki-laki</option>
@@ -438,6 +477,7 @@ const SpmbRegistrationPage: React.FC = () => {
                     onChange={e => setFormData({ ...formData, nisn: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Nomor Induk Siswa Nasional"
+                  disabled={isSpmbPortal}
                   />
                 </div>
 
@@ -451,6 +491,7 @@ const SpmbRegistrationPage: React.FC = () => {
                     onChange={e => setFormData({ ...formData, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="contoh@email.com"
+                  disabled={isSpmbPortal}
                   />
                 </div>
 
@@ -477,6 +518,7 @@ const SpmbRegistrationPage: React.FC = () => {
                     onChange={e => setFormData({ ...formData, asalSekolah: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Nama sekolah asal"
+                  disabled={isSpmbPortal}
                   />
                 </div>
 
@@ -518,6 +560,7 @@ const SpmbRegistrationPage: React.FC = () => {
                     onChange={e => setFormData({ ...formData, tempatLahir: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Kota/Kabupaten lahir"
+                  disabled={isSpmbPortal}
                   />
                 </div>
                 <div>
@@ -535,7 +578,32 @@ const SpmbRegistrationPage: React.FC = () => {
                       }))
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={isSpmbPortal}
                   />
+                </div>
+
+                {/* Kategori Pendaftar - otomatis terisi dari akun peserta dan tidak bisa diubah */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Kategori Pendaftar
+                  </label>
+                  <input
+                    type="text"
+                    value={
+                      formData.kategoriPendaftar
+                        ? formData.kategoriPendaftar.charAt(0).toUpperCase() +
+                          formData.kategoriPendaftar.slice(1)
+                        : ''
+                    }
+                    readOnly
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+                    placeholder="Akan terisi otomatis dari akun SPMB"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Kategori pendaftar mengikuti data saat membuat akun SPMB dan tidak dapat diubah di
+                    formulir.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

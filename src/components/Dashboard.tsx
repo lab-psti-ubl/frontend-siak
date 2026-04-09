@@ -45,6 +45,7 @@ import DataJadwalTahfiz from './admin/pages/tahfiz/DataJadwalTahfiz';
 import PembukaanSpmb from './admin/pages/spmb/PembukaanSpmb';
 import DataPendaftarSpmb from './admin/pages/spmb/DataPendaftarSpmb';
 import DataDiterimaSpmb from './admin/pages/spmb/DataDiterimaSpmb';
+import AdminSpmbDashboard from './admin/pages/spmb/AdminSpmbDashboard';
 
 import GuruDashboard from './guru/GuruDashboard';
 import JadwalGuru from './guru/pages/mengajar/JadwalGuru';
@@ -429,9 +430,6 @@ const Dashboard: React.FC = () => {
                         }
                       }} />
                     } />
-                    <Route path="/spmb-pembukaan" element={<PembukaanSpmb />} />
-                    <Route path="/spmb-pendaftar" element={<DataPendaftarSpmb />} />
-                    <Route path="/spmb-diterima" element={<DataDiterimaSpmb />} />
                     <Route path="/guru-mapel" element={<KelolaGuruMapel />} />
                     <Route path="/mapel" element={<ManajemenMapel />} />
                     <Route path="/jadwal" element={<ManajemenJadwal />} />
@@ -461,6 +459,17 @@ const Dashboard: React.FC = () => {
                     )}
                   </>
                 )}
+              </>
+            )}
+            
+            {user?.role === 'adminspmb' && (
+              <>
+                {/* Dashboard adminspmb hanya menampilkan statistik */}
+                <Route path="/" element={<AdminSpmbDashboard />} />
+                <Route path="/spmb-pembukaan" element={<PembukaanSpmb />} />
+                <Route path="/spmb-pendaftar" element={<DataPendaftarSpmb />} />
+                <Route path="/spmb-diterima" element={<DataDiterimaSpmb />} />
+                <Route path="/pengaturan" element={<PengaturanAbsen />} />
               </>
             )}
             
@@ -576,6 +585,7 @@ const Dashboard: React.FC = () => {
             {/* Fallback route */}
             <Route path="*" element={
               user?.role === 'admin' ? <AdminDashboard /> :
+              user?.role === 'adminspmb' ? <AdminSpmbDashboard /> :
               user?.role === 'kepala_sekolah' ? <KepalaSekolahDashboard /> :
               user?.role === 'guru' ? <GuruDashboard /> :
               user?.role === 'murid' ? <MuridDashboard /> :

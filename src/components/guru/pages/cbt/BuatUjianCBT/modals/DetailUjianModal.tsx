@@ -102,6 +102,10 @@ const DetailUjianModal: React.FC<Props> = ({
         nisn: m.nisn || '–',
         status: statusConfig[statusKey] ?? statusKey,
         nilai,
+        kecurangan:
+          attempt && (attempt.antiCheatLeaveCount || 0) > 0
+            ? `${attempt.antiCheatLeaveCount}x keluar tab`
+            : 'Tidak ada',
       };
     });
     const columns = [
@@ -110,6 +114,7 @@ const DetailUjianModal: React.FC<Props> = ({
       { header: 'NISN', dataKey: 'nisn', width: 15 },
       { header: 'Status Ujian', dataKey: 'status', width: 25 },
       { header: 'Nilai', dataKey: 'nilai', width: 10 },
+      { header: 'Info Kecurangan', dataKey: 'kecurangan', width: 28 },
     ];
     const dataWithNo = exportData.map((r, i) => ({ ...r, no: i + 1 }));
     const title = `Detail Ujian CBT - ${detailUjian.judulUjian}\n${getKelasName(detailUjian.kelasId)} · ${getMapelName(detailUjian.mataPelajaranId)}\n${detailUjian.tanggalMulai} ${detailUjian.jamMulai} – ${detailUjian.tanggalSelesai} ${detailUjian.jamSelesai}`;
@@ -128,6 +133,10 @@ const DetailUjianModal: React.FC<Props> = ({
         nisn: m.nisn || '–',
         status: statusConfig[statusKey] ?? statusKey,
         nilai,
+        kecurangan:
+          attempt && (attempt.antiCheatLeaveCount || 0) > 0
+            ? `${attempt.antiCheatLeaveCount}x keluar tab`
+            : 'Tidak ada',
       };
     });
     const dataWithNo = exportData.map((r, i) => ({ ...r, no: i + 1 }));
@@ -137,6 +146,7 @@ const DetailUjianModal: React.FC<Props> = ({
       { header: 'NISN', dataKey: 'nisn', width: 15 },
       { header: 'Status Ujian', dataKey: 'status', width: 25 },
       { header: 'Nilai', dataKey: 'nilai', width: 10 },
+      { header: 'Info Kecurangan', dataKey: 'kecurangan', width: 28 },
     ];
     const title = `Detail Ujian CBT - ${detailUjian.judulUjian}\n${getKelasName(detailUjian.kelasId)} · ${getMapelName(detailUjian.mataPelajaranId)}\n${detailUjian.tanggalMulai} ${detailUjian.jamMulai} – ${detailUjian.tanggalSelesai} ${detailUjian.jamSelesai}`;
     const safeName = detailUjian.judulUjian.replace(/[^a-zA-Z0-9\u00C0-\u024F\s-]/g, '').replace(/\s+/g, '-').slice(0, 50);
@@ -376,6 +386,7 @@ const DetailUjianModal: React.FC<Props> = ({
                   <tr>
                     <th className="px-5 py-4 text-left font-semibold text-slate-700">Nama Murid</th>
                     <th className="px-5 py-4 text-left font-semibold text-slate-700">Status Ujian</th>
+                    <th className="px-5 py-4 text-left font-semibold text-slate-700">Info Kecurangan</th>
                     <th className="px-5 py-4 text-center font-semibold text-slate-700">Nilai</th>
                     <th className="px-5 py-4 text-right font-semibold text-slate-700">Aksi</th>
                   </tr>
@@ -383,7 +394,7 @@ const DetailUjianModal: React.FC<Props> = ({
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {muridInKelas.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-5 py-12 text-center text-sm text-slate-500">
+                      <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">
                         Belum ada data murid untuk kelas ini.
                       </td>
                     </tr>
@@ -397,6 +408,7 @@ const DetailUjianModal: React.FC<Props> = ({
                         : attempt.skorAuto != null
                           ? String(attempt.skorAuto)
                           : '–';
+                    const leaveCount = attempt?.antiCheatLeaveCount || 0;
 
                     const isSelesai = statusKey === 'selesai';
                     const canResetDanIzinkanEdit = isSelesai && !ujianSudahLewat;
@@ -417,6 +429,15 @@ const DetailUjianModal: React.FC<Props> = ({
                         </td>
                         <td className="px-5 py-4">
                           <StatusBadge status={statusKey} />
+                        </td>
+                        <td className="px-5 py-4">
+                          {leaveCount > 0 ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border bg-amber-50 text-amber-700 border-amber-200">
+                              {leaveCount}x keluar tab
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-500">Tidak ada</span>
+                          )}
                         </td>
                         <td className="px-5 py-4 text-center font-semibold text-slate-800">
                           {nilaiText}
@@ -474,6 +495,7 @@ const DetailUjianModal: React.FC<Props> = ({
                     : attempt.skorAuto != null
                       ? String(attempt.skorAuto)
                       : '–';
+                const leaveCount = attempt?.antiCheatLeaveCount || 0;
 
                 const isSelesai = statusKey === 'selesai';
                 const canResetDanIzinkanEdit = isSelesai && !ujianSudahLewat;
@@ -492,6 +514,15 @@ const DetailUjianModal: React.FC<Props> = ({
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-slate-900 truncate">{m.name}</div>
                         <div className="text-xs text-slate-500 mt-0.5">NISN: {m.nisn || '–'}</div>
+                        <div className="mt-1.5">
+                          {leaveCount > 0 ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium border bg-amber-50 text-amber-700 border-amber-200">
+                              Kecurangan: {leaveCount}x keluar tab
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-500">Kecurangan: Tidak ada</span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <StatusBadge status={statusKey} />

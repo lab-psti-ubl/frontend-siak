@@ -1,3 +1,53 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes marquee-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Infinite horizontal scroll helper */
+.marquee {
+  overflow: hidden;
+}
+
+.marquee__track {
+  display: flex;
+  gap: var(--marquee-gap, 20px);  /* jarak antara grup 1 dan grup 2 saat penyambungan */
+  width: max-content;
+  animation: marquee-left var(--marquee-duration, 28s) linear infinite;
+}
+
+.marquee__group {
+  display: flex;
+  gap: var(--marquee-gap, 20px);  /* jarak antar card dalam satu grup */
+}
+
+.marquee:hover .marquee__track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track {
+    animation: none;
+  }
+}
+
+/* Ensure Leaflet never overlays fixed navbar */
+.leaflet-container {
+  z-index: 0 !important;
+}
+
+.leaflet-pane {
+  z-index: 1 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 2 !important;
+}

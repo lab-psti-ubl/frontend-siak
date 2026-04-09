@@ -475,6 +475,8 @@ export interface CBTUjianResponse {
   selectedOptionIds?: string[];
   jawabanBoolean?: boolean;
   jawabanEssay?: string;
+  /** Untuk menjodohkan: mapping jawaban murid per item kiri */
+  jawabanMenjodohkan?: Array<{ leftId: string; rightId: string }>;
   poinAuto?: number;
   isCorrectAuto?: boolean;
   /** Untuk essay manual: true = benar, false = salah (backend bisa pakai ini atau isCorrectAuto) */
@@ -678,6 +680,31 @@ export interface ProfilSekolah {
   visiSekolah?: string;
   latitude?: number;
   longitude?: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface LandingBerita {
+  id: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  date: string;
+  imageUrl?: string;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface LandingPrestasi {
+  id: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  date: string;
+  level?: 'Kota' | 'Provinsi' | 'Nasional' | 'Internasional';
+  imageUrl?: string;
+  isPublished: boolean;
   createdAt: string;
   updatedAt?: string;
 }
